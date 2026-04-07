@@ -1,0 +1,22 @@
+# Evaluation test cases for Ar-Rawdhah poster production
+test_cases:
+  - id: ar_rawdhah_ramadan
+    brief: "Poster promosi minyak wangi Ar-Rawdhah untuk Ramadan"
+    expected_workflow: poster_production
+    expected_routing: fast_path
+    quality_dimensions: [cultural_authenticity, brand_alignment, colour_temperature]
+    min_scores: {cultural_authenticity: 4}
+
+  - id: ar_rawdhah_gift_set
+    brief: "Poster gift set Ar-Rawdhah Hari Raya"
+    expected_workflow: poster_production
+    expected_routing: fast_path
+    quality_dimensions: [cta_visibility, layout_balance, brand_alignment]
+    min_scores: {cta_visibility: 3}
+
+  - id: ar_rawdhah_new_scent
+    brief: "Poster pelancaran wangian baru Ar-Rawdhah Oud Collection"
+    expected_workflow: poster_production
+    expected_routing: fast_path
+    quality_dimensions: [colour_temperature, brand_alignment, layout_balance]
+    min_scores: {brand_alignment: 3}

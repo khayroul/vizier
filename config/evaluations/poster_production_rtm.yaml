@@ -1,0 +1,22 @@
+# Evaluation test cases for Rempah Tok Ma poster production
+test_cases:
+  - id: rtm_raya_hamper
+    brief: "Poster hamper Raya Rempah Tok Ma"
+    expected_workflow: poster_production
+    expected_routing: fast_path
+    quality_dimensions: [cta_visibility, cultural_authenticity, colour_temperature]
+    min_scores: {cultural_authenticity: 3}
+
+  - id: rtm_new_product
+    brief: "Poster produk baru sambal Tok Ma"
+    expected_workflow: poster_production
+    expected_routing: fast_path
+    quality_dimensions: [cta_visibility, text_readability, brand_alignment]
+    min_scores: {cta_visibility: 3}
+
+  - id: rtm_recipe_promo
+    brief: "Poster resepi menggunakan rempah Tok Ma"
+    expected_workflow: poster_production
+    expected_routing: fast_path
+    quality_dimensions: [layout_balance, cultural_authenticity]
+    min_scores: {cultural_authenticity: 3}

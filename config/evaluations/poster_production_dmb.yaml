@@ -1,0 +1,22 @@
+# Evaluation test cases for DMB poster production
+test_cases:
+  - id: dmb_raya_poster
+    brief: "Poster Hari Raya untuk DMB, promosi batik sutera"
+    expected_workflow: poster_production
+    expected_routing: fast_path
+    quality_dimensions: [cta_visibility, text_readability, colour_contrast, brand_alignment]
+    min_scores: {cta_visibility: 3, text_readability: 3}
+
+  - id: dmb_sale_poster
+    brief: "Poster sale 50% off semua produk DMB"
+    expected_workflow: poster_production
+    expected_routing: fast_path
+    quality_dimensions: [cta_visibility, headline_urgency, colour_contrast]
+    min_scores: {cta_visibility: 4, headline_urgency: 3}
+
+  - id: dmb_new_collection
+    brief: "Poster koleksi baru DMB Spring 2026"
+    expected_workflow: poster_production
+    expected_routing: fast_path
+    quality_dimensions: [layout_balance, brand_alignment, colour_temperature]
+    min_scores: {brand_alignment: 3}

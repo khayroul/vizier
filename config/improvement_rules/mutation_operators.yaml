@@ -1,0 +1,55 @@
+# Mutation operators for production quality improvement loop.
+# Each operator defines a single-axis variation that can be applied
+# to a production prompt to explore quality improvements.
+# Used by S19 self-improvement experiment framework.
+
+operators:
+  - id: CTA_POSITION
+    description: Move call-to-action placement (top, center, bottom, overlay)
+    applies_to: [poster, social_post, brochure]
+    when: CTA visibility score < 4
+
+  - id: CTA_COLOUR
+    description: Vary CTA button/text colour for contrast
+    applies_to: [poster, social_post, brochure]
+    when: colour contrast score < 4
+
+  - id: HEADLINE_URGENCY
+    description: Adjust urgency level in headline copy (soft → urgent)
+    applies_to: [poster, social_post]
+    when: engagement metrics below baseline
+
+  - id: LAYOUT_DENSITY
+    description: Vary information density (minimal → dense)
+    applies_to: [poster, brochure, document]
+    when: readability score outside target range
+
+  - id: COLOUR_TEMPERATURE
+    description: Shift palette temperature (warm ↔ cool)
+    applies_to: [poster, social_post, brochure]
+    when: brand mood alignment score < 4
+
+  - id: FONT_PAIRING
+    description: Swap heading/body font combination
+    applies_to: [poster, document, brochure]
+    when: typography score < 4
+
+  - id: IMAGE_COMPOSITION
+    description: Vary focal point and subject placement
+    applies_to: [poster, social_post]
+    when: layout balance score < 4
+
+  - id: COPY_REGISTER
+    description: Shift language register (formal ↔ casual)
+    applies_to: [poster, social_post, childrens_book]
+    when: audience alignment feedback negative
+
+  - id: WHITESPACE_RATIO
+    description: Adjust whitespace-to-content ratio
+    applies_to: [poster, brochure, document]
+    when: visual clutter flagged in critique
+
+  - id: CULTURAL_MARKER
+    description: Add/remove cultural visual elements (patterns, motifs)
+    applies_to: [poster, social_post, brochure]
+    when: cultural authenticity score < 4

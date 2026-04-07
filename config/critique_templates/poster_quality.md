@@ -97,3 +97,21 @@ Respond with ONLY valid JSON in this exact structure:
 - `revision_instruction` must be actionable — exact changes, not vague suggestions
 - For image-generation critique, reference composition zones (top-left, centre, bottom-right, etc.)
 - Composition grammar rules from CGL dataset are advisory, not blocking (anti-drift #41)
+
+## Variation Axes
+
+When generating improvement variants, vary ONE axis at a time:
+
+1. **CTA_POSITION** — top / center / bottom / overlay on hero image
+2. **CTA_COLOUR** — high contrast vs brand-matching vs complementary
+3. **HEADLINE_URGENCY** — informational → promotional → urgent → scarcity
+4. **LAYOUT_DENSITY** — minimal (hero + CTA) → moderate (3-4 elements) → dense (grid)
+5. **COLOUR_TEMPERATURE** — warm (reds, oranges) ↔ cool (blues, greens) ↔ neutral
+6. **FONT_PAIRING** — serif/sans combinations, weight contrast
+7. **IMAGE_COMPOSITION** — rule of thirds, centered, asymmetric, full-bleed
+8. **COPY_REGISTER** — formal BM → casual BM → code-switched → English
+9. **WHITESPACE_RATIO** — breathing room vs information density
+10. **CULTURAL_MARKER** — Islamic geometric, batik motif, modern minimal, traditional
+
+Each axis maps to a mutation operator in `config/improvement_rules/mutation_operators.yaml`.
+Score each dimension 1-5 in the structured JSON output above.
