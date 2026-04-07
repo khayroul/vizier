@@ -421,3 +421,253 @@ def test_semantic_search_raya_batik(
     # Should include Raya/batik cards
     titles = [r["title"] for r in results]
     assert any("Raya" in t or "Batik" in t or "batik" in t for t in titles)
+
+
+# ---------------------------------------------------------------------------
+# ingest_card tests (Task 10)
+# ---------------------------------------------------------------------------
+
+
+def test_ingest_card_with_contextualised_embedding(
+    client_id: str,
+    _isolated_spans: Path,
+) -> None:
+    """Card ingested with contextualised embedding — prefix present."""
+    from tools.knowledge import ingest_card
+
+    # Create a source first
+    with get_cursor() as cur:
+        cur.execute(
+            "INSERT INTO knowledge_sources (client_id, source_type, title, status) "
+            "VALUES (%s, 'test', 'Test Source', 'active') RETURNING id",
+            (client_id,),
+        )
+        source_row = cur.fetchone()
+        assert source_row is not None
+        source_id = str(source_row["id"])
+
+    mock_prefix = "This card is from DMB's Raya 2025 promotional campaign."
+    fake_embedding = [0.1] * 1536
+
+    with (
+        patch("tools.knowledge.contextualise_card", return_value=mock_prefix),
+        patch("tools.knowledge.embed_text", return_value=fake_embedding),
+    ):
+        card_id = ingest_card(
+            source_id=source_id,
+            content="Diskaun 30% untuk semua produk batik.",
+            card_type="marketing",
+            title="Raya Promo",
+            tags=["raya", "batik"],
+            domain="marketing",
+            client_id=client_id,
+        )
+
+    assert card_id is not None
+
+    # Verify the card was stored with context_prefix
+    with get_cursor() as cur:
+        cur.execute("SELECT content, context_prefix FROM knowledge_cards WHERE id = %s", (card_id,))
+        row = cur.fetchone()
+        assert row is not None
+        assert row["content"] == "Diskaun 30% untuk semua produk batik."
+        assert row["context_prefix"] == mock_prefix
+
+
+def test_ingest_card_with_provided_prefix(
+    client_id: str,
+    _isolated_spans: Path,
+) -> None:
+    """When prefix is provided, contextualise_card is NOT called (no double contextualisation)."""
+    from tools.knowledge import ingest_card
+
+    with get_cursor() as cur:
+        cur.execute(
+            "INSERT INTO knowledge_sources (client_id, source_type, title, status) "
+            "VALUES (%s, 'test', 'Test Source', 'active') RETURNING id",
+            (client_id,),
+        )
+        source_row = cur.fetchone()
+        assert source_row is not None
+        source_id = str(source_row["id"])
+
+    existing_prefix = "Already contextualised by caller."
+    fake_embedding = [0.1] * 1536
+
+    with (
+        patch("tools.knowledge.contextualise_card") as mock_ctx,
+        patch("tools.knowledge.embed_text", return_value=fake_embedding),
+    ):
+        card_id = ingest_card(
+            source_id=source_id,
+            content="Some content.",
+            card_type="test",
+            title="Test",
+            tags=["test"],
+            domain="general",
+            client_id=client_id,
+            prefix=existing_prefix,
+        )
+
+    # contextualise_card should NOT have been called
+    mock_ctx.assert_not_called()
+
+    # Verify the provided prefix was stored
+    with get_cursor() as cur:
+        cur.execute("SELECT context_prefix FROM knowledge_cards WHERE id = %s", (card_id,))
+        row = cur.fetchone()
+        assert row is not None
+        assert row["context_prefix"] == existing_prefix
+
+
+def test_contextualise_card_importable() -> None:
+    """Verify: from utils.retrieval import contextualise_card works."""
+    from utils.retrieval import contextualise_card as ctx_card
+
+    assert callable(ctx_card)
+
+
+def test_contextualise_card_is_s12_function() -> None:
+    """Contextualisation is the SAME function S12 built, not a copy."""
+    from utils.retrieval import contextualise_card as original
+
+    from tools.knowledge import contextualise_card as imported
+
+    assert original is imported
+
+
+# ---------------------------------------------------------------------------
+# promote_exemplar + record_outcome tests (Task 11)
+# ---------------------------------------------------------------------------
+
+
+def test_exemplar_promoted_from_rating_5(client_id: str) -> None:
+    """Exemplar promoted only from artifact with operator rating 5."""
+    from tools.knowledge import promote_exemplar
+
+    # Create job, artifact, asset, and feedback
+    with get_cursor() as cur:
+        cur.execute(
+            "INSERT INTO jobs (client_id, job_type, status) VALUES (%s, 'test', 'completed') RETURNING id",
+            (client_id,),
+        )
+        job_id = str(cur.fetchone()["id"])  # type: ignore[index]
+
+        cur.execute(
+            "INSERT INTO assets (storage_path, mime_type) VALUES ('test/path.png', 'image/png') RETURNING id",
+        )
+        asset_id = str(cur.fetchone()["id"])  # type: ignore[index]
+
+        cur.execute(
+            "INSERT INTO artifacts (job_id, asset_id, artifact_type, status) "
+            "VALUES (%s, %s, 'poster', 'completed') RETURNING id",
+            (job_id, asset_id),
+        )
+        artifact_id = str(cur.fetchone()["id"])  # type: ignore[index]
+
+        cur.execute(
+            "INSERT INTO feedback (job_id, artifact_id, client_id, feedback_status, operator_rating, anchor_set) "
+            "VALUES (%s, %s, %s, 'explicitly_approved', 5, false)",
+            (job_id, artifact_id, client_id),
+        )
+
+    exemplar_id = promote_exemplar(
+        artifact_id=artifact_id,
+        client_id=client_id,
+        operator_rating=5,
+        job_id=job_id,
+    )
+    assert exemplar_id is not None
+
+    # Verify exemplar exists
+    with get_cursor() as cur:
+        cur.execute("SELECT * FROM exemplars WHERE id = %s", (exemplar_id,))
+        row = cur.fetchone()
+        assert row is not None
+        assert str(row["artifact_id"]) == artifact_id
+
+
+def test_exemplar_not_promoted_from_low_rating(client_id: str) -> None:
+    """Exemplar NOT promoted from rating < 5."""
+    from tools.knowledge import promote_exemplar
+
+    result = promote_exemplar(
+        artifact_id=str(uuid4()),
+        client_id=client_id,
+        operator_rating=3,
+        job_id=str(uuid4()),
+    )
+    assert result is None
+
+
+def test_exemplar_anchor_set_blocked(client_id: str) -> None:
+    """Anchor_set feedback excluded from exemplar promotion (anti-drift #56)."""
+    from tools.knowledge import promote_exemplar
+
+    with get_cursor() as cur:
+        cur.execute(
+            "INSERT INTO jobs (client_id, job_type, status) VALUES (%s, 'test', 'completed') RETURNING id",
+            (client_id,),
+        )
+        job_id = str(cur.fetchone()["id"])  # type: ignore[index]
+
+        cur.execute(
+            "INSERT INTO assets (storage_path, mime_type) VALUES ('test/anchor.png', 'image/png') RETURNING id",
+        )
+        asset_id = str(cur.fetchone()["id"])  # type: ignore[index]
+
+        cur.execute(
+            "INSERT INTO artifacts (job_id, asset_id, artifact_type, status) "
+            "VALUES (%s, %s, 'poster', 'completed') RETURNING id",
+            (job_id, asset_id),
+        )
+        artifact_id = str(cur.fetchone()["id"])  # type: ignore[index]
+
+        cur.execute(
+            "INSERT INTO feedback (job_id, artifact_id, client_id, feedback_status, operator_rating, anchor_set) "
+            "VALUES (%s, %s, %s, 'explicitly_approved', 5, true)",
+            (job_id, artifact_id, client_id),
+        )
+
+    result = promote_exemplar(
+        artifact_id=artifact_id,
+        client_id=client_id,
+        operator_rating=5,
+        job_id=job_id,
+    )
+    assert result is None
+
+
+def test_outcome_memory_record_created(client_id: str) -> None:
+    """Outcome memory record created after job completion."""
+    from tools.knowledge import record_outcome
+
+    with get_cursor() as cur:
+        cur.execute(
+            "INSERT INTO jobs (client_id, job_type, status) VALUES (%s, 'test', 'completed') RETURNING id",
+            (client_id,),
+        )
+        job_id = str(cur.fetchone()["id"])  # type: ignore[index]
+
+    outcome_id = record_outcome(
+        job_id=job_id,
+        outcome_data={
+            "artifact_id": None,
+            "client_id": client_id,
+            "first_pass_approved": True,
+            "revision_count": 0,
+            "accepted_as_on_brand": True,
+            "human_feedback_summary": "Client loved the Raya design",
+            "cost_summary": {"total_tokens": 5000, "cost_usd": 0.01},
+            "quality_summary": {"overall": 4.5},
+            "promote_to_exemplar": False,
+        },
+    )
+
+    assert outcome_id is not None
+    with get_cursor() as cur:
+        cur.execute("SELECT * FROM outcome_memory WHERE id = %s", (outcome_id,))
+        row = cur.fetchone()
+        assert row is not None
+        assert row["first_pass_approved"] is True
+        assert row["revision_count"] == 0
