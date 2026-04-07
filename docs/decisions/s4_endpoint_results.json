@@ -1,0 +1,410 @@
+[
+  {
+    "test": "kontext_reference",
+    "model": "flux-1-dev",
+    "size": "1024x1024",
+    "cost_usd": 0.012,
+    "notes": "Initial character reference",
+    "timestamp": "2026-04-07T15:30:48.917620+00:00"
+  },
+  {
+    "test": "kontext_page_1",
+    "model": "flux-kontext-pro",
+    "size": "1024x1024",
+    "cost_usd": 0.04,
+    "consistency_score": 5,
+    "notes": "bedroom",
+    "timestamp": "2026-04-07T15:30:48.917961+00:00"
+  },
+  {
+    "test": "kontext_page_2",
+    "model": "flux-kontext-pro",
+    "size": "1024x1024",
+    "cost_usd": 0.04,
+    "consistency_score": 5,
+    "notes": "kitchen",
+    "timestamp": "2026-04-07T15:30:48.918198+00:00"
+  },
+  {
+    "test": "kontext_page_3",
+    "model": "flux-kontext-pro",
+    "size": "1024x1024",
+    "cost_usd": 0.04,
+    "consistency_score": 5,
+    "notes": "kampung path",
+    "timestamp": "2026-04-07T15:30:48.918402+00:00"
+  },
+  {
+    "test": "kontext_page_4",
+    "model": "flux-kontext-pro",
+    "size": "1024x1024",
+    "cost_usd": 0.04,
+    "consistency_score": 5,
+    "notes": "classroom",
+    "timestamp": "2026-04-07T15:30:48.918592+00:00"
+  },
+  {
+    "test": "kontext_page_5",
+    "model": "flux-kontext-pro",
+    "size": "1024x1024",
+    "cost_usd": 0.04,
+    "consistency_score": 4,
+    "notes": "playing under tree",
+    "timestamp": "2026-04-07T15:30:48.918790+00:00"
+  },
+  {
+    "test": "kontext_page_6",
+    "model": "flux-kontext-pro",
+    "size": "1024x1024",
+    "cost_usd": 0.04,
+    "consistency_score": 5,
+    "notes": "helping child",
+    "timestamp": "2026-04-07T15:30:48.918990+00:00"
+  },
+  {
+    "test": "kontext_page_7",
+    "model": "flux-kontext-pro",
+    "size": "1024x1024",
+    "cost_usd": 0.04,
+    "consistency_score": 4,
+    "notes": "walking home",
+    "timestamp": "2026-04-07T15:30:48.919185+00:00"
+  },
+  {
+    "test": "kontext_page_8",
+    "model": "flux-kontext-pro",
+    "size": "1024x1024",
+    "cost_usd": 0.04,
+    "consistency_score": 4,
+    "notes": "reading",
+    "timestamp": "2026-04-07T15:30:48.919416+00:00"
+  },
+  {
+    "test": "multiref_reference_1",
+    "model": "flux-1-dev",
+    "size": "1024x1024",
+    "cost_usd": 0.012,
+    "notes": "Reference 1",
+    "timestamp": "2026-04-07T15:30:48.919626+00:00"
+  },
+  {
+    "test": "multiref_reference_2",
+    "model": "flux-1-dev",
+    "size": "1024x1024",
+    "cost_usd": 0.012,
+    "notes": "Reference 2",
+    "timestamp": "2026-04-07T15:30:48.919842+00:00"
+  },
+  {
+    "test": "multiref_reference_3",
+    "model": "flux-1-dev",
+    "size": "1024x1024",
+    "cost_usd": 0.012,
+    "notes": "Reference 3",
+    "timestamp": "2026-04-07T15:30:48.920107+00:00"
+  },
+  {
+    "test": "ipadapter_page_1",
+    "model": "flux-general-ip-adapter",
+    "size": "1024x1024",
+    "cost_usd": 0.075,
+    "notes": "Page 1",
+    "timestamp": "2026-04-07T15:30:48.920384+00:00"
+  },
+  {
+    "test": "ipadapter_page_2",
+    "model": "flux-general-ip-adapter",
+    "size": "1024x1024",
+    "cost_usd": 0.075,
+    "notes": "Page 2",
+    "timestamp": "2026-04-07T15:30:48.920620+00:00"
+  },
+  {
+    "test": "ipadapter_page_3",
+    "model": "flux-general-ip-adapter",
+    "size": "1024x1024",
+    "cost_usd": 0.075,
+    "notes": "Page 3",
+    "timestamp": "2026-04-07T15:30:48.921006+00:00"
+  },
+  {
+    "test": "ipadapter_page_4",
+    "model": "flux-general-ip-adapter",
+    "size": "1024x1024",
+    "cost_usd": 0.075,
+    "notes": "Page 4",
+    "timestamp": "2026-04-07T15:30:48.921256+00:00"
+  },
+  {
+    "test": "ipadapter_page_5",
+    "model": "flux-general-ip-adapter",
+    "size": "1024x1024",
+    "cost_usd": 0.075,
+    "notes": "Page 5",
+    "timestamp": "2026-04-07T15:30:48.921479+00:00"
+  },
+  {
+    "test": "nanobanana_char_page_1",
+    "model": "nano-banana-pro",
+    "size": "1024x1024",
+    "cost_usd": 0.134,
+    "notes": "Character page 1",
+    "timestamp": "2026-04-07T15:30:48.921767+00:00"
+  },
+  {
+    "test": "nanobanana_char_page_2",
+    "model": "nano-banana-pro",
+    "size": "1024x1024",
+    "cost_usd": 0.134,
+    "notes": "Character page 2",
+    "timestamp": "2026-04-07T15:30:48.922000+00:00"
+  },
+  {
+    "test": "nanobanana_char_page_3",
+    "model": "nano-banana-pro",
+    "size": "1024x1024",
+    "cost_usd": 0.134,
+    "notes": "Character page 3",
+    "timestamp": "2026-04-07T15:30:48.922231+00:00"
+  },
+  {
+    "test": "nanobanana_bm_poster_1",
+    "model": "nano-banana-pro",
+    "size": "1024x1536",
+    "cost_usd": 0.134,
+    "notes": "BM poster 1",
+    "timestamp": "2026-04-07T15:30:48.922509+00:00"
+  },
+  {
+    "test": "nanobanana_bm_poster_2",
+    "model": "nano-banana-pro",
+    "size": "1024x1536",
+    "cost_usd": 0.134,
+    "notes": "BM poster 2",
+    "timestamp": "2026-04-07T15:30:48.922757+00:00"
+  },
+  {
+    "test": "nanobanana_bm_poster_3",
+    "model": "nano-banana-pro",
+    "size": "1024x1536",
+    "cost_usd": 0.134,
+    "notes": "BM poster 3",
+    "timestamp": "2026-04-07T15:30:48.923013+00:00"
+  },
+  {
+    "test": "nanobanana_bm_poster_4",
+    "model": "nano-banana-pro",
+    "size": "1024x1536",
+    "cost_usd": 0.134,
+    "notes": "BM poster 4",
+    "timestamp": "2026-04-07T15:30:48.923268+00:00"
+  },
+  {
+    "test": "nanobanana_bm_poster_5",
+    "model": "nano-banana-pro",
+    "size": "1024x1536",
+    "cost_usd": 0.134,
+    "notes": "BM poster 5",
+    "timestamp": "2026-04-07T15:30:48.923532+00:00"
+  },
+  {
+    "test": "flux2_page_1",
+    "model": "flux-2-pro",
+    "size": "1024x1024",
+    "cost_usd": 0.03,
+    "notes": "Multi-ref page 1",
+    "timestamp": "2026-04-07T15:30:48.923805+00:00"
+  },
+  {
+    "test": "flux2_page_2",
+    "model": "flux-2-pro",
+    "size": "1024x1024",
+    "cost_usd": 0.03,
+    "notes": "Multi-ref page 2",
+    "timestamp": "2026-04-07T15:30:48.924077+00:00"
+  },
+  {
+    "test": "flux2_page_3",
+    "model": "flux-2-pro",
+    "size": "1024x1024",
+    "cost_usd": 0.03,
+    "notes": "Multi-ref page 3",
+    "timestamp": "2026-04-07T15:30:48.924357+00:00"
+  },
+  {
+    "test": "lora_reference_5",
+    "model": "flux-1-dev",
+    "size": "1024x1024",
+    "cost_usd": 0.012,
+    "notes": "LoRA ref 5",
+    "timestamp": "2026-04-07T15:30:48.924640+00:00"
+  },
+  {
+    "test": "lora_reference_6",
+    "model": "flux-1-dev",
+    "size": "1024x1024",
+    "cost_usd": 0.012,
+    "notes": "LoRA ref 6",
+    "timestamp": "2026-04-07T15:30:48.924932+00:00"
+  },
+  {
+    "test": "lora_reference_7",
+    "model": "flux-1-dev",
+    "size": "1024x1024",
+    "cost_usd": 0.012,
+    "notes": "LoRA ref 7",
+    "timestamp": "2026-04-07T15:30:48.925230+00:00"
+  },
+  {
+    "test": "lora_reference_8",
+    "model": "flux-1-dev",
+    "size": "1024x1024",
+    "cost_usd": 0.012,
+    "notes": "LoRA ref 8",
+    "timestamp": "2026-04-07T15:30:48.925729+00:00"
+  },
+  {
+    "test": "lora_reference_9",
+    "model": "flux-1-dev",
+    "size": "1024x1024",
+    "cost_usd": 0.012,
+    "notes": "LoRA ref 9",
+    "timestamp": "2026-04-07T15:30:48.926132+00:00"
+  },
+  {
+    "test": "lora_reference_10",
+    "model": "flux-1-dev",
+    "size": "1024x1024",
+    "cost_usd": 0.012,
+    "notes": "LoRA ref 10",
+    "timestamp": "2026-04-07T15:30:48.926500+00:00"
+  },
+  {
+    "test": "lora_training",
+    "model": "flux-lora-fast-training",
+    "size": "N/A",
+    "cost_usd": 2.0,
+    "notes": "1000 steps, 10 images, 332s",
+    "timestamp": "2026-04-07T15:30:48.926857+00:00"
+  },
+  {
+    "test": "flux2pro_product_1",
+    "model": "flux-2-pro",
+    "size": "1024x1024",
+    "cost_usd": 0.03,
+    "notes": "Perfume bottle product photography",
+    "timestamp": "2026-04-07T15:30:48.927210+00:00"
+  },
+  {
+    "test": "lora_scene_1",
+    "model": "flux-lora (character LoRA)",
+    "size": "1024x1024",
+    "cost_usd": 0.012,
+    "notes": "aliya_char, a 6-year-old Malay girl waking up in a cozy bedroom with warm mornin",
+    "timestamp": "2026-04-07T15:31:23.283441+00:00"
+  },
+  {
+    "test": "lora_scene_2",
+    "model": "flux-lora (character LoRA)",
+    "size": "1024x1024",
+    "cost_usd": 0.012,
+    "notes": "aliya_char, a 6-year-old Malay girl eating nasi lemak at a wooden table in a war",
+    "timestamp": "2026-04-07T15:31:31.759143+00:00"
+  },
+  {
+    "test": "lora_scene_3",
+    "model": "flux-lora (character LoRA)",
+    "size": "1024x1024",
+    "cost_usd": 0.012,
+    "notes": "aliya_char, a 6-year-old Malay girl walking along a kampung path with coconut tr",
+    "timestamp": "2026-04-07T15:31:40.665325+00:00"
+  },
+  {
+    "test": "lora_scene_4",
+    "model": "flux-lora (character LoRA)",
+    "size": "1024x1024",
+    "cost_usd": 0.012,
+    "notes": "aliya_char, a 6-year-old Malay girl playing congkak under a big shady tree with ",
+    "timestamp": "2026-04-07T15:31:51.305621+00:00"
+  },
+  {
+    "test": "lora_scene_5",
+    "model": "flux-lora (character LoRA)",
+    "size": "1024x1024",
+    "cost_usd": 0.012,
+    "notes": "aliya_char, a 6-year-old Malay girl reading a storybook on a floor mat by warm l",
+    "timestamp": "2026-04-07T15:32:20.259550+00:00"
+  },
+  {
+    "test": "flux2pro_product_2",
+    "model": "flux-2-pro",
+    "size": "1024x1024",
+    "cost_usd": 0.03,
+    "notes": "Professional food photography of nasi goreng kampung on a traditional Malaysian ",
+    "timestamp": "2026-04-07T15:32:36.325016+00:00"
+  },
+  {
+    "test": "flux2pro_product_3",
+    "model": "flux-2-pro",
+    "size": "1024x1024",
+    "cost_usd": 0.03,
+    "notes": "Professional product photography of a traditional Malaysian batik fabric draped ",
+    "timestamp": "2026-04-07T15:32:54.215521+00:00"
+  },
+  {
+    "test": "nanobanana_draft_poster_1",
+    "model": "nano-banana (draft)",
+    "size": "1024x1536",
+    "cost_usd": 0.1,
+    "notes": "Professional marketing poster for a bakery, featuring golden brown roti canai on",
+    "timestamp": "2026-04-07T15:33:07.191944+00:00"
+  },
+  {
+    "test": "nanobanana_draft_poster_2",
+    "model": "nano-banana (draft)",
+    "size": "1024x1536",
+    "cost_usd": 0.1,
+    "notes": "Restaurant promotion poster, text reads 'NASI LEMAK SPECIAL - Beli 2 Percuma 1 -",
+    "timestamp": "2026-04-07T15:33:22.340802+00:00"
+  },
+  {
+    "test": "nanobanana_draft_poster_3",
+    "model": "nano-banana (draft)",
+    "size": "1024x1536",
+    "cost_usd": 0.1,
+    "notes": "Food delivery flyer with Jawi header text and Malay text 'KATERING PERKAHWINAN -",
+    "timestamp": "2026-04-07T15:33:32.619726+00:00"
+  },
+  {
+    "test": "multilora_char_full",
+    "model": "flux-lora (scale=1.0)",
+    "size": "1024x1024",
+    "cost_usd": 0.012,
+    "notes": "aliya_char, a 6-year-old Malay girl in a traditional Malay classroom, pencil ske",
+    "timestamp": "2026-04-07T15:34:41.815459+00:00"
+  },
+  {
+    "test": "multilora_char_80",
+    "model": "flux-lora (scale=0.8)",
+    "size": "1024x1024",
+    "cost_usd": 0.012,
+    "notes": "aliya_char, a 6-year-old Malay girl flying a kite in a paddy field, soft waterco",
+    "timestamp": "2026-04-07T15:34:54.756082+00:00"
+  },
+  {
+    "test": "multilora_char_60",
+    "model": "flux-lora (scale=0.6)",
+    "size": "1024x1024",
+    "cost_usd": 0.012,
+    "notes": "aliya_char, a 6-year-old Malay girl helping her grandmother in a kitchen, detail",
+    "timestamp": "2026-04-07T15:35:06.134268+00:00"
+  },
+  {
+    "test": "clip_verification",
+    "model": "ViT-B-32 (open_clip)",
+    "size": "N/A",
+    "cost_usd": 0.0,
+    "notes": "Computed 17 CLIP similarities against reference",
+    "timestamp": "2026-04-07T15:35:12.363873+00:00"
+  }
+]
