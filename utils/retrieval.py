@@ -4,8 +4,8 @@ import logging
 from io import BytesIO
 from typing import Any
 
-import open_clip
-import torch
+import open_clip  # type: ignore[import-untyped]
+import torch  # type: ignore[import-untyped]
 from PIL import Image
 
 from utils.call_llm import call_llm
@@ -116,23 +116,64 @@ def retrieve_similar_exemplars(
     image: bytes,
     client_id: str,
     top_k: int = 3,
-) -> list[dict]:
-    """
-    CLIP ViT-B/32 similarity search against exemplars table.
+) -> list[dict[str, Any]]:
+    """CLIP ViT-B/32 similarity search against exemplars table.
+
     Used by S11 for exemplar injection into production prompts.
     Used by S13 for exemplar-anchored quality scoring.
 
+    Encodes the input image with CLIP, queries pgvector for nearest
+    neighbours in the assets.visual_embedding column (512-dim, IVFFlat
+    index), filtered to exemplar-linked assets for the given client.
+
     Returns: list of dicts, each with:
         {
-            "exemplar_id": str,       # UUID from exemplars table
-            "artifact_id": str,       # linked artifact UUID
-            "asset_path": str,        # MinIO storage path to the image
-            "similarity": float,      # cosine similarity score (0-1)
-            "artifact_family": str,   # e.g. "poster", "brochure"
-            "style_tags": list[str],  # from exemplars table
+            "exemplar_id": str,
+            "artifact_id": str,
+            "asset_path": str,
+            "similarity": float,
+            "artifact_family": str,
+            "style_tags": list[str],
         }
     Sorted by similarity descending.
     Only returns results with similarity >= 0.5.
     For character consistency verification, use threshold 0.75 on cropped regions.
     """
-    raise NotImplementedError("Populated by S11")
+    query_embedding = encode_image(image)
+    embedding_str = "[" + ",".join(str(v) for v in query_embedding) + "]"
+
+    sql = """
+        SELECT
+            e.id            AS exemplar_id,
+            e.artifact_id   AS artifact_id,
+            a.storage_path  AS asset_path,
+            e.artifact_family,
+            e.style_tags,
+            1 - (a.visual_embedding <=> %s::vector) AS similarity
+        FROM exemplars e
+        JOIN artifacts art ON art.id = e.artifact_id
+        JOIN assets a ON a.id = art.asset_id
+        WHERE e.client_id = %s
+          AND e.status = 'active'
+          AND a.visual_embedding IS NOT NULL
+          AND 1 - (a.visual_embedding <=> %s::vector) >= 0.5
+        ORDER BY similarity DESC
+        LIMIT %s
+    """
+
+    with get_cursor() as cur:
+        cur.execute(sql, (embedding_str, client_id, embedding_str, top_k))
+        rows = cur.fetchall()
+
+    results: list[dict[str, Any]] = []
+    for row in rows:
+        results.append({
+            "exemplar_id": str(row["exemplar_id"]),
+            "artifact_id": str(row["artifact_id"]),
+            "asset_path": row["asset_path"],
+            "similarity": float(row["similarity"]),
+            "artifact_family": row["artifact_family"],
+            "style_tags": list(row["style_tags"]) if row["style_tags"] else [],
+        })
+
+    return results
