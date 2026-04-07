@@ -1,0 +1,28 @@
+# DMB (Darul Makmur Berhad) — client configuration
+# Client-specific overrides merged onto workflow defaults at runtime.
+
+client_id: dmb
+client_name: Darul Makmur Berhad
+
+brand:
+  primary_color: "#1B4332"
+  secondary_color: "#2D6A4F"
+  accent_color: "#D4A843"
+  headline_font: Playfair Display
+  body_font: Inter
+  logo_mark: assets/clients/dmb/logo.png
+
+defaults:
+  template_name: corporate_premium
+  image_mode: photorealistic
+  style_hint: premium traditional
+  language: bm
+  tone: formal
+  copy_register: formal
+
+workflow_overrides:
+  tripwire:
+    threshold: 3.5
+  quality_techniques:
+    exemplar_injection: true
+    self_refine: on_prompt

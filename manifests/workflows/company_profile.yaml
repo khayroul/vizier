@@ -1,0 +1,62 @@
+# Workflow: Company Profile
+# Extended (S16) — branded company profile document.
+
+name: company_profile
+posture: production
+model_preference:
+  en_creative: gpt-5.4-mini
+  bm_creative: gpt-5.4-mini
+  long_form: gpt-5.4-mini
+scorer_model: gpt-5.4-mini
+scorer_fallback: gpt-5.4-mini
+latency_threshold_ms: 10000
+context_strategy: simple
+plan_enabled: false
+requires_session: S16
+
+tripwire:
+  enabled: true
+  scorer_model: gpt-5.4-mini
+  scorer_fallback: gpt-5.4-mini
+  latency_threshold_ms: 10000
+  threshold: 3.0
+  max_retries: 2
+  feedback_template: config/critique_templates/document_coherence.md
+
+parallel_guardrails:
+  - name: brand_voice
+    model: gpt-5.4-mini
+    check: compare output against client brand config
+
+quality_techniques:
+  self_refine: on_prompt
+  exemplar_injection: true
+  contrastive_examples: false
+  critique_chain:
+    - brand_alignment
+    - content_accuracy
+    - visual_consistency
+
+stages:
+  - name: intake
+    role: intake
+    tools: [classify_artifact]
+    action: parse company profile brief
+  - name: research
+    role: strategy
+    tools: [knowledge_retrieve]
+    knowledge: [client]
+    action: gather company information and brand assets
+  - name: production
+    role: production
+    tools: [generate_profile, typst_render, image_generate]
+    knowledge: [client, brand_pattern]
+    action: produce company profile document
+  - name: qa
+    role: qa
+    tools: [document_qa, visual_qa]
+    action: validate brand consistency and accuracy
+  - name: delivery
+    role: delivery
+    tools: [deliver]
+    action: render PDF and deliver

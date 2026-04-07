@@ -1,0 +1,49 @@
+# Workflow: Onboarding
+# New client warm start — intake brand assets, seed knowledge, calibrate.
+
+name: onboarding
+posture: onboarding
+model_preference:
+  en_creative: gpt-5.4-mini
+  bm_creative: gpt-5.4-mini
+  classification: gpt-5.4-mini
+  extraction: gpt-5.4-mini
+scorer_model: gpt-5.4-mini
+scorer_fallback: gpt-5.4-mini
+latency_threshold_ms: 10000
+context_strategy: simple
+plan_enabled: false
+
+tripwire:
+  enabled: false
+  scorer_model: gpt-5.4-mini
+  scorer_fallback: gpt-5.4-mini
+  latency_threshold_ms: 10000
+  threshold: 3.0
+  max_retries: 0
+  feedback_template: ""
+
+quality_techniques:
+  self_refine: false
+  exemplar_injection: false
+  contrastive_examples: false
+  critique_chain: []
+
+stages:
+  - name: intake
+    role: intake
+    tools: [classify_artifact]
+    action: receive and catalogue brand assets
+  - name: extract
+    role: strategy
+    tools: [brand_extract, knowledge_store]
+    knowledge: [client]
+    action: extract brand DNA — colours, fonts, voice, patterns
+  - name: seed
+    role: production
+    tools: [knowledge_store, swipe_index]
+    action: populate knowledge cards and swipe bank
+  - name: calibrate
+    role: qa
+    tools: [calibration_check]
+    action: generate calibration outputs for operator review

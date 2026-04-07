@@ -1,0 +1,63 @@
+# Workflow: Content Calendar
+# Extended (S22) — STRUCTURAL STUB. Tools not built until S22 ships.
+
+name: content_calendar
+posture: production
+model_preference:
+  en_creative: gpt-5.4-mini
+  bm_creative: gpt-5.4-mini
+  analysis: gpt-5.4-mini
+  planning: gpt-5.4-mini
+scorer_model: gpt-5.4-mini
+scorer_fallback: gpt-5.4-mini
+latency_threshold_ms: 15000
+context_strategy: simple
+plan_enabled: true
+requires_session: S22
+
+tripwire:
+  enabled: true
+  scorer_model: gpt-5.4-mini
+  scorer_fallback: gpt-5.4-mini
+  latency_threshold_ms: 15000
+  threshold: 3.0
+  max_retries: 1
+  feedback_template: config/critique_templates/document_coherence.md
+
+parallel_guardrails:
+  - name: brand_voice
+    model: gpt-5.4-mini
+    check: verify calendar entries match client brand voice
+
+quality_techniques:
+  self_refine: on_prompt
+  exemplar_injection: false
+  contrastive_examples: false
+  critique_chain:
+    - strategic_alignment
+    - content_variety
+    - posting_cadence
+
+stages:
+  - name: intake
+    role: intake
+    tools: [classify_artifact]
+    action: parse calendar brief — timeframe, platforms, objectives
+  - name: research
+    role: strategy
+    tools: [trend_analyse, competitor_scan]
+    knowledge: [client, industry]
+    action: research trending topics and competitor activity
+  - name: production
+    role: production
+    tools: [generate_calendar]
+    knowledge: [client, brand_pattern]
+    action: produce content calendar with themes, topics, posting schedule
+  - name: qa
+    role: qa
+    tools: [calendar_qa]
+    action: validate strategic coherence and posting balance
+  - name: delivery
+    role: delivery
+    tools: [deliver]
+    action: deliver calendar document

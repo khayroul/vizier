@@ -1,0 +1,87 @@
+# Workflow: eBook Production
+# Long-form sequential production with rolling context per section.
+
+name: ebook_production
+posture: production
+model_preference:
+  en_creative: gpt-5.4-mini
+  bm_creative: gpt-5.4-mini
+  long_form: gpt-5.4-mini
+  narrative: gpt-5.4-mini
+image_model_preference:
+  cover: flux-2-pro
+  interior: flux-2-dev
+scorer_model: gpt-5.4-mini
+scorer_fallback: gpt-5.4-mini
+latency_threshold_ms: 15000
+context_strategy: rolling_summary
+section_tripwire: true
+creative_workshop: false
+plan_enabled: false
+
+rolling_context:
+  recent_window: 2
+  medium_scope: section
+  entity_tracking: true
+  checkpoint_targets:
+    - introduction_complete
+    - body_complete
+    - conclusion_complete
+
+tripwire:
+  enabled: true
+  scorer_model: gpt-5.4-mini
+  scorer_fallback: gpt-5.4-mini
+  latency_threshold_ms: 15000
+  threshold: 3.0
+  max_retries: 2
+  feedback_template: config/critique_templates/document_coherence.md
+
+parallel_guardrails:
+  - name: brand_voice
+    model: gpt-5.4-mini
+    check: compare output against client brand config
+  - name: factual_consistency
+    model: gpt-5.4-mini
+    check: verify claims and facts are consistent across sections
+
+quality_techniques:
+  self_refine: per_section
+  exemplar_injection: true
+  contrastive_examples: false
+  critique_chain:
+    - structural_coherence
+    - content_depth
+    - language_register
+    - section_transitions
+  persona: config/personas/business_consultant.md
+  domain_vocab: config/vocab/business_bm.yaml
+
+stages:
+  - name: intake
+    role: intake
+    tools: [classify_artifact]
+    action: parse brief, identify section structure
+  - name: outline
+    role: strategy
+    tools: [knowledge_retrieve, scaffold_build]
+    knowledge: [client, industry]
+    action: build section scaffold and research each section
+  - name: section_production
+    role: production
+    tools: [generate_section]
+    knowledge: [client, brand_pattern]
+    action: produce each section sequentially with rolling context
+    section_tripwire: true
+  - name: compose
+    role: production
+    tools: [typst_render]
+    action: compile sections into ebook format
+  - name: qa
+    role: qa
+    tools: [document_qa]
+    action: validate coherence, transitions, and structure
+  - name: delivery
+    role: delivery
+    tools: [deliver]
+    action: render ePub/PDF and deliver

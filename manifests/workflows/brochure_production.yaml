@@ -1,0 +1,69 @@
+# Workflow: Brochure Production
+# Multi-panel visual-heavy layout — bifold/trifold.
+
+name: brochure_production
+posture: production
+model_preference:
+  en_creative: gpt-5.4-mini
+  bm_creative: gpt-5.4-mini
+  short_copy: gpt-5.4-mini
+image_model_preference:
+  text_heavy: nano-banana-pro
+  photorealistic: flux-2-pro
+  draft: flux-2-dev
+scorer_model: gpt-5.4-mini
+scorer_fallback: gpt-5.4-mini
+latency_threshold_ms: 8000
+context_strategy: simple
+plan_enabled: false
+
+tripwire:
+  enabled: true
+  scorer_model: gpt-5.4-mini
+  scorer_fallback: gpt-5.4-mini
+  latency_threshold_ms: 8000
+  threshold: 3.0
+  max_retries: 2
+  feedback_template: config/critique_templates/poster_quality.md
+
+parallel_guardrails:
+  - name: brand_voice
+    model: gpt-5.4-mini
+    check: compare output against client swipe bank + brand config
+  - name: register_consistency
+    model: gpt-5.4-mini
+    check: verify register matches client copy_register setting
+  - name: panel_consistency
+    model: gpt-5.4-mini
+    check: verify visual consistency across panels
+
+quality_techniques:
+  self_refine: on_prompt
+  exemplar_injection: true
+  contrastive_examples: false
+  critique_chain:
+    - layout_balance
+    - panel_flow
+    - brand_alignment
+    - text_readability
+  persona: config/personas/marketing_director_my.md
+  domain_vocab: config/vocab/marketing_bm.yaml
+
+stages:
+  - name: intake
+    role: intake
+    tools: [classify_artifact]
+    action: normalise brief and determine panel count
+  - name: production
+    role: production
+    tools: [generate_brochure, image_generate]
+    knowledge: [client, brand_pattern, swipe]
+    action: produce brochure panels from spec
+  - name: qa
+    role: qa
+    tools: [visual_qa]
+    action: validate layout, panel flow, and brand compliance
+  - name: delivery
+    role: delivery
+    tools: [deliver]
+    action: deliver via gateway

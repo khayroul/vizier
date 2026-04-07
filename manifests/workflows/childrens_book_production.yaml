@@ -1,0 +1,105 @@
+# Workflow: Children's Book Production
+# MOST COMPLEX — rolling_summary, creative_workshop, section_tripwire.
+# Compound artifact with NarrativeScaffold, CharacterBible, StoryBible, StyleLock.
+# Illustrations MUST be text-free (anti-drift #49). Text overlaid by Typst.
+
+name: childrens_book_production
+posture: production
+model_preference:
+  en_creative: gpt-5.4-mini
+  bm_creative: gpt-5.4-mini
+  short_copy: gpt-5.4-mini
+  narrative: gpt-5.4-mini
+  workshop: gpt-5.4-mini
+image_model_preference:
+  character_iterative: kontext
+  character_anchored: flux-2-pro
+  scene: flux-2-pro
+  draft: flux-2-dev
+scorer_model: gpt-5.4-mini
+scorer_fallback: gpt-5.4-mini
+latency_threshold_ms: 15000
+context_strategy: rolling_summary
+section_tripwire: true
+creative_workshop: true
+plan_enabled: false
+
+rolling_context:
+  recent_window: 8
+  medium_scope: not_needed
+  entity_tracking: true
+  checkpoint_targets:
+    - character_introduced
+    - conflict_established
+    - resolution_reached
+
+tripwire:
+  enabled: true
+  scorer_model: gpt-5.4-mini
+  scorer_fallback: gpt-5.4-mini
+  latency_threshold_ms: 15000
+  threshold: 3.5
+  max_retries: 2
+  feedback_template: config/critique_templates/childrens_narrative.md
+
+parallel_guardrails:
+  - name: character_consistency
+    model: gpt-5.4-mini
+    check: verify character appearance matches CharacterBible across pages
+  - name: age_appropriateness
+    model: gpt-5.4-mini
+    check: verify vocabulary and themes match target age group
+  - name: cultural_sensitivity
+    model: gpt-5.4-mini
+    check: check for cultural sensitivity in Malaysian context
+
+quality_techniques:
+  self_refine: per_section
+  exemplar_injection: true
+  contrastive_examples: true
+  critique_chain:
+    - narrative_coherence
+    - character_consistency
+    - age_appropriate_vocabulary
+    - illustration_text_separation
+    - emotional_arc
+  persona: config/personas/childrens_author_bm.md
+  domain_vocab: config/vocab/childrens_bm.yaml
+
+stages:
+  - name: intake
+    role: intake
+    tools: [classify_artifact]
+    action: parse brief, identify target age, page count, language
+  - name: workshop
+    role: strategy
+    tools: [character_workshop, story_workshop, scaffold_build]
+    knowledge: [client]
+    action: build CharacterBible, StoryBible, NarrativeScaffold, StyleLock
+  - name: page_production
+    role: production
+    tools: [generate_page_text, image_generate]
+    knowledge: [client, brand_pattern, swipe]
+    action: produce each page sequentially with rolling context
+    section_tripwire: true
+  - name: illustration
+    role: production
+    tools: [image_generate, character_verify]
+    action: generate text-free illustrations from illustration_shows field
+  - name: compose
+    role: production
+    tools: [typst_render]
+    action: overlay text on illustrations via Typst templates
+  - name: qa
+    role: qa
+    tools: [visual_qa, narrative_qa]
+    action: validate narrative arc, character consistency, age calibration
+  - name: delivery
+    role: delivery
+    tools: [deliver]
+    action: render final PDF/ePub and deliver
+
+reminder_prompt: |
+  REMINDER: This output is for {client_name}. Register: {copy_register}.
+  Illustrations MUST be text-free. Use illustration_shows field, not page text.
+  Quality dimensions: {critique_dimensions}.
