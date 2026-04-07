@@ -198,3 +198,39 @@ CREATE TRIGGER trg_update_invoice_on_payment
     AFTER INSERT ON payments
     FOR EACH ROW
     EXECUTE FUNCTION update_invoice_status_on_payment();
+
+-- ============================================================================
+-- S18 preamble: datasets/dataset_items for S19 calibration (§16.7)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS datasets (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL UNIQUE,
+  description text,
+  source_type text,
+  status text DEFAULT 'active',
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS dataset_items (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  dataset_id uuid REFERENCES datasets(id) ON DELETE CASCADE,
+  content jsonb NOT NULL,
+  created_at timestamptz DEFAULT now()
+);
+
+-- S18: context_prefix column for storing contextualised prefix separately.
+-- The prefix is used for embedding; raw content is served to production models.
+ALTER TABLE knowledge_cards
+  ADD COLUMN IF NOT EXISTS context_prefix text;
+
+-- S18: FTS support via generated tsvector column.
+-- Uses 'simple' dictionary (not 'english') for mixed BM/EN content.
+ALTER TABLE knowledge_cards
+  ADD COLUMN IF NOT EXISTS search_vector tsvector
+  GENERATED ALWAYS AS (
+    to_tsvector('simple', coalesce(title, '') || ' ' || content)
+  ) STORED;
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_cards_fts
+  ON knowledge_cards USING gin(search_vector);

@@ -400,20 +400,9 @@ def _store_knowledge_card(
 def _embed_text(text: str) -> str:
     """Generate text-embedding-3-small vector as pgvector-compatible string.
 
-    Returns a string like '[0.1, 0.2, ...]' for 1536-dim vector.
+    Delegates to shared utility in utils/embeddings.py.
+    Kept as a thin wrapper for backwards compatibility within this module.
     """
-    import httpx
+    from utils.embeddings import embed_text, format_embedding
 
-    api_key = __import__("os").environ.get("OPENAI_API_KEY", "")
-    resp = httpx.post(
-        "https://api.openai.com/v1/embeddings",
-        json={"model": "text-embedding-3-small", "input": text},
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        timeout=30.0,
-    )
-    resp.raise_for_status()
-    vector = resp.json()["data"][0]["embedding"]
-    return f"[{','.join(str(v) for v in vector)}]"
+    return format_embedding(embed_text(text))

@@ -258,10 +258,10 @@ def _store_card(
     source_title: str,
 ) -> dict[str, Any]:
     """Store a contextualised knowledge card in Postgres."""
-    from tools.research import _embed_text
+    from utils.embeddings import embed_text, format_embedding
 
     contextualised_text = f"{prefix} {card_data['content']}"
-    embedding = _embed_text(contextualised_text)
+    embedding = format_embedding(embed_text(contextualised_text))
 
     with get_cursor() as cur:
         cur.execute(
