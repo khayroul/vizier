@@ -151,3 +151,33 @@ def object_exists(
         return True
     except S3Error:
         return False
+
+
+# ---------------------------------------------------------------------------
+# fal.ai URL upload (for Kontext image_url parameter)
+# ---------------------------------------------------------------------------
+
+import fal_client  # type: ignore[import-untyped]
+
+
+def upload_to_fal(
+    data: bytes,
+    content_type: str = "image/jpeg",
+) -> str:
+    """Upload image bytes to fal.ai storage and return a public URL.
+
+    fal.ai's Kontext model requires a publicly accessible URL for
+    ``image_url``. Local paths and localhost MinIO URLs are not
+    reachable from fal.ai servers. This function uploads to fal.ai's
+    own CDN and returns the hosted URL.
+
+    Args:
+        data: Raw image bytes.
+        content_type: MIME type (default ``image/jpeg``).
+
+    Returns:
+        Publicly accessible fal.ai-hosted URL.
+    """
+    url: str = fal_client.upload(data, content_type=content_type)
+    logger.info("Uploaded %d bytes to fal.ai: %s", len(data), url[:80])
+    return url

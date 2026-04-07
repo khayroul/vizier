@@ -425,22 +425,33 @@ class TestRollingContextIntegration:
 # ---------------------------------------------------------------------------
 
 
-class TestConsistencyCheckerStub:
-    """Consistency check stub returns expected types."""
+class TestVisualConsistency:
+    """check_visual_consistency() returns real CLIP similarity scores."""
 
-    def test_returns_pass_fail_and_score(self) -> None:
+    def test_identical_images_pass(self) -> None:
+        """Same image compared to itself should pass with high similarity."""
+        img = FIXTURES / "page_1.png"
+        result = check_visual_consistency(img, img, threshold=0.75)
+        assert result["passed"] is True
+        assert result["similarity"] > 0.99  # identical images
+
+    def test_different_images_return_lower_score(self) -> None:
+        """Different images should have lower similarity than identical."""
         img_a = FIXTURES / "page_1.png"
         img_b = FIXTURES / "page_2.png"
         result = check_visual_consistency(img_a, img_b, threshold=0.75)
-        assert "passed" in result
-        assert "similarity" in result
         assert isinstance(result["passed"], bool)
         assert isinstance(result["similarity"], float)
+        assert 0.0 <= result["similarity"] <= 1.0
 
-    def test_stub_returns_not_implemented_similarity(self) -> None:
-        """Stub returns -1.0 similarity (not implemented)."""
-        img_a = FIXTURES / "page_1.png"
-        img_b = FIXTURES / "page_2.png"
-        result = check_visual_consistency(img_a, img_b, threshold=0.75)
-        assert result["similarity"] == -1.0
+    def test_returns_pass_fail_and_score_keys(self) -> None:
+        img = FIXTURES / "page_1.png"
+        result = check_visual_consistency(img, img)
+        assert "passed" in result
+        assert "similarity" in result
+
+    def test_threshold_controls_pass_fail(self) -> None:
+        """Impossibly high threshold should cause failure."""
+        img = FIXTURES / "page_1.png"
+        result = check_visual_consistency(img, img, threshold=1.01)
         assert result["passed"] is False

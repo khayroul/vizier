@@ -641,8 +641,9 @@ def check_visual_consistency(
 ) -> dict[str, bool | float]:
     """Check visual consistency between two images using CLIP similarity.
 
-    Stub implementation — returns ``passed=False`` and ``similarity=-1.0``
-    until S15b wires the CLIP similarity pipeline.
+    Encodes both images via CLIP ViT-B/32 and computes cosine similarity.
+    Embeddings are already L2-normalised by ``encode_image()``, so the
+    dot product equals cosine similarity.
 
     Args:
         image_a: Path to the first image.
@@ -652,10 +653,18 @@ def check_visual_consistency(
     Returns:
         Dict with ``passed`` (bool) and ``similarity`` (float) keys.
     """
+    from utils.retrieval import encode_image
+
+    emb_a = encode_image(image_a.read_bytes())
+    emb_b = encode_image(image_b.read_bytes())
+
+    # Cosine similarity (embeddings are already L2-normalised)
+    similarity = sum(a * b for a, b in zip(emb_a, emb_b))
+
+    passed = similarity >= threshold
     logger.info(
-        "Visual consistency check stub: %s vs %s (threshold=%.2f)",
-        image_a.name,
-        image_b.name,
-        threshold,
+        "Visual consistency: %s vs %s — %.4f (threshold=%.2f, %s)",
+        image_a.name, image_b.name, similarity, threshold,
+        "PASS" if passed else "FAIL",
     )
-    return {"passed": False, "similarity": -1.0}
+    return {"passed": passed, "similarity": similarity}
