@@ -19,6 +19,10 @@ defaults:
   language: bm
   tone: formal
   copy_register: formal
+  industry: [textile, fashion, malaysia]
+  colour_temperature: warm
+
+brand_mood: [warm, traditional]
 
 workflow_overrides:
   tripwire:
