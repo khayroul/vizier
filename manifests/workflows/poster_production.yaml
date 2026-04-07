@@ -1,0 +1,71 @@
+# Workflow: Poster Production
+# 4 stages — simplest core workflow. Visual-heavy single output.
+
+name: poster_production
+posture: production
+model_preference:
+  en_creative: gpt-5.4-mini
+  bm_creative: gpt-5.4-mini
+  short_copy: gpt-5.4-mini
+image_model_preference:
+  text_heavy: nano-banana-pro
+  photorealistic: flux-2-pro
+  draft: flux-2-dev
+scorer_model: gpt-5.4-mini
+scorer_fallback: gpt-5.4-mini
+latency_threshold_ms: 5000
+context_strategy: simple
+plan_enabled: false
+
+tripwire:
+  enabled: true
+  scorer_model: gpt-5.4-mini
+  scorer_fallback: gpt-5.4-mini
+  latency_threshold_ms: 5000
+  threshold: 3.0
+  max_retries: 2
+  feedback_template: config/critique_templates/poster_quality.md
+
+parallel_guardrails:
+  - name: brand_voice
+    model: gpt-5.4-mini
+    check: compare output against client swipe bank + brand config
+  - name: register_consistency
+    model: gpt-5.4-mini
+    check: verify casual/formal matches client copy_register setting
+
+quality_techniques:
+  self_refine: on_prompt
+  exemplar_injection: true
+  contrastive_examples: false
+  critique_chain:
+    - cta_visibility
+    - text_readability
+    - colour_contrast
+    - layout_balance
+    - brand_alignment
+  persona: config/personas/marketing_director_my.md
+  domain_vocab: config/vocab/marketing_bm.yaml
+
+stages:
+  - name: intake
+    role: intake
+    tools: [classify_artifact]
+    action: normalise and classify incoming brief
+  - name: production
+    role: production
+    tools: [generate_poster, image_generate]
+    knowledge: [client, brand_pattern, swipe]
+    action: produce poster from spec
+  - name: qa
+    role: qa
+    tools: [visual_qa]
+    action: validate against spec dimensions
+  - name: delivery
+    role: delivery
+    tools: [deliver]
+    action: deliver via gateway
+
+reminder_prompt: |
+  REMINDER: Client: {client_name}. Register: {copy_register}.
+  CTA must be visible. Brand colours required. Platform: {platform}.

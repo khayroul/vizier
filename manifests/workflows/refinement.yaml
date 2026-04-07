@@ -1,0 +1,48 @@
+# Workflow: Refinement
+# Iterative spec shaping — takes ProvisionalArtifactSpec to ArtifactSpec.
+
+name: refinement
+posture: refinement
+model_preference:
+  en_creative: gpt-5.4-mini
+  bm_creative: gpt-5.4-mini
+  classification: gpt-5.4-mini
+scorer_model: gpt-5.4-mini
+scorer_fallback: gpt-5.4-mini
+latency_threshold_ms: 5000
+context_strategy: simple
+plan_enabled: false
+
+tripwire:
+  enabled: false
+  scorer_model: gpt-5.4-mini
+  scorer_fallback: gpt-5.4-mini
+  latency_threshold_ms: 5000
+  threshold: 3.0
+  max_retries: 0
+  feedback_template: ""
+
+quality_techniques:
+  self_refine: false
+  exemplar_injection: false
+  contrastive_examples: false
+  critique_chain: []
+
+stages:
+  - name: intake
+    role: intake
+    tools: [classify_artifact]
+    action: parse incoming brief into ProvisionalArtifactSpec
+  - name: clarify
+    role: strategy
+    tools: [ask_operator, knowledge_retrieve]
+    knowledge: [client]
+    action: identify missing fields, ask targeted questions
+  - name: shape
+    role: production
+    tools: [refine_spec]
+    action: fill gaps using client history and defaults
+  - name: evaluate
+    role: qa
+    tools: [readiness_check]
+    action: evaluate readiness — promote to ArtifactSpec or loop

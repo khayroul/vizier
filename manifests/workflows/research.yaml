@@ -1,0 +1,57 @@
+# Workflow: Research
+# Standalone research — market analysis, competitor audit, trend reports.
+
+name: research
+posture: research
+model_preference:
+  en_creative: gpt-5.4-mini
+  bm_creative: gpt-5.4-mini
+  analysis: gpt-5.4-mini
+  summarisation: gpt-5.4-mini
+scorer_model: gpt-5.4-mini
+scorer_fallback: gpt-5.4-mini
+latency_threshold_ms: 15000
+context_strategy: simple
+plan_enabled: false
+
+tripwire:
+  enabled: true
+  scorer_model: gpt-5.4-mini
+  scorer_fallback: gpt-5.4-mini
+  latency_threshold_ms: 15000
+  threshold: 3.0
+  max_retries: 1
+  feedback_template: config/critique_templates/document_coherence.md
+
+parallel_guardrails:
+  - name: factual_accuracy
+    model: gpt-5.4-mini
+    check: flag unverified claims and statistics
+
+quality_techniques:
+  self_refine: on_prompt
+  exemplar_injection: false
+  contrastive_examples: false
+  critique_chain:
+    - source_quality
+    - analytical_depth
+    - actionability
+
+stages:
+  - name: intake
+    role: intake
+    tools: [classify_artifact]
+    action: parse research brief and identify scope
+  - name: gather
+    role: strategy
+    tools: [web_search, trend_analyse, competitor_scan]
+    action: collect data from configured sources
+  - name: analyse
+    role: production
+    tools: [knowledge_retrieve, summarise]
+    knowledge: [client, industry]
+    action: synthesise findings into structured report
+  - name: delivery
+    role: delivery
+    tools: [deliver]
+    action: deliver research report

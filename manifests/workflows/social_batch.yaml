@@ -1,0 +1,65 @@
+# Workflow: Social Batch
+# Extended (S24) — STRUCTURAL STUB. Tools not built until S24 ships.
+# Validates structurally but executor returns human-readable error.
+
+name: social_batch
+posture: production
+model_preference:
+  en_creative: gpt-5.4-mini
+  bm_creative: gpt-5.4-mini
+  short_copy: gpt-5.4-mini
+image_model_preference:
+  social_graphic: flux-2-dev
+  photorealistic: flux-2-pro
+scorer_model: gpt-5.4-mini
+scorer_fallback: gpt-5.4-mini
+latency_threshold_ms: 10000
+context_strategy: simple
+plan_enabled: false
+requires_session: S24
+
+tripwire:
+  enabled: true
+  scorer_model: gpt-5.4-mini
+  scorer_fallback: gpt-5.4-mini
+  latency_threshold_ms: 10000
+  threshold: 3.0
+  max_retries: 2
+  feedback_template: config/critique_templates/poster_quality.md
+
+parallel_guardrails:
+  - name: brand_voice
+    model: gpt-5.4-mini
+    check: compare output against client brand config
+  - name: platform_compliance
+    model: gpt-5.4-mini
+    check: verify dimensions and format match target platform
+
+quality_techniques:
+  self_refine: on_prompt
+  exemplar_injection: true
+  contrastive_examples: false
+  critique_chain:
+    - brand_alignment
+    - platform_fit
+    - visual_impact
+  domain_vocab: config/vocab/social_bm.yaml
+
+stages:
+  - name: intake
+    role: intake
+    tools: [classify_artifact]
+    action: parse social batch brief and platform targets
+  - name: production
+    role: production
+    tools: [generate_social_batch, image_generate]
+    knowledge: [client, brand_pattern, swipe]
+    action: produce batch of social graphics
+  - name: qa
+    role: qa
+    tools: [visual_qa, platform_check]
+    action: validate each graphic against platform specs
+  - name: delivery
+    role: delivery
+    tools: [deliver]
+    action: deliver batch package

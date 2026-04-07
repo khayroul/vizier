@@ -1,0 +1,70 @@
+# Workflow: Document Production
+# General document production — reports, plans, profiles.
+
+name: document_production
+posture: production
+model_preference:
+  en_creative: gpt-5.4-mini
+  bm_creative: gpt-5.4-mini
+  short_copy: gpt-5.4-mini
+  long_form: gpt-5.4-mini
+image_model_preference:
+  text_heavy: nano-banana-pro
+  photorealistic: flux-2-pro
+scorer_model: gpt-5.4-mini
+scorer_fallback: gpt-5.4-mini
+latency_threshold_ms: 8000
+context_strategy: simple
+plan_enabled: false
+
+tripwire:
+  enabled: true
+  scorer_model: gpt-5.4-mini
+  scorer_fallback: gpt-5.4-mini
+  latency_threshold_ms: 8000
+  threshold: 3.0
+  max_retries: 2
+  feedback_template: config/critique_templates/document_coherence.md
+
+parallel_guardrails:
+  - name: brand_voice
+    model: gpt-5.4-mini
+    check: compare output against client brand config
+  - name: register_consistency
+    model: gpt-5.4-mini
+    check: verify formal/casual register matches client setting
+
+quality_techniques:
+  self_refine: on_prompt
+  exemplar_injection: true
+  contrastive_examples: false
+  critique_chain:
+    - content_accuracy
+    - structural_coherence
+    - language_register
+  persona: config/personas/business_consultant.md
+  domain_vocab: config/vocab/business_bm.yaml
+
+stages:
+  - name: intake
+    role: intake
+    tools: [classify_artifact]
+    action: normalise brief and identify document type
+  - name: research
+    role: strategy
+    tools: [knowledge_retrieve]
+    knowledge: [client, industry]
+    action: gather relevant context and reference material
+  - name: production
+    role: production
+    tools: [generate_document, typst_render]
+    knowledge: [client, brand_pattern]
+    action: produce document from spec with scaffold
+  - name: qa
+    role: qa
+    tools: [document_qa]
+    action: validate structure, coherence, and brand compliance
+  - name: delivery
+    role: delivery
+    tools: [deliver]
+    action: render final PDF and deliver

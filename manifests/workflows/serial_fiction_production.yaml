@@ -1,0 +1,95 @@
+# Workflow: Serial Fiction Production
+# Extended (S21) — STRUCTURAL STUB. Tools not built until S21 ships.
+# Long-form serialised fiction with rolling context across episodes.
+
+name: serial_fiction_production
+posture: production
+model_preference:
+  en_creative: gpt-5.4-mini
+  bm_creative: gpt-5.4-mini
+  narrative: gpt-5.4-mini
+  workshop: gpt-5.4-mini
+image_model_preference:
+  character_iterative: kontext
+  character_anchored: flux-2-pro
+  scene: flux-2-pro
+  cover: flux-2-pro
+scorer_model: gpt-5.4-mini
+scorer_fallback: gpt-5.4-mini
+latency_threshold_ms: 20000
+context_strategy: rolling_summary
+section_tripwire: true
+creative_workshop: true
+plan_enabled: false
+requires_session: S21
+
+rolling_context:
+  recent_window: 3
+  medium_scope: arc
+  entity_tracking: true
+  checkpoint_targets:
+    - episode_arc_complete
+    - series_arc_milestone
+    - character_development_beat
+
+tripwire:
+  enabled: true
+  scorer_model: gpt-5.4-mini
+  scorer_fallback: gpt-5.4-mini
+  latency_threshold_ms: 20000
+  threshold: 3.5
+  max_retries: 2
+  feedback_template: config/critique_templates/childrens_narrative.md
+
+parallel_guardrails:
+  - name: character_consistency
+    model: gpt-5.4-mini
+    check: verify character behaviour matches bible across episodes
+  - name: continuity
+    model: gpt-5.4-mini
+    check: verify plot continuity with previous episodes
+
+quality_techniques:
+  self_refine: per_section
+  exemplar_injection: true
+  contrastive_examples: true
+  critique_chain:
+    - narrative_coherence
+    - character_consistency
+    - episode_pacing
+    - cliffhanger_quality
+  persona: config/personas/childrens_author_bm.md
+  domain_vocab: config/vocab/fiction_bm.yaml
+
+stages:
+  - name: intake
+    role: intake
+    tools: [classify_artifact]
+    action: parse episode brief and series context
+  - name: workshop
+    role: strategy
+    tools: [character_workshop, story_workshop]
+    knowledge: [client]
+    action: load or build CharacterBible, StoryBible for series
+  - name: episode_production
+    role: production
+    tools: [generate_episode]
+    knowledge: [client, brand_pattern]
+    action: produce episode with rolling context from series
+    section_tripwire: true
+  - name: illustration
+    role: production
+    tools: [image_generate, character_verify]
+    action: generate text-free illustrations for episode
+  - name: compose
+    role: production
+    tools: [typst_render]
+    action: compile episode with text overlay
+  - name: qa
+    role: qa
+    tools: [narrative_qa]
+    action: validate narrative, continuity, character consistency
+  - name: delivery
+    role: delivery
+    tools: [deliver]
+    action: deliver episode

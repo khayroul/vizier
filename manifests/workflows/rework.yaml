@@ -1,0 +1,52 @@
+# Workflow: Rework
+# Post-delivery correction — diagnose → rerun → qa → delivery.
+# Rework corrects execution, not spec (anti-drift: do NOT modify ArtifactSpec).
+# Diagnose stage analyses original trace + feedback to find failing step.
+# Rerun inherits tools from original workflow.
+
+name: rework
+posture: production
+model_preference:
+  en_creative: gpt-5.4-mini
+  bm_creative: gpt-5.4-mini
+  analysis: gpt-5.4-mini
+scorer_model: gpt-5.4-mini
+scorer_fallback: gpt-5.4-mini
+latency_threshold_ms: 10000
+context_strategy: simple
+plan_enabled: false
+
+tripwire:
+  enabled: true
+  scorer_model: gpt-5.4-mini
+  scorer_fallback: gpt-5.4-mini
+  latency_threshold_ms: 10000
+  threshold: 3.0
+  max_retries: 2
+  feedback_template: config/critique_templates/poster_quality.md
+
+parallel_guardrails: []
+
+quality_techniques:
+  self_refine: on_prompt
+  exemplar_injection: false
+  contrastive_examples: false
+  critique_chain: []
+
+stages:
+  - name: diagnose
+    role: qa
+    tools: [trace_insight]
+    action: analyse original trace + feedback to identify failing step
+  - name: rerun
+    role: production
+    tools: []
+    action: re-run from failing step with feedback as additional context
+  - name: qa
+    role: qa
+    tools: [quality_gate]
+    action: validate revised output against original spec
+  - name: delivery
+    role: delivery
+    tools: [deliver]
+    action: deliver revised version, link to original artifact

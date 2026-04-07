@@ -1,0 +1,58 @@
+# Workflow: Social Caption
+# Extended (S24) — STRUCTURAL STUB. Tools not built until S24 ships.
+
+name: social_caption
+posture: production
+model_preference:
+  en_creative: gpt-5.4-mini
+  bm_creative: gpt-5.4-mini
+  short_copy: gpt-5.4-mini
+scorer_model: gpt-5.4-mini
+scorer_fallback: gpt-5.4-mini
+latency_threshold_ms: 5000
+context_strategy: simple
+plan_enabled: false
+requires_session: S24
+
+tripwire:
+  enabled: true
+  scorer_model: gpt-5.4-mini
+  scorer_fallback: gpt-5.4-mini
+  latency_threshold_ms: 5000
+  threshold: 3.0
+  max_retries: 2
+  feedback_template: config/critique_templates/poster_quality.md
+
+parallel_guardrails:
+  - name: register_consistency
+    model: gpt-5.4-mini
+    check: verify caption register matches platform and client setting
+
+quality_techniques:
+  self_refine: on_prompt
+  exemplar_injection: true
+  contrastive_examples: false
+  critique_chain:
+    - engagement_hook
+    - brand_voice
+    - hashtag_relevance
+  domain_vocab: config/vocab/social_bm.yaml
+
+stages:
+  - name: intake
+    role: intake
+    tools: [classify_artifact]
+    action: parse caption brief with platform and context
+  - name: production
+    role: production
+    tools: [generate_caption]
+    knowledge: [client, brand_pattern]
+    action: produce platform-optimised caption
+  - name: qa
+    role: qa
+    tools: [text_qa]
+    action: validate tone, hashtags, and CTA
+  - name: delivery
+    role: delivery
+    tools: [deliver]
+    action: deliver caption package

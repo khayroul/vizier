@@ -1,0 +1,45 @@
+# Workflow: Invoice
+# Extended (S16) — Typst → PDF invoice generation.
+
+name: invoice
+posture: production
+model_preference:
+  en_creative: gpt-5.4-mini
+  bm_creative: gpt-5.4-mini
+scorer_model: gpt-5.4-mini
+scorer_fallback: gpt-5.4-mini
+latency_threshold_ms: 5000
+context_strategy: simple
+plan_enabled: false
+requires_session: S16
+
+tripwire:
+  enabled: false
+  scorer_model: gpt-5.4-mini
+  scorer_fallback: gpt-5.4-mini
+  latency_threshold_ms: 5000
+  threshold: 3.0
+  max_retries: 0
+  feedback_template: ""
+
+parallel_guardrails: []
+
+quality_techniques:
+  self_refine: false
+  exemplar_injection: false
+  contrastive_examples: false
+  critique_chain: []
+
+stages:
+  - name: intake
+    role: intake
+    tools: [classify_artifact]
+    action: parse invoice details from brief
+  - name: production
+    role: production
+    tools: [generate_invoice, typst_render]
+    action: populate Typst invoice template with data
+  - name: delivery
+    role: delivery
+    tools: [deliver]
+    action: render PDF and deliver
