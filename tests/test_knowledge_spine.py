@@ -671,3 +671,103 @@ def test_outcome_memory_record_created(client_id: str) -> None:
         assert row is not None
         assert row["first_pass_approved"] is True
         assert row["revision_count"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Wisdom Vault tests (Task 12)
+# ---------------------------------------------------------------------------
+
+
+def test_wisdom_vault_import_book(
+    client_id: str,
+    tmp_path: Path,
+    _isolated_spans: Path,
+) -> None:
+    """Wisdom Vault imports test markdown -> contextualised knowledge cards."""
+    from tools.wisdom_vault import import_book
+
+    # Create test markdown file
+    md_content = """---
+title: Marketing Fundamentals
+domain: marketing
+---
+
+## Chapter 1: Brand Building
+
+A brand is a promise to the customer. It tells them what
+they can expect from your products and services, and it
+differentiates your offering from competitors.
+
+## Chapter 2: Digital Marketing
+
+Digital marketing encompasses all marketing efforts that
+use an electronic device or the internet. Businesses leverage
+digital channels to connect with current and prospective customers.
+
+## Chapter 3: Content Strategy
+
+Content strategy refers to the planning, development, and
+management of content. It involves creating useful, usable
+content that supports key business objectives.
+"""
+    md_path = tmp_path / "test_book.md"
+    md_path.write_text(md_content)
+
+    mock_prefix = "This card is from Marketing Fundamentals."
+    fake_embedding = [0.1] * 1536
+
+    with (
+        patch("tools.knowledge.contextualise_card", return_value=mock_prefix),
+        patch("tools.knowledge.embed_text", return_value=fake_embedding),
+    ):
+        result = import_book(
+            vault_path=str(md_path),
+            title="Marketing Fundamentals",
+            domain="marketing",
+            client_id=client_id,
+        )
+
+    assert result["card_count"] == 3  # 3 chapters = 3 cards
+    assert result["title"] == "Marketing Fundamentals"
+    assert result["source_id"] is not None
+
+    # Verify cards exist in DB
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT count(*) as cnt FROM knowledge_cards WHERE source_id = %s",
+            (result["source_id"],),
+        )
+        row = cur.fetchone()
+        assert row is not None
+        assert row["cnt"] == 3
+
+
+def test_wisdom_vault_import_directory(
+    client_id: str,
+    tmp_path: Path,
+    _isolated_spans: Path,
+) -> None:
+    """Batch import multiple books from vault directory."""
+    from tools.wisdom_vault import import_vault_directory
+
+    for i in range(3):
+        (tmp_path / f"book_{i}.md").write_text(
+            f"## Section\n\nContent for book {i} about marketing and design principles. "
+            f"This section covers the fundamentals of brand strategy and creative direction."
+        )
+
+    mock_prefix = "Test prefix."
+    fake_embedding = [0.1] * 1536
+
+    with (
+        patch("tools.knowledge.contextualise_card", return_value=mock_prefix),
+        patch("tools.knowledge.embed_text", return_value=fake_embedding),
+    ):
+        results = import_vault_directory(
+            vault_dir=str(tmp_path),
+            client_id=client_id,
+        )
+
+    assert len(results) == 3
+    for r in results:
+        assert r["card_count"] >= 1
