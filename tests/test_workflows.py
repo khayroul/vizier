@@ -367,7 +367,19 @@ class TestExecutorChildrensBook:
         """Rolling context is updated after each stage."""
         executor = WorkflowExecutor(
             workflow_path=WORKFLOWS_DIR / "childrens_book_production.yaml",
-            tool_registry={"classify_artifact": _stub_tool},
+            tool_registry={
+                "classify_artifact": _stub_tool,
+                "character_workshop": _stub_tool,
+                "story_workshop": _stub_tool,
+                "scaffold_build": _stub_tool,
+                "generate_page_text": _stub_tool,
+                "image_generate": _stub_tool,
+                "character_verify": _stub_tool,
+                "typst_render": _stub_tool,
+                "visual_qa": _stub_tool,
+                "narrative_qa": _stub_tool,
+                "deliver": _stub_tool,
+            },
         )
         assert executor.rolling_context is not None
         initial_step = executor.rolling_context.current_step
@@ -415,7 +427,11 @@ class TestExecutorRework:
 
         executor = WorkflowExecutor(
             workflow_path=WORKFLOWS_DIR / "rework.yaml",
-            tool_registry={"trace_insight": capture_tool},
+            tool_registry={
+                "trace_insight": capture_tool,
+                "quality_gate": _stub_tool,
+                "deliver": _stub_tool,
+            },
         )
         executor.run(job_context={
             "original_trace": {"steps": [{"name": "production"}]},

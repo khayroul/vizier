@@ -7,299 +7,299 @@ core:
     description: "Poster generation (complete + vague)"
     session: "S0-S4"
     mode: "Direct + refinement"
-    status: planned
+    status: shipped
 
   document_production:
     description: "Document production"
     session: "S1-S4"
     mode: "Direct"
-    status: planned
+    status: shipped
 
   spreadsheet_production:
     description: "Spreadsheet production"
     session: "S1-S4"
     mode: "Direct"
-    status: planned
+    status: shipped
 
   brochure_weak_brief:
     description: "Brochure (weak brief)"
     session: "S1-S4"
     mode: "Refinement -> production"
-    status: planned
+    status: shipped
 
   screenshot_replication:
     description: "Screenshot replication"
     session: "S1-S4"
     mode: "Direct + style-lock"
-    status: planned
+    status: shipped
 
   market_research_embedded:
     description: "Market research (production-embedded)"
     session: "S12"
     mode: "Automatic context enrichment"
-    status: planned
+    status: shipped
 
   market_research_standalone:
     description: "Market research (standalone)"
     session: "S12"
     mode: "Research workflow -> cards/report"
-    status: planned
+    status: shipped
 
   calendar_triggered_research:
     description: "Calendar-triggered proactive research"
     session: "S12"
     mode: "Hermes cron"
-    status: planned
+    status: shipped
 
   production_chain_traces:
     description: "Production chain traces"
     session: "S7+S8"
     mode: "Automatic per-job via Langfuse + TraceCollector"
-    status: planned
+    status: shipped
 
   token_tracking:
     description: "Token tracking"
     session: "S8"
     mode: "Langfuse SDK with client/tier attribution"
-    status: planned
+    status: shipped
 
   fast_path_routing:
     description: "Fast-path routing"
     session: "S11"
     mode: "YAML pattern matcher, 60-70% at zero tokens"
-    status: planned
+    status: shipped
 
   knowledge_retrieval:
     description: "Knowledge retrieval (config-driven)"
     session: "S11"
     mode: "Single function, retrieval_profiles.yaml"
-    status: planned
+    status: shipped
 
   swipe_file_ingestion:
     description: "Swipe file ingestion + visual DNA"
     session: "S12+S13"
     mode: "colorthief + open_clip + mediapipe"
-    status: planned
+    status: shipped
 
   brand_pattern_grounding:
     description: "Brand pattern grounding"
     session: "S12"
     mode: "Pre-loaded 20-30 brands"
-    status: planned
+    status: shipped
 
   copy_pattern_grounding:
     description: "Copy pattern grounding"
     session: "S12"
     mode: "Pre-loaded 100-150 cards"
-    status: planned
+    status: shipped
 
   seasonal_calendar_awareness:
     description: "Seasonal/calendar awareness"
     session: "S12"
     mode: "Cron + production context"
-    status: planned
+    status: shipped
 
   client_onboarding:
     description: "Client onboarding (warm start)"
     session: "S11"
     mode: "Workflow"
-    status: planned
+    status: shipped
 
   policy_enforcement:
     description: "Policy enforcement"
     session: "S8"
     mode: "Active"
-    status: planned
+    status: shipped
 
   observability:
     description: "Observability"
     session: "S8"
     mode: "Langfuse @observe"
-    status: planned
+    status: shipped
 
   governed_workflows:
     description: "Governed workflows"
     session: "S9"
     mode: "Unified WorkflowPack YAMLs"
-    status: planned
+    status: shipped
 
   feedback_state_machine:
     description: "Feedback state machine"
     session: "S10a"
     mode: "Postgres triggers + Hermes cron"
-    status: planned
+    status: shipped
 
   visual_lineage_tracking:
     description: "Visual lineage tracking"
     session: "S13"
     mode: "Every visual input -> output linked"
-    status: planned
+    status: shipped
 
   visual_similarity_search:
     description: "Visual similarity search"
     session: "S13"
     mode: "CLIP embeddings + pgvector"
-    status: planned
+    status: shipped
 
   multi_channel_delivery:
     description: "Multi-channel delivery"
     session: "S11"
     mode: "Hermes gateway"
-    status: planned
+    status: shipped
 
   scheduled_automations:
     description: "Scheduled automations"
     session: "S16"
     mode: "Hermes cron"
-    status: planned
+    status: shipped
 
   childrens_book_discovery:
     description: "Children's illustrated book (discovery)"
     session: "S15"
     mode: "Refinement only"
-    status: planned
+    status: shipped
 
   ebook_discovery:
     description: "Ebook production (discovery)"
     session: "S15"
     mode: "Refinement only"
-    status: planned
+    status: shipped
 
   post_delivery_rework:
     description: "Post-delivery rework"
     session: "S9+S10a"
     mode: "Rework workflow (§9.1)"
-    status: planned
+    status: shipped
 
 extended:
   invoicing_payments:
     description: "Invoicing + payments"
     session: "S16"
     mode: "Typst template -> PDF"
-    status: planned
+    status: shipped
 
   sales_pipeline:
     description: "Sales pipeline"
     session: "S16"
     mode: "Active"
-    status: planned
+    status: shipped
 
   revenue_visibility:
     description: "Revenue visibility"
     session: "S16"
     mode: "Hermes cron (weekly)"
-    status: planned
+    status: shipped
 
   client_health_monitoring:
     description: "Client health monitoring"
     session: "S16"
     mode: "Hermes cron (daily)"
-    status: planned
+    status: shipped
 
   morning_brief:
     description: "Morning brief"
     session: "S16"
     mode: "Daily after Subuh"
-    status: planned
+    status: shipped
 
   shutdown_ritual:
     description: "Shutdown ritual"
     session: "S16"
     mode: "Hermes skill"
-    status: planned
+    status: shipped
 
   prayer_anchored_scheduling:
     description: "Prayer-anchored scheduling"
     session: "S16"
     mode: "Hermes cron"
-    status: planned
+    status: shipped
 
   steward_personal_assistant:
     description: "Steward personal assistant"
     session: "S16"
     mode: "GTD + ADHD-friendly via separate Telegram bot"
-    status: planned
+    status: shipped
 
   two_way_dashboard:
     description: "Two-way dashboard"
     session: "S17"
     mode: "Refine (depth) + custom Surface layer"
-    status: planned
+    status: shipped
 
   visual_assets_in_context:
     description: "Visual assets in context"
     session: "S17"
     mode: "Inline in job review, dedicated browse space"
-    status: planned
+    status: shipped
 
   knowledge_cards_semantic:
     description: "Knowledge cards + semantic retrieval"
     session: "S18"
     mode: "pgvector (upgrades Core FTS)"
-    status: planned
+    status: shipped
 
   exemplar_library:
     description: "Exemplar library"
     session: "S18"
     mode: "Auto-promotion"
-    status: planned
+    status: shipped
 
   wisdom_vault_bridge:
     description: "Wisdom Vault bridge"
     session: "S18"
     mode: "Bulk import"
-    status: planned
+    status: shipped
 
   outcome_memory:
     description: "Outcome memory"
     session: "S18"
     mode: "Learning from every job"
-    status: planned
+    status: shipped
 
   self_improvement_proposals:
     description: "Self-improvement proposals"
     session: "S19"
     mode: "Auto-detect -> propose -> operator approves"
-    status: planned
+    status: shipped
 
   automated_experiments:
     description: "Automated experiments"
     session: "S19"
     mode: "Register -> test -> compare -> promote"
-    status: planned
+    status: shipped
 
   refinement_improvement_loop:
     description: "Refinement <-> improvement feedback loop"
     session: "S19"
     mode: "Preferences compound, cycles reduce"
-    status: planned
+    status: shipped
 
   landing_page_generation:
     description: "Landing page generation + deploy"
     session: "S21"
     mode: "3-pass hardening pipeline"
-    status: planned
+    status: shipped
 
   web_production:
     description: "Web production (marketing sites)"
     session: "S21"
     mode: "Plan -> scaffold -> harden -> deploy"
-    status: planned
+    status: shipped
 
   code_system_generation:
     description: "Code/system generation"
     session: "S21"
     mode: "Direct"
-    status: planned
+    status: shipped
 
   childrens_book_full:
     description: "Children's book (full production)"
     session: "S21"
     mode: "Upgrades S15 discovery"
-    status: planned
+    status: shipped
 
   ebook_full:
     description: "Ebook (full production)"
     session: "S21"
     mode: "Upgrades S15 discovery"
-    status: planned
+    status: shipped

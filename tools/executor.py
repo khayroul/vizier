@@ -38,10 +38,6 @@ class ToolCallable(Protocol):
     def __call__(self, context: dict[str, Any]) -> dict[str, Any]: ...
 
 
-# Default no-op tool for unregistered tools
-def _noop_tool(context: dict[str, Any]) -> dict[str, Any]:
-    return {"status": "ok", "output": ""}
-
 
 # ---------------------------------------------------------------------------
 # Phase gate — check if workflow is allowed
@@ -289,6 +285,10 @@ class StubWorkflowError(Exception):
     """Raised when executor hits a workflow whose tools aren't built yet."""
 
 
+class ToolNotFoundError(Exception):
+    """Raised when a workflow references a tool not in the registry."""
+
+
 class WorkflowExecutor:
     """Generic executor for any WorkflowPack YAML.
 
@@ -330,20 +330,48 @@ class WorkflowExecutor:
             )
 
     def _check_stub_workflow(self) -> None:
-        """Check if this workflow requires an unshipped session."""
-        if self.pack.requires_session:
-            phase_config = _load_phase_config()
-            if not _is_workflow_active(self.pack.name, phase_config):
-                session = self.pack.requires_session
-                raise StubWorkflowError(
-                    f"Workflow '{self.pack.name}' requires tools from {session} "
-                    f"which hasn't shipped yet. Enable in config/phase.yaml "
-                    f"after {session} completes."
-                )
+        """Check if this workflow requires an unshipped session.
+
+        Gate 1: workflow must be in an active phase.
+        Gate 2: if requires_session is set, verify that stage tools are
+                actually registered (not just that the phase is active).
+        """
+        if not self.pack.requires_session:
+            return
+
+        # Gate 1: workflow must be in an active phase
+        phase_config = _load_phase_config()
+        if not _is_workflow_active(self.pack.name, phase_config):
+            session = self.pack.requires_session
+            raise StubWorkflowError(
+                f"Workflow '{self.pack.name}' requires tools from {session} "
+                f"which hasn't shipped yet. Enable in config/phase.yaml "
+                f"after {session} completes."
+            )
+
+        # Gate 2: verify stage tools are actually registered
+        all_tool_names: set[str] = set()
+        for stage in self.pack.stages:
+            all_tool_names.update(stage.tools)
+
+        missing = all_tool_names - set(self.tool_registry.keys())
+        if missing:
+            session = self.pack.requires_session
+            raise StubWorkflowError(
+                f"Workflow '{self.pack.name}' is in an active phase but "
+                f"tools {sorted(missing)} from {session} are not registered. "
+                f"Register tools before running this workflow."
+            )
 
     def _resolve_tool(self, tool_name: str) -> ToolCallable:
-        """Look up a tool from the registry, fall back to noop."""
-        return self.tool_registry.get(tool_name, _noop_tool)
+        """Look up a tool from the registry; raise if missing."""
+        tool = self.tool_registry.get(tool_name)
+        if tool is None:
+            raise ToolNotFoundError(
+                f"Tool '{tool_name}' not found in registry. "
+                f"Available tools: {sorted(self.tool_registry.keys())}"
+            )
+        return tool
 
     def _run_stage(
         self,
@@ -379,7 +407,11 @@ class WorkflowExecutor:
             # Run tools for this stage
             stage_output: dict[str, Any] = {"stage": stage.name, "output": ""}
             for tool_name in stage.tools:
-                tool = self._resolve_tool(tool_name)
+                try:
+                    tool = self._resolve_tool(tool_name)
+                except ToolNotFoundError:
+                    trace.error = f"Tool '{tool_name}' not found in registry"
+                    raise
                 tool_result = tool({**context, "prompt": prompt, "stage": stage.name})
                 stage_output.update(tool_result)
 
@@ -443,12 +475,22 @@ class WorkflowExecutor:
 
             stage_results.append(stage_output)
 
-        trace = collector.finalise()
+        production_trace = collector.finalise()
+
+        # Persist trace to database (non-fatal — trace failures must not crash workflows)
+        job_id = job_context.get("job_id")
+        if job_id and production_trace:
+            try:
+                from utils.trace_persist import persist_trace
+
+                persist_trace(job_id, production_trace)
+            except Exception as exc:
+                logger.warning("Failed to persist trace for job %s: %s", job_id, exc)
 
         result: dict[str, Any] = {
             "workflow": self.pack.name,
             "stages": stage_results,
-            "trace": trace.to_jsonb(),
+            "trace": production_trace.to_jsonb(),
         }
         if self.rolling_context:
             result["rolling_context"] = self.rolling_context.get_context_window()
