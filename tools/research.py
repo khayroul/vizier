@@ -340,15 +340,12 @@ def _store_knowledge_card(
 ) -> dict[str, Any]:
     """Create a knowledge source + card with contextualised embedding.
 
-    The card content is embedded WITH the prefix for retrieval, but the
-    prefix is not stored as part of the card content itself.
+    Delegates card insertion to tools.knowledge.ingest_card (canonical).
     """
-    # Embed the contextualised content
-    contextualised_text = f"{prefix} {card_data['content']}"
-    embedding = _embed_text(contextualised_text)
+    from tools.knowledge import ingest_card
 
+    # Create knowledge source (stays here — source creation is context-specific)
     with get_cursor() as cur:
-        # Create knowledge source
         cur.execute(
             """
             INSERT INTO knowledge_sources
@@ -362,47 +359,28 @@ def _store_knowledge_card(
         assert source_row is not None
         source_id = str(source_row["id"])
 
-        # Create knowledge card
-        cur.execute(
-            """
-            INSERT INTO knowledge_cards
-                (source_id, client_id, card_type, title, content, tags,
-                 domain, embedding, confidence, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'active')
-            RETURNING id, card_type, title, content, created_at
-            """,
-            (
-                source_id,
-                client_id,
-                card_data.get("card_type", "general"),
-                card_data.get("title", ""),
-                card_data["content"],
-                card_data.get("tags", []),
-                card_data.get("domain", "general"),
-                embedding,
-                0.8,  # default confidence for automated ingestion
-            ),
-        )
-        card_row = cur.fetchone()
-        assert card_row is not None
+    # Delegate card insertion — pass prefix to skip double contextualisation
+    tags = card_data.get("tags", [])
+    if isinstance(tags, str):
+        tags = tags.split(",")
+
+    card_id = ingest_card(
+        source_id=source_id,
+        content=card_data["content"],
+        card_type=card_data.get("card_type", "general"),
+        title=card_data.get("title", ""),
+        tags=tags,
+        domain=card_data.get("domain", "general"),
+        client_id=client_id,
+        prefix=prefix,  # caller already contextualised — skip re-contextualisation
+    )
 
     return {
-        "card_id": str(card_row["id"]),
+        "card_id": card_id,
         "source_id": source_id,
-        "card_type": card_row["card_type"],
-        "title": card_row["title"],
-        "content": card_row["content"],
+        "card_type": card_data.get("card_type", "general"),
+        "title": card_data.get("title", ""),
+        "content": card_data["content"],
         "prefix": prefix,
         "client_id": client_id,
     }
-
-
-def _embed_text(text: str) -> str:
-    """Generate text-embedding-3-small vector as pgvector-compatible string.
-
-    Delegates to shared utility in utils/embeddings.py.
-    Kept as a thin wrapper for backwards compatibility within this module.
-    """
-    from utils.embeddings import embed_text, format_embedding
-
-    return format_embedding(embed_text(text))
