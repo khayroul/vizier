@@ -69,6 +69,75 @@ phases:
       - drift_detection
       - experiment_runner
 
+# Budget gate — daily token limit for PolicyEvaluator (S8)
+budget:
+  daily_token_limit: 5000000  # 5M tokens/day
+
+# Cost gate — per-job ceiling (degrade, not block)
+cost_ceiling:
+  per_job_usd: 5.00
+
+# Context size cap — reject prompts over this token count
+context_size_cap:
+  max_tokens: 128000
+
+# Approved tools per phase — PolicyEvaluator tool gate checks this
+approved_tools:
+  core:
+    - generate_copy
+    - generate_image
+    - render_typst
+    - research_web
+    - quality_check
+    - refine_spec
+    - onboard_client
+  publishing:
+    - generate_copy
+    - generate_image
+    - render_typst
+    - creative_workshop
+    - rolling_summary
+    - section_tripwire
+    - character_consistency
+  social:
+    - generate_caption
+    - batch_social
+    - content_calendar
+  extended_ops:
+    - generate_invoice
+    - generate_proposal
+    - generate_profile
+
+# Quality posture configuration (§4.1)
+# Each client starts at canva_baseline; upgrades governed by data thresholds.
+quality_posture:
+  canva_baseline:
+    techniques:
+      - self_refine
+      - exemplar_injection
+    contract_strictness: warn
+    critique_rounds: 1
+  enhanced:
+    techniques:
+      - self_refine
+      - exemplar_injection
+      - visual_brief_expansion
+      - copy_formula_grounding
+      - structured_critique
+    contract_strictness: reject
+    critique_rounds: 2
+  full:
+    techniques:
+      - self_refine
+      - exemplar_injection
+      - visual_brief_expansion
+      - copy_formula_grounding
+      - structured_critique
+      - parallel_guardrails
+      - golden_dataset_calibration
+    contract_strictness: reject
+    critique_rounds: 3
+
 # Model lock — Month 1-2, anti-drift #54
 model_lock:
   text_model: gpt-5.4-mini
