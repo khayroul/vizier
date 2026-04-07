@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="reactor-width" content="820">
+  <meta name="reactor-height" content="312">
+  <meta name="reactor-slots" content="headline,body,image_url,brand_name,logo_mark">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 820px;
+      height: 312px;
+      overflow: hidden;
+      background: var(--bg-color);
+      position: relative;
+      font-family: var(--font-body), 'Helvetica Neue', Arial, sans-serif;
+      font-weight: var(--font-body-weight, 400);
+    }
+
+    .bg-solid {
+      position: absolute;
+      inset: 0;
+      background: var(--bg-color);
+    }
+
+    .noise {
+      position: absolute;
+      inset: 0;
+      opacity: 0.04;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 256px;
+      pointer-events: none;
+    }
+
+    .logo-mark {
+      position: absolute;
+      top: 24px;
+      right: 32px;
+      width: 30px;
+      height: 30px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-headline), 'Arial Black', Impact, sans-serif;
+      font-weight: var(--font-headline-weight, 900);
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.5);
+      z-index: 10;
+    }
+
+    .stage {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      padding: 0 48px;
+      gap: 36px;
+    }
+
+    .knockout-text {
+      font-family: var(--font-headline), 'Arial Black', Impact, sans-serif;
+      font-weight: var(--font-headline-weight, 900);
+      font-size: 64px;
+      text-transform: uppercase;
+      line-height: 0.88;
+      letter-spacing: -2px;
+      color: transparent;
+      background-image: url('{{image_url}}');
+      background-size: 820px 312px;
+      background-position: center;
+      -webkit-background-clip: text;
+      background-clip: text;
+      filter: brightness(1.1) contrast(1.05);
+      max-width: 420px;
+      flex-shrink: 0;
+    }
+
+    .right-content {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+    }
+
+    .accent-line {
+      width: 32px;
+      height: 3px;
+      background: var(--accent-color);
+      margin-bottom: 14px;
+      box-shadow: 0 0 10px color-mix(in srgb, var(--accent-color) 50%, transparent);
+    }
+
+    .body-text {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      max-width: 280px;
+    }
+
+    .brand-whisper {
+      position: absolute;
+      bottom: 20px;
+      right: 32px;
+      font-family: var(--font-body), 'Helvetica Neue', Arial, sans-serif;
+      font-weight: 700;
+      font-size: 9px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      opacity: 0.4;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-solid"></div>
+  <div class="noise"></div>
+
+  <div class="logo-mark">{{logo_mark}}</div>
+
+  <div class="stage">
+    <div class="knockout-text">{{headline}}</div>
+    <div class="right-content">
+      <div class="accent-line"></div>
+      <div class="body-text">{{body}}</div>
+    </div>
+  </div>
+
+  <div class="brand-whisper">{{brand_name}}</div>
+</body>
+</html>
