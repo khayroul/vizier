@@ -13,3 +13,9 @@ node_modules/
 dist/
 build/
 .venv/
+
+# Architecture docs (proprietary)
+docs/VIZIER_ARCHITECTURE_v5_4_1.md
+docs/VIZIER_BUILD_v1_3_1.md
+docs/VIZIER_POST_SPRINT_ROADMAP_v1_1.md
+CONTROL_TOWER.md
