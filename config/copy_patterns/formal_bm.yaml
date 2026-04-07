@@ -1,0 +1,26 @@
+# Copy pattern: Formal Bahasa Malaysia
+# Copywriting patterns for formal BM register.
+
+patterns:
+  - name: Formal BM Headline
+    applies_to: [dmb]
+    domain: copywriting
+    tags: [copy_pattern, headline, bm, formal]
+    content: >
+      Formal BM headlines use complete sentences, not fragments.
+      Prefer "Nikmati Keindahan Batik Asli" over "Batik Terbaik!"
+      Avoid slang (jom, best, giler). Use respectful pronouns
+      (anda, tuan/puan) not informal ones (kau, korang).
+      Punctuation: full stop preferred over exclamation mark
+      for premium brands.
+
+  - name: Formal BM CTA
+    applies_to: [dmb]
+    domain: copywriting
+    tags: [copy_pattern, cta, bm, formal]
+    content: >
+      Formal BM call-to-action patterns: "Hubungi kami hari ini"
+      (Contact us today), "Layari laman web kami" (Visit our website),
+      "Dapatkan tawaran istimewa" (Get special offer).
+      Avoid: "Klik sini sekarang!" or English loan words.
+      Register: polite imperative or invitation tone.

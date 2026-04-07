@@ -1,0 +1,26 @@
+# Brand pattern: Premium Traditional
+# Applicable to clients with traditional premium positioning.
+
+patterns:
+  - name: Premium Traditional Palette
+    applies_to: [dmb]
+    domain: brand
+    tags: [brand_pattern, colour, traditional, premium]
+    content: >
+      Premium traditional brands use deep greens (#1B4332, #2D6A4F) paired
+      with gold accents (#D4A843). Typography combines serif headlines
+      (Playfair Display) with clean sans-serif body (Inter). White space
+      is generous — minimum 20% of canvas. Avoid neon, gradients, or
+      playful fonts. The look should feel established, trustworthy, and
+      subtly luxurious.
+
+  - name: Batik-Inspired Layout
+    applies_to: [dmb]
+    domain: brand
+    tags: [brand_pattern, layout, batik, cultural]
+    content: >
+      Batik-inspired layouts use organic flowing borders and subtle
+      textile-pattern backgrounds at low opacity (10-15%). Key design
+      element: songket or batik motif as frame or divider, never as
+      full background. Text zones must remain clean and readable.
+      Works best for posters and brochures for Malay-audience campaigns.
