@@ -234,3 +234,55 @@ ALTER TABLE knowledge_cards
 
 CREATE INDEX IF NOT EXISTS idx_knowledge_cards_fts
   ON knowledge_cards USING gin(search_vector);
+
+-- ============================================================================
+-- S19: SELF-IMPROVEMENT + CALIBRATION (2 tables)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS experiments (
+    id                      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name                    text NOT NULL,
+    hypothesis              text NOT NULL,
+    experiment_type         text NOT NULL,         -- 'prompt_variation' | 'step_elimination' | 'knowledge_injection' | 'model_comparison'
+    control_config          jsonb NOT NULL,        -- snapshot of current config
+    experiment_config       jsonb NOT NULL,        -- proposed change
+    target_artifact_type    text,                  -- which artifact types this applies to
+    target_client_id        uuid REFERENCES clients(id),
+    sample_size             int DEFAULT 10,        -- N jobs per arm
+    control_count           int DEFAULT 0,
+    experiment_count        int DEFAULT 0,
+    status                  text DEFAULT 'pending', -- pending | running | complete | promoted | rejected
+    -- Results
+    control_approval_rate   float,
+    experiment_approval_rate float,
+    control_avg_cost        float,
+    experiment_avg_cost     float,
+    winner                  text,                  -- 'control' | 'experiment' | 'inconclusive'
+    -- GEPA preference pair support (tech scout injection)
+    winner_id               text,
+    loser_id                text,
+    preference_source       text,                  -- 'operator' | 'scorer' | 'gepa'
+    -- Metadata
+    proposed_by             text DEFAULT 'pattern_detector',
+    decision_note           text,
+    created_at              timestamptz DEFAULT now(),
+    completed_at            timestamptz,
+    promoted_at             timestamptz
+);
+
+CREATE TABLE IF NOT EXISTS experiment_results (
+    id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    experiment_id   uuid REFERENCES experiments(id) ON DELETE CASCADE,
+    job_id          uuid REFERENCES jobs(id),
+    arm             text NOT NULL,             -- 'control' | 'experiment'
+    operator_rating int,
+    first_pass_approved boolean,
+    token_count     int,
+    cost_usd        float,
+    trace_summary   jsonb,
+    created_at      timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_experiment_results_experiment ON experiment_results(experiment_id);
+CREATE INDEX IF NOT EXISTS idx_experiments_status ON experiments(status);
+CREATE INDEX IF NOT EXISTS idx_experiments_type ON experiments(target_artifact_type);
