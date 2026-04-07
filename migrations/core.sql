@@ -1,0 +1,2 @@
+-- core.sql: 14 core Postgres tables. Created by S10a.
+-- All statements use CREATE TABLE IF NOT EXISTS for idempotent re-runs.

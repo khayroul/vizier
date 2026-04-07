@@ -1,0 +1,2 @@
+-- extended.sql: 21 extended Postgres tables. Created on-demand by sessions that need them.
+-- All statements use CREATE TABLE IF NOT EXISTS for idempotent re-runs.

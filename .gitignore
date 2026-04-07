@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.env
+.env.*
+datasets/
+*.sqlite
+*.db
+.DS_Store
+node_modules/
+*.safetensors
+.ollama/
+*.egg-info/
+dist/
+build/
+.venv/

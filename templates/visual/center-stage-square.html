@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="reactor-width" content="1080">
+  <meta name="reactor-height" content="1080">
+  <meta name="reactor-slots" content="headline,body,cta,image_url,brand_name,logo_mark">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 1080px;
+      height: 1080px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 8%, color-mix(in srgb, var(--accent-color, #e8c87a) 12%, transparent) 0%, transparent 34%),
+        var(--bg-color, #0a0a0f);
+      position: relative;
+      font-family: var(--font-body), 'Helvetica Neue', Arial, sans-serif;
+      font-weight: var(--font-body-weight, 400);
+    }
+
+    /* Hero image — visible enough to read as a product/scene, but still framed */
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background-image: url('{{image_url}}');
+      background-size: cover;
+      background-position: center 42%;
+      opacity: 0.42;
+      filter: saturate(1.06) contrast(1.03);
+      transform: scale(1.03);
+    }
+
+    /* Radial vignette — transparent center, dark edges */
+    .vignette {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(
+        ellipse 70% 70% at 50% 50%,
+        transparent 0%,
+        transparent 35%,
+        rgba(0, 0, 0, 0.35) 65%,
+        rgba(0, 0, 0, 0.75) 100%
+      );
+    }
+
+    .hero-halo {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--accent-color, #e8c87a) 14%, transparent) 0%, transparent 24%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.08) 0%, transparent 24%, transparent 58%, rgba(0, 0, 0, 0.24) 100%);
+    }
+
+    /* Noise texture — film grain depth */
+    .noise {
+      position: absolute;
+      inset: 0;
+      opacity: 0.035;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 256px;
+    }
+
+    /* Full-canvas flex container — centers everything */
+    .stage {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 80px 72px;
+    }
+
+    /* Logo mark — centered circle, top of stage */
+    .logo-mark {
+      width: 42px;
+      height: 42px;
+      border: 2px solid rgba(255, 255, 255, 0.85);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-headline), 'Arial Black', Impact, sans-serif;
+      font-weight: var(--font-headline-weight, 900);
+      font-size: 18px;
+      color: #fff;
+      letter-spacing: -0.5px;
+      position: absolute;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    /* Center content column */
+    .content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 0;
+      padding: 38px 44px 42px;
+      border-radius: 30px;
+      background: color-mix(in srgb, var(--bg-color, #0a0a0f) 82%, rgba(255, 255, 255, 0.08));
+      border: 1px solid color-mix(in srgb, var(--text-color, #ffffff) 10%, transparent);
+      box-shadow: 0 24px 46px rgba(0, 0, 0, 0.28);
+    }
+
+    /* Accent line — electric, centered entry point */
+    .accent-line {
+      width: 54px;
+      height: 3px;
+      background: var(--accent-color, #e8c87a);
+      margin-bottom: 28px;
+      box-shadow: 0 0 16px color-mix(in srgb, var(--accent-color, #e8c87a) 40%, transparent);
+    }
+
+    /* Headline — uppercase, tight, commanding */
+    .headline {
+      font-family: var(--font-headline), 'Arial Black', Impact, sans-serif;
+      font-weight: var(--font-headline-weight, 900);
+      font-size: 56px;
+      color: #ffffff;
+      text-transform: uppercase;
+      line-height: 0.95;
+      letter-spacing: -1.5px;
+      margin-bottom: 22px;
+      max-width: 740px;
+    }
+
+    /* Body — restrained, muted, readable */
+    .body-text {
+      font-family: var(--font-body), 'Helvetica Neue', Arial, sans-serif;
+      font-weight: var(--font-body-weight, 400);
+      font-size: 20px;
+      color: var(--text-muted, rgba(255, 255, 255, 0.72));
+      line-height: 1.5;
+      letter-spacing: 0.2px;
+      margin-bottom: 34px;
+      max-width: 500px;
+    }
+
+    /* CTA — pill, accent fill, dark label */
+    .cta-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      background: var(--accent-color, #e8c87a);
+      color: var(--bg-color, #0a0a0f);
+      font-family: var(--font-body), 'Helvetica Neue', Arial, sans-serif;
+      font-weight: 700;
+      font-size: 16px;
+      text-transform: uppercase;
+      letter-spacing: 1.9px;
+      padding: 16px 38px;
+      border-radius: 100px;
+      border: 1px solid color-mix(in srgb, var(--bg-color, #0a0a0f) 28%, transparent);
+      box-shadow: 0 18px 30px color-mix(in srgb, var(--accent-color, #e8c87a) 24%, transparent);
+    }
+
+    .cta-arrow {
+      font-size: 15px;
+      margin-top: 1px;
+      letter-spacing: 0;
+    }
+
+    /* Brand whisper — near bottom, centered */
+    .brand-whisper {
+      position: absolute;
+      bottom: 56px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--font-body), 'Helvetica Neue', Arial, sans-serif;
+      font-weight: 700;
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      white-space: nowrap;
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="hero-bg"></div>
+  <div class="vignette"></div>
+  <div class="hero-halo"></div>
+  <div class="noise"></div>
+
+  <div class="logo-mark">{{logo_mark}}</div>
+
+  <div class="stage">
+    <div class="content">
+      <div class="accent-line"></div>
+      <div class="headline">{{headline}}</div>
+      <div class="body-text">{{body}}</div>
+      <div class="cta-btn">{{cta}} <span class="cta-arrow">&rarr;</span></div>
+    </div>
+  </div>
+
+  <div class="brand-whisper">{{brand_name}}</div>
+</body>
+</html>
