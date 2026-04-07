@@ -127,3 +127,23 @@ profiles:
     notes: >
       Onboarding retrieves brand patterns for style matching.
       No exemplars exist yet for new clients.
+
+# ---------------------------------------------------------------------------
+# Retrieval Pipeline Config (S18 — hybrid search, RRF, reranking)
+# ---------------------------------------------------------------------------
+# Controls HOW retrieval works. The 'profiles' section above controls
+# WHAT gets retrieved per artifact type.
+
+retrieval_pipeline:
+  embedding_model: text-embedding-3-small
+  embedding_dim: 1536
+  min_score: 0.65
+  rrf_weights:
+    dense: 1.0
+    sparse: 0.25
+  reranker: gpt-5.4-mini
+  reranker_candidates: 20
+  reranker_top_k: 5
+  query_variants: 4
+  lost_in_middle: true
+  fts_dictionary: simple

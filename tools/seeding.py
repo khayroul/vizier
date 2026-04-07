@@ -257,11 +257,8 @@ def _store_card(
     source_type: str,
     source_title: str,
 ) -> dict[str, Any]:
-    """Store a contextualised knowledge card in Postgres."""
-    from tools.research import _embed_text
-
-    contextualised_text = f"{prefix} {card_data['content']}"
-    embedding = _embed_text(contextualised_text)
+    """Store a contextualised knowledge card. Delegates to ingest_card."""
+    from tools.knowledge import ingest_card
 
     with get_cursor() as cur:
         cur.execute(
@@ -279,41 +276,26 @@ def _store_card(
         assert source_row is not None
         source_id = str(source_row["id"])
 
-        tags = card_data.get("tags", [])
-        if isinstance(tags, str):
-            tags = [tags]
+    tags = card_data.get("tags", [])
+    if isinstance(tags, str):
+        tags = [tags]
 
-        cur.execute(
-            """
-            INSERT INTO knowledge_cards
-                (source_id, client_id, card_type, title, content, tags,
-                 domain, embedding, confidence, status)
-            VALUES (
-                %s,
-                (SELECT id FROM clients WHERE id::text = %s OR name = %s LIMIT 1),
-                %s, %s, %s, %s, %s, %s, %s, 'active')
-            RETURNING id, card_type, title, content
-            """,
-            (
-                source_id,
-                client_id, client_id,
-                card_data.get("card_type", "general"),
-                card_data.get("title", ""),
-                card_data["content"],
-                tags,
-                card_data.get("domain", "general"),
-                embedding,
-                0.8,
-            ),
-        )
-        card_row = cur.fetchone()
-        assert card_row is not None
+    card_id = ingest_card(
+        source_id=source_id,
+        content=card_data["content"],
+        card_type=card_data.get("card_type", "general"),
+        title=card_data.get("title", ""),
+        tags=tags,
+        domain=card_data.get("domain", "general"),
+        client_id=client_id,
+        prefix=prefix,  # caller already contextualised — skip re-contextualisation
+    )
 
     return {
-        "card_id": str(card_row["id"]),
+        "card_id": card_id,
         "source_id": source_id,
-        "card_type": card_row["card_type"],
-        "title": card_row["title"],
+        "card_type": card_data.get("card_type", "general"),
+        "title": card_data.get("title", ""),
         "prefix": prefix,
         "client_id": client_id,
     }

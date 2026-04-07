@@ -407,7 +407,7 @@ class TestFetchTrends:
 class TestSwipeIngest:
     """Test tools.research.ingest_swipe."""
 
-    @patch("tools.research._embed_text", side_effect=_mock_embed_text)
+    @patch("tools.knowledge.embed_text", return_value=[0.0] * 1536)
     @patch("tools.research.contextualise_card", return_value="This card is from a swipe file.")
     @patch("tools.research.call_llm", side_effect=_mock_call_llm)
     def test_creates_knowledge_cards(
@@ -434,7 +434,7 @@ class TestSwipeIngest:
             assert "prefix" in card
             assert card["client_id"] == client_id
 
-    @patch("tools.research._embed_text", side_effect=_mock_embed_text)
+    @patch("tools.knowledge.embed_text", return_value=[0.0] * 1536)
     @patch("tools.research.contextualise_card", return_value="This card is from a swipe file.")
     @patch("tools.research.call_llm", side_effect=_mock_call_llm)
     def test_swipe_stores_asset_with_visual_dna(
@@ -464,7 +464,7 @@ class TestSwipeIngest:
             assert row["layout_type"] is not None
             assert row["visual_embedding"] is not None
 
-    @patch("tools.research._embed_text", side_effect=_mock_embed_text)
+    @patch("tools.knowledge.embed_text", return_value=[0.0] * 1536)
     @patch("tools.research.contextualise_card", return_value="Prefix.")
     @patch("tools.research.call_llm", side_effect=_mock_call_llm)
     def test_swipe_card_has_prefix(
