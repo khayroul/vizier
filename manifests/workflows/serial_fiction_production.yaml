@@ -11,6 +11,7 @@ model_preference:
   workshop: gpt-5.4-mini
 image_model_preference:
   character_iterative: kontext
+  draft_preview: nano-banana
   character_anchored: flux-2-pro
   scene: flux-2-pro
   cover: flux-2-pro
