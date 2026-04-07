@@ -1,0 +1,69 @@
+# Document Scaffold: Company Profile
+# Defines section structure for company profiles.
+# See architecture §11.6.
+
+scaffold:
+  name: company_profile
+  description: Company profile document for credibility and client acquisition
+  typical_pages: 6-12
+  tone: professional, confident, warm
+  language_default: en
+
+sections:
+  - id: cover
+    heading: null
+    required: true
+    content: >
+      Company logo, company name, tagline, hero image.
+      Premium visual presentation.
+    typical_length_words: 10
+
+  - id: about
+    heading: About Us
+    required: true
+    content: >
+      Company story, founding, mission, vision, values.
+      What makes the company unique. Core philosophy.
+    typical_length_words: 300
+
+  - id: services
+    heading: Our Services
+    required: true
+    content: >
+      Detailed service offerings with descriptions.
+      Categorised by type or industry served.
+      Benefits-focused, not features-focused.
+    typical_length_words: 400
+
+  - id: portfolio
+    heading: Portfolio / Our Work
+    required: true
+    content: >
+      Selected projects with brief case studies.
+      Before/after where applicable. Client testimonials.
+    typical_length_words: 300
+
+  - id: team
+    heading: Our Team
+    required: false
+    content: >
+      Key team members with photos, roles, and brief bios.
+      Highlights expertise and experience.
+    typical_length_words: 200
+
+  - id: clients
+    heading: Our Clients
+    required: false
+    content: >
+      Client logos, testimonials, industry verticals served.
+      Social proof and credibility markers.
+    typical_length_words: 100
+
+  - id: contact
+    heading: Get In Touch
+    required: true
+    content: >
+      Address, phone, email, social media links, website.
+      Map if physical location is important.
+      Clear CTA for next steps.
+    typical_length_words: 50

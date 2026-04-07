@@ -1,0 +1,155 @@
+# Social Platform Specifications
+# Platform sizing, content density, and formatting rules.
+# Used by production workflows and quality checks.
+# See architecture §38.4 (ad size to content density).
+
+platforms:
+
+  instagram:
+    formats:
+      feed_square:
+        dimensions: "1080x1080"
+        aspect_ratio: "1:1"
+        max_words: 40
+        text_safe_zone_pct: 20
+        notes: Most common format. Keep text minimal.
+      feed_portrait:
+        dimensions: "1080x1350"
+        aspect_ratio: "4:5"
+        max_words: 50
+        text_safe_zone_pct: 20
+      story:
+        dimensions: "1080x1920"
+        aspect_ratio: "9:16"
+        max_words: 15
+        text_safe_zone_pct: 15
+        notes: Top and bottom 15% reserved for UI elements.
+      reel_cover:
+        dimensions: "1080x1920"
+        aspect_ratio: "9:16"
+        max_words: 10
+        text_safe_zone_pct: 10
+      carousel:
+        dimensions: "1080x1080"
+        aspect_ratio: "1:1"
+        max_words_per_slide: 30
+        max_slides: 10
+        notes: Swipeable. First slide is hook. Last slide is CTA.
+    caption:
+      max_chars: 2200
+      optimal_chars: 150-300
+      max_hashtags: 30
+      optimal_hashtags: 5-15
+      line_breaks: true
+      emoji_density: moderate
+
+  facebook:
+    formats:
+      feed_post:
+        dimensions: "1200x630"
+        aspect_ratio: "1.91:1"
+        max_words: 80
+        text_safe_zone_pct: 20
+      square_post:
+        dimensions: "1080x1080"
+        aspect_ratio: "1:1"
+        max_words: 50
+        text_safe_zone_pct: 20
+      story:
+        dimensions: "1080x1920"
+        aspect_ratio: "9:16"
+        max_words: 15
+        text_safe_zone_pct: 15
+      cover_photo:
+        dimensions: "820x312"
+        aspect_ratio: "2.63:1"
+        max_words: 10
+        text_safe_zone_pct: 10
+      event_cover:
+        dimensions: "1920x1005"
+        aspect_ratio: "1.91:1"
+        max_words: 20
+        text_safe_zone_pct: 15
+    caption:
+      max_chars: 63206
+      optimal_chars: 100-250
+      max_hashtags: 10
+      optimal_hashtags: 3-5
+      line_breaks: true
+      emoji_density: low_to_moderate
+
+  tiktok:
+    formats:
+      video:
+        dimensions: "1080x1920"
+        aspect_ratio: "9:16"
+        max_words_overlay: 10
+        text_safe_zone_pct: 15
+        notes: Text overlay should be brief. Content is video-first.
+      thumbnail:
+        dimensions: "1080x1920"
+        aspect_ratio: "9:16"
+        max_words: 8
+        text_safe_zone_pct: 10
+    caption:
+      max_chars: 4000
+      optimal_chars: 50-150
+      max_hashtags: 5
+      optimal_hashtags: 3-5
+      line_breaks: true
+      emoji_density: moderate
+
+  x_twitter:
+    formats:
+      image:
+        dimensions: "1200x675"
+        aspect_ratio: "16:9"
+        max_words: 30
+        text_safe_zone_pct: 15
+      header:
+        dimensions: "1500x500"
+        aspect_ratio: "3:1"
+        max_words: 8
+        text_safe_zone_pct: 10
+    caption:
+      max_chars: 280
+      optimal_chars: 100-200
+      max_hashtags: 3
+      optimal_hashtags: 1-2
+      line_breaks: false
+      emoji_density: low
+      notes: Threading for long content.
+
+  linkedin:
+    formats:
+      feed_image:
+        dimensions: "1200x627"
+        aspect_ratio: "1.91:1"
+        max_words: 50
+        text_safe_zone_pct: 20
+      square_post:
+        dimensions: "1080x1080"
+        aspect_ratio: "1:1"
+        max_words: 40
+        text_safe_zone_pct: 20
+      carousel_pdf:
+        dimensions: "1080x1080"
+        aspect_ratio: "1:1"
+        max_words_per_slide: 40
+        max_slides: 10
+    caption:
+      max_chars: 3000
+      optimal_chars: 150-300
+      max_hashtags: 5
+      optimal_hashtags: 3-5
+      line_breaks: true
+      emoji_density: low
+      notes: Professional tone. Storytelling format performs well.
+
+# Universal rules
+universal_rules:
+  text_in_image_max_coverage_pct: 20
+  minimum_contrast_ratio: 4.5
+  brand_logo_always_present: true
+  cta_required_for_conversion_posts: true
+  watermark_never_on_client_deliverables: true

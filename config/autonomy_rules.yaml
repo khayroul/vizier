@@ -1,0 +1,125 @@
+# Social Media Autonomy Rules
+# Defines what Vizier can do autonomously vs. what requires operator approval.
+# Consumed by policy evaluator (S8) and workflow executor (S9).
+
+# Autonomy levels:
+#   autonomous:       Vizier executes without asking
+#   notify:           Vizier executes and notifies operator after
+#   approve_first:    Vizier prepares but waits for operator approval
+#   operator_only:    Vizier cannot perform this action
+
+actions:
+
+  # === CONTENT CREATION ===
+  draft_caption:
+    autonomy: autonomous
+    notes: Vizier can draft captions freely. Operator reviews before publish.
+
+  draft_visual:
+    autonomy: autonomous
+    notes: Vizier generates visuals per brief. Always reviewed before delivery.
+
+  select_hashtags:
+    autonomy: autonomous
+    notes: Hashtags selected from approved lists and trending analysis.
+
+  select_posting_time:
+    autonomy: autonomous
+    notes: Optimal time selected from platform analytics and calendar.
+
+  # === CONTENT SCHEDULING ===
+  schedule_post:
+    autonomy: approve_first
+    notes: All scheduled posts require operator review before going live.
+
+  reschedule_post:
+    autonomy: notify
+    notes: Auto-reschedule for conflicts (e.g., breaking news), notify operator.
+
+  cancel_scheduled_post:
+    autonomy: approve_first
+    notes: Cancellation always requires operator confirmation.
+
+  # === CONTENT PUBLISHING ===
+  publish_to_platform:
+    autonomy: approve_first
+    notes: No auto-publishing. Every post reviewed by operator.
+
+  publish_story:
+    autonomy: approve_first
+    notes: Stories are ephemeral but still require approval.
+
+  # === ENGAGEMENT ===
+  reply_to_comment:
+    autonomy: operator_only
+    notes: >
+      Vizier does not interact with audiences directly.
+      Engagement is operator's responsibility.
+
+  reply_to_dm:
+    autonomy: operator_only
+    notes: Direct messages are private. Operator handles all DMs.
+
+  like_comment:
+    autonomy: operator_only
+    notes: Social engagement decisions are operator's.
+
+  # === ANALYTICS ===
+  pull_analytics:
+    autonomy: autonomous
+    notes: Data collection is always safe.
+
+  generate_report:
+    autonomy: autonomous
+    notes: Vizier can generate reports. Operator decides distribution.
+
+  recommend_strategy_change:
+    autonomy: notify
+    notes: >
+      Vizier can suggest strategy changes based on data.
+      Notification ensures operator sees the recommendation.
+
+  # === ACCOUNT MANAGEMENT ===
+  update_bio:
+    autonomy: operator_only
+    notes: Profile changes are always manual.
+
+  update_profile_photo:
+    autonomy: operator_only
+    notes: Brand identity changes are always manual.
+
+  connect_new_platform:
+    autonomy: operator_only
+    notes: Platform integrations are manual setup.
+
+  # === CAMPAIGN MANAGEMENT ===
+  create_campaign_brief:
+    autonomy: autonomous
+    notes: Vizier can draft briefs. Operator refines during refinement loop.
+
+  launch_campaign:
+    autonomy: approve_first
+    notes: Campaign launch is a significant action requiring approval.
+
+  pause_campaign:
+    autonomy: approve_first
+    notes: Pausing live campaigns requires operator decision.
+
+  adjust_budget:
+    autonomy: operator_only
+    notes: Financial decisions are always operator's.
+
+  # === CONTENT DELETION ===
+  delete_post:
+    autonomy: operator_only
+    notes: Deletion is irreversible. Always operator's decision.
+
+  archive_post:
+    autonomy: approve_first
+    notes: Archiving hides content. Requires approval.
+
+# Default rule for unlisted actions
+default_autonomy: approve_first
+default_notes: >
+  Any action not explicitly listed defaults to approve_first.
+  Vizier prepares but waits for operator confirmation.

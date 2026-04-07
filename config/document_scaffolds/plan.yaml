@@ -1,0 +1,98 @@
+# Document Scaffold: Marketing Plan
+# Defines section structure for marketing plans.
+# See architecture §11.6.
+
+scaffold:
+  name: marketing_plan
+  description: Strategic marketing plan with objectives, tactics, and KPIs
+  typical_pages: 10-20
+  tone: strategic, data-informed, actionable
+  language_default: en
+
+sections:
+  - id: cover
+    heading: null
+    required: true
+    content: >
+      Company logo, plan title, period covered, prepared by/for, date.
+    typical_length_words: 20
+
+  - id: executive_summary
+    heading: Executive Summary
+    required: true
+    content: >
+      One-page overview of situation, objectives, key strategies,
+      budget allocation, and expected outcomes.
+    typical_length_words: 250
+
+  - id: situation_analysis
+    heading: Situation Analysis
+    required: true
+    content: >
+      Current market position, SWOT analysis, competitor landscape,
+      customer insights. Data-backed where possible.
+    typical_length_words: 500
+
+  - id: objectives
+    heading: Marketing Objectives
+    required: true
+    content: >
+      SMART objectives tied to business goals. Revenue targets,
+      awareness metrics, lead generation goals.
+    typical_length_words: 200
+
+  - id: target_audience
+    heading: Target Audience
+    required: true
+    content: >
+      Audience segments with demographics, psychographics,
+      behaviour patterns, and pain points.
+    typical_length_words: 300
+
+  - id: strategy
+    heading: Marketing Strategy
+    required: true
+    content: >
+      Core positioning, value proposition, channel strategy,
+      messaging framework. The "how" at strategic level.
+    typical_length_words: 400
+
+  - id: tactics
+    heading: Tactical Plan
+    required: true
+    content: >
+      Specific campaigns, activities, content plan by channel.
+      Monthly or quarterly breakdown.
+    typical_length_words: 500
+
+  - id: content_calendar
+    heading: Content Calendar
+    required: false
+    content: >
+      Weekly/monthly content schedule across channels.
+      Aligned with Malaysian calendar events.
+    typical_length_words: 200
+
+  - id: budget
+    heading: Budget
+    required: true
+    content: >
+      Budget allocation by channel, campaign, and quarter.
+      ROI projections where applicable.
+    typical_length_words: 200
+
+  - id: kpis
+    heading: KPIs & Measurement
+    required: true
+    content: >
+      Success metrics per objective. Tracking methodology.
+      Review cadence (weekly/monthly/quarterly).
+    typical_length_words: 200
+
+  - id: appendix
+    heading: Appendix
+    required: false
+    content: >
+      Supporting data, competitor profiles, research findings,
+      creative briefs.
+    typical_length_words: 300

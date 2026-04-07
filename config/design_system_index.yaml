@@ -1,0 +1,363 @@
+# Design System Index
+# Tags all 55 web/UI design systems with structured attributes
+# for deterministic selection. See architecture §38.1.1.
+#
+# Selection logic (~20 lines in contracts/routing.py):
+#   1. Read client config industry + brand_mood
+#   2. Read artifact type (poster -> moderate, landing page -> varies, document -> minimal)
+#   3. Score each system via set intersection:
+#      - Industry match: +2
+#      - Mood match: +1
+#      - Density match: +1
+#      - Colour temperature match: +1
+#   4. Return top 3 systems by score
+#
+# Attributes:
+#   industry:           list of 1-5 tags
+#   density:            minimal | moderate | dense
+#   mood:               list of 1-3 tags
+#   colour_temperature: warm | cool | neutral
+#
+# Industry tags: food, fashion, tech, education, corporate, retail, beauty,
+#   healthcare, finance, energy, malaysia, general, automotive, luxury,
+#   ecommerce, saas, creative, media, travel, real_estate, agriculture
+#
+# Mood tags: warm, cool, bold, elegant, playful, professional, premium,
+#   energetic, clean, cinematic, emotional, traditional, modern, minimalist,
+#   friendly, sophisticated, rugged, vibrant, calm, trustworthy
+
+systems:
+
+  # === 1-16: Explicitly named in architecture ===
+
+  stripe:
+    industry: [tech, fintech, saas]
+    density: minimal
+    mood: [clean, professional]
+    colour_temperature: cool
+
+  apple:
+    industry: [tech, consumer, luxury]
+    density: minimal
+    mood: [premium, elegant]
+    colour_temperature: neutral
+
+  airbnb:
+    industry: [travel, ecommerce, general]
+    density: moderate
+    mood: [warm, friendly]
+    colour_temperature: warm
+
+  notion:
+    industry: [tech, saas, education]
+    density: minimal
+    mood: [clean, minimalist]
+    colour_temperature: neutral
+
+  supabase:
+    industry: [tech, saas]
+    density: moderate
+    mood: [modern, bold]
+    colour_temperature: cool
+
+  spotify:
+    industry: [media, tech, creative]
+    density: moderate
+    mood: [bold, energetic]
+    colour_temperature: cool
+
+  linear:
+    industry: [tech, saas]
+    density: minimal
+    mood: [clean, modern]
+    colour_temperature: cool
+
+  figma:
+    industry: [tech, creative, saas]
+    density: moderate
+    mood: [playful, modern]
+    colour_temperature: neutral
+
+  framer:
+    industry: [tech, creative]
+    density: minimal
+    mood: [premium, modern]
+    colour_temperature: cool
+
+  bmw:
+    industry: [automotive, luxury]
+    density: minimal
+    mood: [premium, sophisticated]
+    colour_temperature: cool
+
+  uber:
+    industry: [tech, travel, general]
+    density: moderate
+    mood: [clean, bold]
+    colour_temperature: neutral
+
+  spacex:
+    industry: [tech, corporate]
+    density: minimal
+    mood: [bold, cinematic]
+    colour_temperature: cool
+
+  nvidia:
+    industry: [tech, corporate]
+    density: moderate
+    mood: [bold, professional]
+    colour_temperature: cool
+
+  ibm:
+    industry: [tech, corporate, healthcare]
+    density: moderate
+    mood: [professional, trustworthy]
+    colour_temperature: cool
+
+  pinterest:
+    industry: [media, creative, retail]
+    density: dense
+    mood: [warm, playful]
+    colour_temperature: warm
+
+  coinbase:
+    industry: [fintech, tech]
+    density: minimal
+    mood: [clean, trustworthy]
+    colour_temperature: cool
+
+  # === 17-55: Additional systems covering diverse industries ===
+
+  shopee:
+    industry: [retail, ecommerce, marketplace]
+    density: dense
+    mood: [bold, energetic, playful]
+    colour_temperature: warm
+
+  petronas:
+    industry: [energy, corporate, malaysia]
+    density: moderate
+    mood: [warm, cinematic, emotional]
+    colour_temperature: warm
+
+  grab:
+    industry: [tech, travel, malaysia]
+    density: moderate
+    mood: [warm, friendly]
+    colour_temperature: warm
+
+  nike:
+    industry: [fashion, retail, textile]
+    density: minimal
+    mood: [bold, energetic]
+    colour_temperature: neutral
+
+  ikea:
+    industry: [retail, general]
+    density: moderate
+    mood: [warm, friendly, clean]
+    colour_temperature: warm
+
+  uniqlo:
+    industry: [fashion, retail, textile]
+    density: minimal
+    mood: [clean, minimalist]
+    colour_temperature: neutral
+
+  muji:
+    industry: [retail, general]
+    density: minimal
+    mood: [calm, minimalist]
+    colour_temperature: warm
+
+  sephora:
+    industry: [beauty, retail, luxury]
+    density: moderate
+    mood: [premium, bold]
+    colour_temperature: neutral
+
+  glossier:
+    industry: [beauty, retail]
+    density: minimal
+    mood: [warm, friendly, clean]
+    colour_temperature: warm
+
+  aesop:
+    industry: [beauty, luxury]
+    density: minimal
+    mood: [premium, elegant, calm]
+    colour_temperature: warm
+
+  tesla:
+    industry: [automotive, tech, luxury]
+    density: minimal
+    mood: [premium, modern]
+    colour_temperature: cool
+
+  porsche:
+    industry: [automotive, luxury]
+    density: minimal
+    mood: [premium, sophisticated]
+    colour_temperature: neutral
+
+  netflix:
+    industry: [media, tech]
+    density: moderate
+    mood: [bold, cinematic]
+    colour_temperature: warm
+
+  slack:
+    industry: [tech, saas]
+    density: moderate
+    mood: [playful, friendly]
+    colour_temperature: warm
+
+  dropbox:
+    industry: [tech, saas]
+    density: moderate
+    mood: [clean, playful]
+    colour_temperature: cool
+
+  mailchimp:
+    industry: [tech, saas, creative]
+    density: moderate
+    mood: [playful, warm, friendly]
+    colour_temperature: warm
+
+  canva:
+    industry: [tech, creative, education]
+    density: dense
+    mood: [playful, vibrant]
+    colour_temperature: warm
+
+  adobe:
+    industry: [tech, creative]
+    density: moderate
+    mood: [professional, bold]
+    colour_temperature: neutral
+
+  google_material:
+    industry: [tech, general]
+    density: moderate
+    mood: [clean, friendly]
+    colour_temperature: neutral
+
+  microsoft_fluent:
+    industry: [tech, corporate]
+    density: moderate
+    mood: [professional, clean]
+    colour_temperature: cool
+
+  shopify:
+    industry: [tech, ecommerce, retail]
+    density: moderate
+    mood: [clean, professional]
+    colour_temperature: cool
+
+  etsy:
+    industry: [retail, ecommerce, creative]
+    density: moderate
+    mood: [warm, friendly]
+    colour_temperature: warm
+
+  wise:
+    industry: [fintech, tech]
+    density: minimal
+    mood: [clean, trustworthy]
+    colour_temperature: cool
+
+  robinhood:
+    industry: [fintech, tech]
+    density: minimal
+    mood: [bold, modern]
+    colour_temperature: cool
+
+  duolingo:
+    industry: [education, tech]
+    density: moderate
+    mood: [playful, energetic, friendly]
+    colour_temperature: warm
+
+  coursera:
+    industry: [education, tech]
+    density: moderate
+    mood: [professional, clean]
+    colour_temperature: cool
+
+  headspace:
+    industry: [healthcare, tech]
+    density: minimal
+    mood: [calm, warm, friendly]
+    colour_temperature: warm
+
+  peloton:
+    industry: [healthcare, retail]
+    density: moderate
+    mood: [bold, energetic]
+    colour_temperature: neutral
+
+  lululemon:
+    industry: [fashion, retail, textile]
+    density: minimal
+    mood: [calm, premium]
+    colour_temperature: neutral
+
+  zara:
+    industry: [fashion, luxury, retail, textile]
+    density: minimal
+    mood: [elegant, modern]
+    colour_temperature: neutral
+
+  tiffany:
+    industry: [luxury, retail]
+    density: minimal
+    mood: [premium, elegant]
+    colour_temperature: cool
+
+  starbucks:
+    industry: [food, retail, general]
+    density: moderate
+    mood: [warm, friendly]
+    colour_temperature: warm
+
+  whole_foods:
+    industry: [food, retail]
+    density: moderate
+    mood: [warm, clean]
+    colour_temperature: warm
+
+  airasia:
+    industry: [travel, malaysia, ecommerce]
+    density: dense
+    mood: [bold, energetic, playful]
+    colour_temperature: warm
+
+  maybank:
+    industry: [finance, corporate, malaysia]
+    density: moderate
+    mood: [professional, trustworthy, warm]
+    colour_temperature: warm
+
+  cimb:
+    industry: [finance, corporate, malaysia]
+    density: moderate
+    mood: [professional, modern]
+    colour_temperature: warm
+
+  batik_air:
+    industry: [travel, malaysia, textile]
+    density: moderate
+    mood: [warm, traditional, elegant]
+    colour_temperature: warm
+
+  sime_darby:
+    industry: [corporate, agriculture, malaysia]
+    density: moderate
+    mood: [professional, traditional]
+    colour_temperature: warm
+
+  secret_recipe:
+    industry: [food, retail, malaysia]
+    density: moderate
+    mood: [warm, friendly]
+    colour_temperature: warm

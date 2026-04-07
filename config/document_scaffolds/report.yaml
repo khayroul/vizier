@@ -1,0 +1,77 @@
+# Document Scaffold: Report
+# Defines section structure for business/research reports.
+# See architecture §11.6.
+
+scaffold:
+  name: report
+  description: Business or research report with findings and recommendations
+  typical_pages: 8-20
+  tone: objective, analytical, evidence-based
+  language_default: en
+
+sections:
+  - id: cover
+    heading: null
+    required: true
+    content: >
+      Company logo, report title, subtitle, date, author,
+      confidentiality notice if applicable.
+    typical_length_words: 20
+
+  - id: executive_summary
+    heading: Executive Summary
+    required: true
+    content: >
+      Key findings, conclusions, and recommended actions
+      in one page. Decision-makers read only this.
+    typical_length_words: 300
+
+  - id: introduction
+    heading: Introduction
+    required: true
+    content: >
+      Background context, purpose of report, scope,
+      methodology overview.
+    typical_length_words: 200
+
+  - id: findings
+    heading: Findings
+    required: true
+    content: >
+      Detailed presentation of data, observations, and results.
+      Use charts, tables, and infographics where applicable.
+      Organised by theme or chronology.
+    typical_length_words: 800
+
+  - id: analysis
+    heading: Analysis
+    required: true
+    content: >
+      Interpretation of findings. What the data means.
+      Trends, patterns, correlations, causal factors.
+    typical_length_words: 500
+
+  - id: recommendations
+    heading: Recommendations
+    required: true
+    content: >
+      Actionable recommendations based on analysis.
+      Prioritised by impact and feasibility.
+      Each recommendation should be specific and measurable.
+    typical_length_words: 400
+
+  - id: conclusion
+    heading: Conclusion
+    required: true
+    content: >
+      Summary of key points. Reiterate most important
+      recommendations. Forward-looking statement.
+    typical_length_words: 150
+
+  - id: appendix
+    heading: Appendix
+    required: false
+    content: >
+      Raw data, detailed methodology, additional charts,
+      supporting documents, glossary.
+    typical_length_words: 300

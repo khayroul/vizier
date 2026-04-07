@@ -1,0 +1,309 @@
+# Code-Switching Intelligence Rules
+# Malaysian marketing copy is inherently code-switched — BM, English, and
+# discourse particles mix within single sentences. This is the natural
+# register of Malaysian communication, not a bug to be corrected.
+# See architecture §38.6.
+#
+# Toggle: code-switching is on/off per workflow YAML.
+# Override layers: workflow YAML -> client config -> operator override.
+
+# ============================================================
+# 1. TRIGGER TAXONOMY
+# ============================================================
+# Categories of code-switching patterns observed in Malaysian text.
+
+trigger_taxonomy:
+
+  noun_insertion:
+    description: >
+      Most common switch type. English nouns inserted into BM sentence
+      structure. Often for modern, technical, or commercial concepts.
+    always_english:
+      - brand_names        # "Nike", "Shopee", "Petronas"
+      - technical_terms    # "website", "software", "AI"
+      - social_media_terms # "post", "story", "reel", "live", "trending"
+      - food_english       # "cheese", "latte", "smoothie"
+      - fashion_terms      # "outfit", "style", "collection"
+      - business_terms     # "meeting", "deadline", "budget"
+    always_bm:
+      - greetings          # "assalamualaikum", "selamat pagi"
+      - cultural_terms     # "kenduri", "gotong-royong", "musyawarah"
+      - food_traditional   # "nasi lemak", "rendang", "kuih"
+      - respect_terms      # "tuan", "puan", "encik", "cik"
+      - religious_terms    # "solat", "doa", "insyaAllah", "alhamdulillah"
+      - kinship_terms      # "abang", "kakak", "makcik", "pakcik"
+    examples:
+      - bm: "Jom check out collection baru ni"
+        en_equivalent: "Let's check out this new collection"
+        switch_type: noun_insertion
+      - bm: "Update terbaru pasal project kita"
+        en_equivalent: "Latest update about our project"
+        switch_type: noun_insertion
+
+  discourse_markers:
+    description: >
+      Switching at discourse boundaries — sentence starters, fillers,
+      and connective phrases.
+    patterns:
+      - marker: "anyway"
+        position: sentence_start
+        register: casual
+      - marker: "by the way"
+        position: sentence_start
+        register: casual
+      - marker: "so basically"
+        position: sentence_start
+        register: casual
+      - marker: "you know"
+        position: mid_sentence
+        register: casual
+      - marker: "actually"
+        position: sentence_start
+        register: casual
+      - marker: "I mean"
+        position: sentence_start
+        register: casual
+    examples:
+      - text: "Anyway, kita kena siapkan proposal ni by Friday"
+        switch_type: discourse_marker
+
+  phrase_boundary_switching:
+    description: >
+      Switching at clause or phrase boundaries. Entire clauses
+      may be in one language while the embedding sentence is in another.
+    syntactic_patterns:
+      - pattern: "[BM clause] + [EN clause]"
+        example: "Kalau nak best quality, you have to pay the price lah"
+      - pattern: "[EN opening] + [BM continuation]"
+        example: "Not bad lah harga dia, memang berbaloi"
+      - pattern: "[BM frame] + [EN embedded quote]"
+        example: 'Dia cakap "it is what it is" pastu balik'
+    examples:
+      - text: "Macam best je this new place, kita try nanti"
+        switch_type: phrase_boundary
+
+# ============================================================
+# 2. PARTICLE GRAMMAR
+# ============================================================
+# Malaysian discourse particles. Position rules are critical —
+# wrong placement sounds unnatural.
+
+particle_grammar:
+
+  lah:
+    function: softener, emphasis, persuasion
+    position: sentence_final, clause_final
+    tone: friendly command, reassurance, mild emphasis
+    rules:
+      - "Attaches to verbs, adjectives, or sentence-final words"
+      - "Never at sentence start"
+      - "Softens commands: 'Beli lah' (please buy) vs 'Beli' (buy!)"
+      - "Adds reassurance: 'Okay lah' (it is fine)"
+    marketing_use: "Softens CTAs — 'Cuba lah!' feels friendlier than 'Cuba!'"
+    examples:
+      - "Sedap lah kuih ni!"
+      - "Cepat lah, stok terhad!"
+      - "Best lah harga dia"
+
+  mah:
+    function: stating the obvious, mild impatience
+    position: sentence_final
+    tone: matter-of-fact, slightly dismissive
+    rules:
+      - "Used when the speaker thinks the point is obvious"
+      - "Sentence-final only"
+      - "Less common in written marketing than 'lah'"
+    marketing_use: "Rarely used in professional copy. Acceptable in very casual social."
+    examples:
+      - "Murah mah, beli je lah"
+      - "Dah habis mah, esok datang"
+
+  lor:
+    function: resignation, acceptance, "that is just how it is"
+    position: sentence_final
+    tone: resigned, accepting, nonchalant
+    rules:
+      - "Sentence-final only"
+      - "Implies acceptance of situation"
+      - "Rare in marketing copy"
+    marketing_use: "Almost never used in marketing. Too passive for promotional tone."
+    examples:
+      - "Habis lor stok"
+      - "Macam tu lor"
+
+  kan:
+    function: seeking agreement, rhetorical confirmation
+    position: sentence_final, mid_sentence_pause
+    tone: conversational, seeking connection
+    rules:
+      - "Creates conversational bond with audience"
+      - "Can appear mid-sentence as a pause marker"
+      - "Very effective in social media marketing"
+    marketing_use: "Builds connection — 'Sedap kan?' makes audience feel included"
+    examples:
+      - "Cantik kan design baru ni?"
+      - "Memang berbaloi kan?"
+      - "Raya, kan, memang kena ada kuih"
+
+  wei:
+    function: attention-getter, surprise
+    position: sentence_initial, sentence_final
+    tone: excited, surprised, calling attention
+    rules:
+      - "Informal attention marker"
+      - "Can open or close a sentence"
+      - "Common in youth register"
+    marketing_use: "Youth-targeted social media. 'Wei, check out ni!' grabs attention."
+    examples:
+      - "Wei, tengok harga ni!"
+      - "Best gila wei!"
+
+  eh:
+    function: mild surprise, seeking confirmation
+    position: sentence_final
+    tone: surprised, curious
+    rules:
+      - "Softer than 'wei'"
+      - "Expresses genuine surprise or curiosity"
+    marketing_use: "Works in casual discovery posts. 'Eh, ada promosi baru eh?'"
+    examples:
+      - "Eh, murah nya!"
+      - "Baru buka eh kedai ni?"
+
+# ============================================================
+# 3. REGISTER-TO-RATIO MAPPING
+# ============================================================
+# Controls the BM:EN:particle ratio by register.
+
+register_ratios:
+
+  formal:
+    bm_pct: 90
+    en_pct: 10
+    particle_pct: 0
+    description: >
+      Government documents, formal letters, official announcements.
+      English only for technical terms with no BM equivalent.
+    use_cases:
+      - government_tender
+      - formal_letter
+      - official_announcement
+      - legal_document
+
+  semi_formal:
+    bm_pct: 80
+    en_pct: 15
+    particle_pct: 5
+    description: >
+      Business proposals, Facebook posts, email marketing.
+      Light code-switching for modern/technical terms.
+    use_cases:
+      - business_proposal
+      - facebook_post
+      - email_newsletter
+      - company_profile
+
+  casual:
+    bm_pct: 60
+    en_pct: 30
+    particle_pct: 10
+    description: >
+      Instagram captions, casual social media, WhatsApp marketing.
+      Natural code-switching. Particles used for tone.
+    use_cases:
+      - instagram_caption
+      - whatsapp_broadcast
+      - tiktok_caption
+      - casual_social_post
+
+  youth:
+    bm_pct: 40
+    en_pct: 50
+    particle_pct: 10
+    description: >
+      Gen Z targeted content. Heavy English mixing.
+      Slang and particles are expected.
+    use_cases:
+      - tiktok_script
+      - youth_campaign
+      - meme_content
+
+  none:
+    bm_pct: 100
+    en_pct: 0
+    particle_pct: 0
+    description: >
+      Pure BM with zero code-switching. Used for children's books,
+      formal BM publications, and educational materials.
+    use_cases:
+      - childrens_book
+      - educational_material
+      - formal_bm_publication
+
+  english_only:
+    bm_pct: 0
+    en_pct: 100
+    particle_pct: 0
+    description: >
+      Full English for international audiences or English-medium clients.
+    use_cases:
+      - international_client
+      - english_publication
+      - linkedin_post
+
+# ============================================================
+# 4. PLATFORM PATTERNS
+# ============================================================
+# Default register per platform. Client config can override.
+
+platform_defaults:
+
+  instagram:
+    default_register: casual
+    switching_intensity: heavy
+    notes: "Most natural platform for code-switching. Audience expects it."
+
+  facebook:
+    default_register: semi_formal
+    switching_intensity: moderate
+    notes: "Older demographic. More formal than Instagram but still switched."
+
+  tiktok:
+    default_register: youth
+    switching_intensity: heavy
+    notes: "Heaviest code-switching. Slang-heavy. Particles expected."
+
+  x_twitter:
+    default_register: casual
+    switching_intensity: heavy
+    notes: "Character limit encourages code-switching for brevity."
+
+  linkedin:
+    default_register: english_only
+    switching_intensity: none
+    notes: "Professional platform. Full English or formal BM."
+
+  poster:
+    default_register: semi_formal
+    switching_intensity: minimal
+    notes: "Print reduces switching. Formal BM preferred. English for brand/CTA only."
+
+  brochure:
+    default_register: semi_formal
+    switching_intensity: minimal
+    notes: "Similar to poster. Formal tone with light English."
+
+  childrens_book:
+    default_register: none
+    switching_intensity: none
+    notes: "Zero code-switching. Pure BM. No exceptions."
+
+  document:
+    default_register: formal
+    switching_intensity: minimal
+    notes: "Business documents default to formal. English for technical terms only."
+
+  email:
+    default_register: semi_formal
+    switching_intensity: moderate
+    notes: "Email marketing allows moderate switching."

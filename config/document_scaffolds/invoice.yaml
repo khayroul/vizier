@@ -1,0 +1,70 @@
+# Document Scaffold: Invoice
+# Defines section structure for Malaysian business invoices.
+# Includes SSM number, bank details, and itemised format.
+# See architecture §11.6.
+
+scaffold:
+  name: invoice
+  description: Malaysian business invoice with SSM compliance
+  typical_pages: 1-2
+  tone: formal, precise, clear
+  language_default: en
+
+sections:
+  - id: header
+    heading: null
+    required: true
+    content: >
+      Company logo, company name, SSM registration number,
+      company address, phone, email.
+      Invoice number, invoice date, due date.
+    typical_length_words: 30
+
+  - id: bill_to
+    heading: Bill To
+    required: true
+    content: >
+      Client company name, address, attention person,
+      client reference number if applicable.
+    typical_length_words: 20
+
+  - id: items
+    heading: null
+    required: true
+    content: >
+      Itemised table: item number, description, quantity,
+      unit price (RM), total per line. Clear, specific descriptions.
+    typical_length_words: 50
+
+  - id: totals
+    heading: null
+    required: true
+    content: >
+      Subtotal, SST (if applicable at 8%), discount (if any),
+      grand total in RM. Amount in words.
+    typical_length_words: 20
+
+  - id: bank_details
+    heading: Payment Details
+    required: true
+    content: >
+      Bank name, account name, account number.
+      Payment methods accepted. QR code for DuitNow if available.
+    typical_length_words: 30
+
+  - id: terms
+    heading: Terms
+    required: true
+    content: >
+      Payment due within N days. Late payment policy.
+      Revision/cancellation terms. Any special conditions.
+    typical_length_words: 50
+
+  - id: footer
+    heading: null
+    required: true
+    content: >
+      Thank you message. Company stamp placeholder.
+      Authorised signature line. "This is a computer-generated
+      invoice" note if applicable.
+    typical_length_words: 20

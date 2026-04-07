@@ -1,0 +1,237 @@
+# Age-Appropriate BM Vocabulary: Children Ages 5-7
+# Word list aligned with KSSR Tahap 1 expectations.
+# Used by children's book persona and tripwire scorer
+# to verify text is within target vocabulary range.
+#
+# Categories follow typical children's book themes.
+# Each word includes: word, meaning (EN), usage_note (optional).
+
+vocabulary:
+
+  # === KELUARGA (FAMILY) ===
+  - word: ibu
+    meaning: mother
+  - word: ayah
+    meaning: father
+  - word: abang
+    meaning: older brother
+  - word: kakak
+    meaning: older sister
+  - word: adik
+    meaning: younger sibling
+  - word: nenek
+    meaning: grandmother
+  - word: atuk
+    meaning: grandfather
+  - word: keluarga
+    meaning: family
+
+  # === HAIWAN (ANIMALS) ===
+  - word: kucing
+    meaning: cat
+  - word: arnab
+    meaning: rabbit
+  - word: burung
+    meaning: bird
+  - word: ikan
+    meaning: fish
+  - word: ayam
+    meaning: chicken
+  - word: kura-kura
+    meaning: tortoise
+  - word: rama-rama
+    meaning: butterfly
+  - word: semut
+    meaning: ant
+  - word: gajah
+    meaning: elephant
+  - word: monyet
+    meaning: monkey
+  - word: kambing
+    meaning: goat
+  - word: lembu
+    meaning: cow
+
+  # === PERASAAN (FEELINGS) ===
+  - word: gembira
+    meaning: happy
+  - word: sedih
+    meaning: sad
+  - word: takut
+    meaning: scared
+  - word: marah
+    meaning: angry
+  - word: sayang
+    meaning: love/affection
+  - word: berani
+    meaning: brave
+  - word: malu
+    meaning: shy/embarrassed
+  - word: terkejut
+    meaning: surprised
+
+  # === ALAM SEMULA JADI (NATURE) ===
+  - word: pokok
+    meaning: tree
+  - word: bunga
+    meaning: flower
+  - word: sungai
+    meaning: river
+  - word: bukit
+    meaning: hill
+  - word: hujan
+    meaning: rain
+  - word: matahari
+    meaning: sun
+  - word: bintang
+    meaning: star
+  - word: bulan
+    meaning: moon
+  - word: awan
+    meaning: cloud
+  - word: angin
+    meaning: wind
+
+  # === MAKANAN (FOOD) ===
+  - word: nasi
+    meaning: rice
+  - word: air
+    meaning: water
+  - word: roti
+    meaning: bread
+  - word: buah
+    meaning: fruit
+  - word: sayur
+    meaning: vegetable
+  - word: susu
+    meaning: milk
+  - word: kuih
+    meaning: traditional cake/snack
+  - word: gula
+    meaning: sugar
+  - word: pisang
+    meaning: banana
+
+  # === WARNA (COLOURS) ===
+  - word: merah
+    meaning: red
+  - word: biru
+    meaning: blue
+  - word: kuning
+    meaning: yellow
+  - word: hijau
+    meaning: green
+  - word: putih
+    meaning: white
+  - word: hitam
+    meaning: black
+  - word: jingga
+    meaning: orange
+  - word: ungu
+    meaning: purple
+
+  # === PERBUATAN (ACTIONS) ===
+  - word: lari
+    meaning: run
+  - word: jalan
+    meaning: walk
+  - word: makan
+    meaning: eat
+  - word: minum
+    meaning: drink
+  - word: tidur
+    meaning: sleep
+  - word: main
+    meaning: play
+  - word: baca
+    meaning: read
+  - word: tulis
+    meaning: write
+  - word: tolong
+    meaning: help
+  - word: senyum
+    meaning: smile
+  - word: menangis
+    meaning: cry
+  - word: ketawa
+    meaning: laugh
+  - word: melompat
+    meaning: jump
+
+  # === TEMPAT (PLACES) ===
+  - word: rumah
+    meaning: house/home
+  - word: sekolah
+    meaning: school
+  - word: taman
+    meaning: garden/park
+  - word: kedai
+    meaning: shop
+  - word: masjid
+    meaning: mosque
+  - word: kampung
+    meaning: village
+  - word: pasar
+    meaning: market
+
+  # === MASA (TIME) ===
+  - word: pagi
+    meaning: morning
+  - word: tengah hari
+    meaning: noon
+  - word: petang
+    meaning: afternoon
+  - word: malam
+    meaning: night
+  - word: hari
+    meaning: day
+  - word: esok
+    meaning: tomorrow
+  - word: semalam
+    meaning: yesterday
+
+  # === NILAI (VALUES) ===
+  - word: sabar
+    meaning: patience
+  - word: rajin
+    meaning: diligent/hardworking
+  - word: jujur
+    meaning: honest
+  - word: hormat
+    meaning: respect
+  - word: bersyukur
+    meaning: grateful
+  - word: berkongsi
+    meaning: sharing
+  - word: baik hati
+    meaning: kind-hearted
+  - word: sopan
+    meaning: polite/well-mannered
+
+  # === ONOMATOPOEIA ===
+  - word: krik krik
+    meaning: cricket sound
+    usage_note: Night scenes, silence emphasis
+  - word: cip cip
+    meaning: bird chirping
+    usage_note: Morning scenes, nature
+  - word: derung derung
+    meaning: thunder rumbling
+    usage_note: Storm scenes, dramatic tension
+  - word: pap pap
+    meaning: clapping sound
+    usage_note: Celebration, approval
+  - word: splash
+    meaning: water splash
+    usage_note: Use "byur" for BM alternative
+  - word: byur
+    meaning: splash (BM onomatopoeia)
+    usage_note: Water play, rain scenes
+
+# Complexity guidelines for ages 5-7:
+# - Sentences: 5-12 words per sentence
+# - Paragraphs: 2-4 sentences per paragraph
+# - Page word count: 20-50 words per spread
+# - Syllable preference: 1-3 syllable words dominate
+# - Compound words: introduce gradually (e.g., "matahari" is familiar)
+# - Abstract concepts: only through concrete examples (sabar = waiting for turn)

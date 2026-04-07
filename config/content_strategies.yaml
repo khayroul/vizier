@@ -1,0 +1,219 @@
+# Content Strategies
+# Industry x Channel x Objective mappings.
+# Guides content production when operator provides industry + objective.
+# See architecture §38.4.
+
+strategies:
+
+  # === FOOD & BEVERAGE ===
+  food_beverage:
+    channels:
+      instagram:
+        objectives:
+          awareness:
+            content_types: [product_photo, behind_scenes, recipe_reel]
+            tone: warm, appetising, casual
+            posting_frequency: 4-5_per_week
+            code_switching: casual
+            best_times: ["12:00", "18:00", "21:00"]
+          engagement:
+            content_types: [poll, quiz, user_repost, food_challenge]
+            tone: playful, interactive
+            posting_frequency: 3-4_per_week
+            code_switching: casual
+          conversion:
+            content_types: [promo_poster, menu_highlight, limited_offer]
+            tone: urgent, appetising
+            posting_frequency: 2-3_per_week
+            code_switching: casual
+      facebook:
+        objectives:
+          awareness:
+            content_types: [album, story_post, video, event]
+            tone: warm, community-focused
+            posting_frequency: 3-4_per_week
+            code_switching: semi-formal
+          conversion:
+            content_types: [promo_post, event_boost, menu_pdf]
+            tone: clear, promotional
+            posting_frequency: 2-3_per_week
+            code_switching: semi-formal
+      tiktok:
+        objectives:
+          awareness:
+            content_types: [cooking_process, food_asmr, trending_sound]
+            tone: fun, authentic, raw
+            posting_frequency: 3-5_per_week
+            code_switching: casual
+
+  # === FASHION & TEXTILE ===
+  fashion_textile:
+    channels:
+      instagram:
+        objectives:
+          awareness:
+            content_types: [lookbook, flat_lay, styling_reel, behind_scenes]
+            tone: aspirational, trendy
+            posting_frequency: 4-5_per_week
+            code_switching: casual
+          engagement:
+            content_types: [outfit_poll, style_challenge, user_content]
+            tone: interactive, fun
+            posting_frequency: 3_per_week
+            code_switching: casual
+          conversion:
+            content_types: [new_arrival, sale_poster, collection_launch]
+            tone: exciting, urgent
+            posting_frequency: 2-3_per_week
+            code_switching: casual
+      facebook:
+        objectives:
+          awareness:
+            content_types: [collection_album, fabric_story, artisan_video]
+            tone: warm, storytelling
+            posting_frequency: 3_per_week
+            code_switching: semi-formal
+          conversion:
+            content_types: [sale_announcement, product_catalogue, live_sale]
+            tone: clear, promotional
+            posting_frequency: 2-3_per_week
+            code_switching: semi-formal
+
+  # === BEAUTY & WELLNESS ===
+  beauty_wellness:
+    channels:
+      instagram:
+        objectives:
+          awareness:
+            content_types: [product_flat_lay, tutorial_reel, ingredient_story]
+            tone: clean, educational, aspirational
+            posting_frequency: 4-5_per_week
+            code_switching: casual
+          engagement:
+            content_types: [before_after, routine_share, skin_quiz]
+            tone: relatable, supportive
+            posting_frequency: 3_per_week
+            code_switching: casual
+          conversion:
+            content_types: [bundle_offer, testimonial, limited_edition]
+            tone: trustworthy, exciting
+            posting_frequency: 2-3_per_week
+            code_switching: casual
+      tiktok:
+        objectives:
+          awareness:
+            content_types: [get_ready, routine_video, product_review]
+            tone: authentic, casual, educational
+            posting_frequency: 3-5_per_week
+            code_switching: casual
+
+  # === EDUCATION ===
+  education:
+    channels:
+      instagram:
+        objectives:
+          awareness:
+            content_types: [student_success, campus_life, info_carousel]
+            tone: inspiring, professional
+            posting_frequency: 3-4_per_week
+            code_switching: semi-formal
+          engagement:
+            content_types: [quiz, tips_carousel, alumni_spotlight]
+            tone: encouraging, educational
+            posting_frequency: 2-3_per_week
+            code_switching: semi-formal
+          conversion:
+            content_types: [enrollment_cta, scholarship_post, open_day]
+            tone: professional, urgent
+            posting_frequency: 2_per_week
+            code_switching: formal
+      facebook:
+        objectives:
+          awareness:
+            content_types: [achievement_post, event_coverage, article]
+            tone: professional, authoritative
+            posting_frequency: 3_per_week
+            code_switching: formal
+      linkedin:
+        objectives:
+          awareness:
+            content_types: [thought_leadership, research_finding, partnership]
+            tone: professional, authoritative
+            posting_frequency: 2_per_week
+            code_switching: none
+
+  # === PROFESSIONAL SERVICES ===
+  professional_services:
+    channels:
+      linkedin:
+        objectives:
+          awareness:
+            content_types: [thought_leadership, case_study, industry_insight]
+            tone: professional, expert
+            posting_frequency: 2-3_per_week
+            code_switching: none
+          conversion:
+            content_types: [service_highlight, client_testimonial, free_consultation]
+            tone: professional, approachable
+            posting_frequency: 1-2_per_week
+            code_switching: none
+      facebook:
+        objectives:
+          awareness:
+            content_types: [tips_post, behind_scenes, team_spotlight]
+            tone: approachable, professional
+            posting_frequency: 2-3_per_week
+            code_switching: semi-formal
+
+  # === RETAIL / ECOMMERCE ===
+  retail_ecommerce:
+    channels:
+      instagram:
+        objectives:
+          awareness:
+            content_types: [product_showcase, lifestyle_shot, unboxing_reel]
+            tone: exciting, aspirational
+            posting_frequency: 5-7_per_week
+            code_switching: casual
+          conversion:
+            content_types: [flash_sale, countdown, bundle_deal, free_shipping]
+            tone: urgent, exciting
+            posting_frequency: 3-5_per_week
+            code_switching: casual
+      tiktok:
+        objectives:
+          awareness:
+            content_types: [product_demo, haul, trending_sound]
+            tone: fun, authentic
+            posting_frequency: 3-5_per_week
+            code_switching: casual
+      shopee_lazada:
+        objectives:
+          conversion:
+            content_types: [product_listing, banner, voucher_promo]
+            tone: clear, promotional
+            posting_frequency: daily_during_campaigns
+            code_switching: semi-formal
+
+  # === HEALTHCARE ===
+  healthcare:
+    channels:
+      facebook:
+        objectives:
+          awareness:
+            content_types: [health_tip, doctor_spotlight, facility_tour]
+            tone: trustworthy, caring, professional
+            posting_frequency: 3_per_week
+            code_switching: formal
+          engagement:
+            content_types: [health_quiz, myth_buster, qa_session]
+            tone: educational, approachable
+            posting_frequency: 2_per_week
+            code_switching: semi-formal
+      instagram:
+        objectives:
+          awareness:
+            content_types: [info_carousel, wellness_tip, patient_story]
+            tone: clean, professional, caring
+            posting_frequency: 3_per_week
+            code_switching: semi-formal

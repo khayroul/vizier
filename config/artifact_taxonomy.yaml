@@ -1,0 +1,197 @@
+# Artifact Taxonomy
+# Complete classification of all artifact types Vizier can produce.
+# Source: Architecture §17.
+#
+# Classification rules:
+#   Editable?           -> editable_office
+#   Finished document?  -> final_form
+#   Visual/brand-led?   -> visual
+#   Time-based?         -> media
+#   Multiple outputs?   -> bundles
+#   Business ops?       -> bizops
+#   Info gathering?     -> research
+#   Automation/code?    -> system
+
+classes:
+
+  editable_office:
+    description: Editable office documents the client can modify
+    families:
+      documents:
+        types:
+          - proposal
+          - marketing_plan
+          - report
+          - company_profile
+          - content_calendar
+          - brief
+          - sop
+          - meeting_notes
+      spreadsheets:
+        types:
+          - budget
+          - tracking_sheet
+          - data_analysis
+          - pricing_table
+      presentations:
+        types:
+          - pitch_deck
+          - training_slides
+          - webinar_slides
+
+  final_form:
+    description: Finished rendered documents (PDF, EPUB)
+    families:
+      business_pdf:
+        types:
+          - invoice
+          - quotation
+          - receipt
+          - contract
+          - certificate
+      illustrated_books:
+        types:
+          - childrens_book
+          - picture_book
+          - comic
+      long_form:
+        types:
+          - ebook
+          - industry_guide
+          - novel
+          - serial_fiction
+          - course_material
+          - workbook
+
+  visual:
+    description: Visual/brand-led single-output artifacts
+    families:
+      promotional:
+        types:
+          - poster
+          - flyer
+          - banner
+          - social_graphic
+          - ad_creative
+          - menu
+          - packaging_mockup
+      multi_panel:
+        types:
+          - carousel
+          - infographic
+          - comparison_chart
+          - timeline_graphic
+      brochure:
+        types:
+          - bifold
+          - trifold
+          - gatefold
+          - booklet
+      web:
+        types:
+          - landing_page
+          - email_template
+          - newsletter
+
+  media:
+    description: Time-based or narrated content
+    families:
+      short_video:
+        types:
+          - reel
+          - story_video
+          - product_demo
+          - testimonial_clip
+      narrated:
+        types:
+          - podcast_script
+          - voiceover_script
+          - video_script
+
+  system:
+    description: Automation and code outputs
+    families:
+      automation:
+        types:
+          - api_integration
+          - workflow_script
+          - chatbot_flow
+      data:
+        types:
+          - dataset
+          - knowledge_card_batch
+          - embedding_export
+
+  bizops:
+    description: Business operations artifacts
+    families:
+      financial:
+        types:
+          - invoice
+          - payment_reminder
+          - revenue_report
+      pipeline:
+        types:
+          - lead_tracker
+          - proposal_followup
+          - client_health_report
+      client_health:
+        types:
+          - onboarding_summary
+          - quarterly_review
+          - churn_risk_alert
+
+  research:
+    description: Information gathering and analysis
+    families:
+      market_analysis:
+        types:
+          - competitor_analysis
+          - market_research
+          - trend_report
+          - audience_analysis
+      content_research:
+        types:
+          - topic_research
+          - seo_analysis
+          - hashtag_research
+          - content_audit
+
+  bundles:
+    description: Multiple coordinated outputs from a single brief
+    families:
+      marketing_bundle:
+        types:
+          - campaign_kit
+          - brand_launch_pack
+          - seasonal_bundle
+          - social_media_kit
+      educational_bundle:
+        types:
+          - course_package
+          - workshop_kit
+          - training_bundle
+
+# Mapping from artifact family to default workflow
+family_to_workflow:
+  promotional: poster_production
+  multi_panel: poster_production
+  brochure: brochure_production
+  documents: document_production
+  spreadsheets: document_production
+  presentations: document_production
+  business_pdf: document_production
+  illustrated_books: childrens_book_production
+  long_form: ebook_production
+  web: document_production
+  short_video: null  # not yet supported
+  narrated: document_production
+  automation: null
+  data: null
+  financial: invoice
+  pipeline: document_production
+  client_health: document_production
+  market_analysis: research
+  content_research: research
+  marketing_bundle: null  # decomposed into individual jobs
+  educational_bundle: null

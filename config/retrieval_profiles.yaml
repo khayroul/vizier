@@ -1,0 +1,129 @@
+# Retrieval Profiles
+# Controls how many knowledge cards, exemplars, and context to inject
+# per artifact type during production.
+# Consumed by S11 (routing) and S18 (knowledge spine).
+#
+# Parameters:
+#   knowledge_cards_top_k:  max cards to retrieve from knowledge_cards table
+#   knowledge_min_score:    cosine similarity threshold for card inclusion (0-1)
+#   exemplars_top_k:        max exemplar artifacts to retrieve
+#   exemplar_min_score:     cosine similarity threshold for exemplar inclusion
+#   include_brand_patterns: whether to inject brand pattern context
+#   include_copy_patterns:  whether to inject copy formula patterns
+#   include_design_system:  whether to inject design system DESIGN.md content
+#   context_budget_tokens:  max tokens for all retrieved context combined
+#   embedding_model:        text-embedding-3-small (only model active Month 1-2)
+
+defaults:
+  embedding_model: text-embedding-3-small
+  knowledge_min_score: 0.65
+  exemplar_min_score: 0.50
+  include_brand_patterns: true
+  include_copy_patterns: false
+  include_design_system: false
+
+profiles:
+
+  poster:
+    knowledge_cards_top_k: 5
+    exemplars_top_k: 3
+    include_copy_patterns: true
+    include_design_system: true
+    context_budget_tokens: 2000
+    notes: >
+      Visual artifacts need design system + copy patterns.
+      Exemplar injection is key for style consistency.
+
+  brochure:
+    knowledge_cards_top_k: 5
+    exemplars_top_k: 3
+    include_copy_patterns: true
+    include_design_system: true
+    context_budget_tokens: 2500
+    notes: Multi-panel — slightly more context budget than poster.
+
+  document:
+    knowledge_cards_top_k: 8
+    exemplars_top_k: 2
+    include_copy_patterns: false
+    include_design_system: false
+    context_budget_tokens: 3000
+    notes: >
+      Text-heavy artifacts need more knowledge cards.
+      Design system less relevant for documents.
+
+  proposal:
+    knowledge_cards_top_k: 10
+    exemplars_top_k: 2
+    include_copy_patterns: false
+    include_design_system: false
+    context_budget_tokens: 3500
+    notes: Proposals need deep client/project context.
+
+  invoice:
+    knowledge_cards_top_k: 3
+    exemplars_top_k: 0
+    include_brand_patterns: false
+    include_copy_patterns: false
+    include_design_system: false
+    context_budget_tokens: 500
+    notes: Invoices are template-driven, minimal retrieval needed.
+
+  childrens_book:
+    knowledge_cards_top_k: 5
+    exemplars_top_k: 5
+    include_copy_patterns: false
+    include_design_system: true
+    context_budget_tokens: 3000
+    notes: >
+      High exemplar count for visual consistency across pages.
+      Design system for colour/style reference.
+      Knowledge cards for cultural context.
+
+  ebook:
+    knowledge_cards_top_k: 10
+    exemplars_top_k: 2
+    include_copy_patterns: false
+    include_design_system: false
+    context_budget_tokens: 4000
+    notes: >
+      Long-form needs deep knowledge context.
+      RollingContext (§43) handles per-section coherence.
+
+  research:
+    knowledge_cards_top_k: 15
+    exemplars_top_k: 0
+    include_brand_patterns: false
+    include_copy_patterns: false
+    include_design_system: false
+    context_budget_tokens: 5000
+    notes: >
+      Research workflows need maximum knowledge retrieval.
+      No exemplars — research produces analysis, not artifacts.
+
+  social_graphic:
+    knowledge_cards_top_k: 3
+    exemplars_top_k: 3
+    include_copy_patterns: true
+    include_design_system: true
+    context_budget_tokens: 1500
+    notes: Social graphics are fast and visual — lean context.
+
+  content_calendar:
+    knowledge_cards_top_k: 8
+    exemplars_top_k: 0
+    include_copy_patterns: true
+    include_design_system: false
+    context_budget_tokens: 2500
+    notes: Calendars need industry + seasonal context, not visual exemplars.
+
+  onboarding:
+    knowledge_cards_top_k: 5
+    exemplars_top_k: 0
+    include_brand_patterns: true
+    include_copy_patterns: false
+    include_design_system: true
+    context_budget_tokens: 2000
+    notes: >
+      Onboarding retrieves brand patterns for style matching.
+      No exemplars exist yet for new clients.

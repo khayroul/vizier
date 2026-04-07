@@ -1,0 +1,235 @@
+# Malaysian Marketing BM Vocabulary
+# Common BM terms used in Malaysian marketing copy.
+# Used by copy generation, code-switching rules, and quality checks.
+# Includes formal and informal registers.
+
+vocabulary:
+
+  # === PROMOTIONAL TERMS ===
+  - word: diskaun
+    meaning: discount
+    register: formal
+    usage: "Diskaun 30% untuk semua produk"
+
+  - word: percuma
+    meaning: free
+    register: universal
+    usage: "Penghantaran percuma ke seluruh Malaysia"
+
+  - word: tawaran
+    meaning: offer/deal
+    register: formal
+    usage: "Tawaran istimewa Hari Raya"
+
+  - word: jom
+    meaning: let's go / come on
+    register: casual
+    usage: "Jom shopping!"
+
+  - word: jimat
+    meaning: save (money)
+    register: universal
+    usage: "Jimat sehingga RM50"
+
+  - word: murah
+    meaning: cheap/affordable
+    register: universal
+    usage: "Harga murah setiap hari"
+
+  - word: promosi
+    meaning: promotion
+    register: formal
+    usage: "Promosi hebat bulan ini"
+
+  - word: istimewa
+    meaning: special
+    register: formal
+    usage: "Harga istimewa untuk pelanggan setia"
+
+  - word: hebat
+    meaning: great/awesome
+    register: casual
+    usage: "Tawaran hebat!"
+
+  - word: terhad
+    meaning: limited
+    register: formal
+    usage: "Stok terhad -- dapatkan sekarang"
+
+  # === CALL TO ACTION ===
+  - word: dapatkan sekarang
+    meaning: get it now
+    register: formal
+    usage: Primary CTA for formal copy
+
+  - word: tempah sekarang
+    meaning: book/order now
+    register: formal
+    usage: Service booking CTA
+
+  - word: hubungi kami
+    meaning: contact us
+    register: formal
+    usage: Enquiry CTA
+
+  - word: klik sini
+    meaning: click here
+    register: casual
+    usage: Digital CTA (social media, website)
+
+  - word: beli sekarang
+    meaning: buy now
+    register: universal
+    usage: E-commerce CTA
+
+  - word: daftar sekarang
+    meaning: register now
+    register: formal
+    usage: Event/course registration CTA
+
+  - word: cuba percuma
+    meaning: try for free
+    register: universal
+    usage: SaaS/service trial CTA
+
+  # === FESTIVE / SEASONAL ===
+  - word: Selamat Hari Raya
+    meaning: Happy Eid
+    register: formal
+    usage: Hari Raya Aidilfitri greetings
+
+  - word: maaf zahir dan batin
+    meaning: forgive me body and soul
+    register: formal
+    usage: "Raya forgiveness greeting -- always paired with Selamat Hari Raya"
+
+  - word: tahun baru
+    meaning: new year
+    register: universal
+    usage: CNY, Islamic New Year, or Gregorian New Year
+
+  - word: kemeriahan
+    meaning: festivity/celebration
+    register: formal
+    usage: "Kemeriahan Hari Raya bersama keluarga"
+
+  - word: balik kampung
+    meaning: return to hometown
+    register: casual
+    usage: "Raya travel theme -- deeply emotional for Malaysian audience"
+
+  - word: jualan mega
+    meaning: mega sale
+    register: universal
+    usage: 11.11, 12.12, year-end sales
+
+  # === BUSINESS / FORMAL ===
+  - word: perkhidmatan
+    meaning: service(s)
+    register: formal
+    usage: "Perkhidmatan profesional"
+
+  - word: kualiti
+    meaning: quality
+    register: formal
+    usage: "Kualiti terjamin"
+
+  - word: pelanggan
+    meaning: customer
+    register: formal
+    usage: "Kepuasan pelanggan adalah keutamaan kami"
+
+  - word: penghantaran
+    meaning: delivery
+    register: formal
+    usage: "Penghantaran percuma"
+
+  - word: jaminan
+    meaning: guarantee/warranty
+    register: formal
+    usage: "Jaminan wang dikembalikan"
+
+  - word: amanah
+    meaning: trust/trustworthy
+    register: formal
+    usage: "Jenama yang anda boleh percaya -- trust-based marketing"
+
+  - word: halal
+    meaning: permissible (Islamic)
+    register: universal
+    usage: "Halal certification mention -- mandatory for food/beauty"
+
+  - word: dipercayai
+    meaning: trusted
+    register: formal
+    usage: "Dipercayai sejak 2010"
+
+  # === SOCIAL MEDIA / CASUAL ===
+  - word: best
+    meaning: best (borrowed English, used casually in BM)
+    register: casual
+    usage: "'Memang best!' -- code-switched, very common"
+
+  - word: confirm
+    meaning: definitely (borrowed English)
+    register: casual
+    usage: "'Confirm sedap!' -- code-switched emphasis"
+
+  - word: power
+    meaning: powerful/great (borrowed English)
+    register: casual
+    usage: "'Power gila!' -- youth slang"
+
+  - word: gempak
+    meaning: impressive/awesome
+    register: casual
+    usage: "'Gempak habis!' -- Malay slang"
+
+  - word: padu
+    meaning: solid/impressive
+    register: casual
+    usage: "'Design padu!' -- Malay slang"
+
+  - word: laju
+    meaning: fast
+    register: casual
+    usage: "'Habis laju! Cepat grab' -- urgency"
+
+  - word: viral
+    meaning: viral (borrowed English)
+    register: casual
+    usage: "Produk viral di TikTok"
+
+  # === PARTICLES (MARKETING USE) ===
+  - word: lah
+    meaning: softener/emphasis particle
+    register: casual
+    usage: "'Beli lah!' -- softens command into friendly suggestion"
+
+  - word: kan
+    meaning: seeking agreement particle
+    register: casual
+    usage: "'Sedap kan?' -- creates connection with audience"
+
+  - word: tau
+    meaning: emphasis/you know
+    register: casual
+    usage: "'Murah tau!' -- emphasises value"
+
+  - word: je
+    meaning: only/just
+    register: casual
+    usage: "'RM9.90 je!' -- minimises perceived cost"
+
+  - word: ni
+    meaning: this (colloquial "ini")
+    register: casual
+    usage: "'Produk ni memang best' -- conversational proximity"
+
+# Register guidelines:
+# - Poster/print: formal register, minimal English
+# - Facebook: semi-formal, moderate code-switching
+# - Instagram: casual, heavy code-switching
+# - TikTok: casual, heaviest code-switching
+# - Children's books: pure BM, zero code-switching
+# - Corporate documents: formal BM or full English

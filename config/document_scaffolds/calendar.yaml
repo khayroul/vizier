@@ -1,0 +1,71 @@
+# Document Scaffold: Content Calendar
+# Defines section structure for content calendar documents.
+# See architecture §11.6.
+
+scaffold:
+  name: content_calendar
+  description: Weekly/monthly content calendar across social media platforms
+  typical_pages: 4-8
+  tone: organised, clear, actionable
+  language_default: en
+
+sections:
+  - id: cover
+    heading: null
+    required: true
+    content: >
+      Company/client logo, calendar title, period covered,
+      platforms included, prepared by.
+    typical_length_words: 20
+
+  - id: overview
+    heading: Monthly Overview
+    required: true
+    content: >
+      Key themes for the month, aligned events from Malaysian calendar,
+      posting frequency targets per platform,
+      content mix ratios (promotional / educational / engagement).
+    typical_length_words: 200
+
+  - id: weekly_grid
+    heading: Weekly Content Grid
+    required: true
+    content: >
+      Day-by-day content plan in grid format.
+      Columns: date, platform, content_type, topic/caption_brief,
+      visual_direction, hashtags, posting_time.
+      One row per post.
+    typical_length_words: 400
+
+  - id: content_pillars
+    heading: Content Pillars
+    required: true
+    content: >
+      3-5 content pillars with descriptions.
+      Pillar mix percentage per week.
+      Example topics per pillar.
+    typical_length_words: 200
+
+  - id: hashtag_strategy
+    heading: Hashtag Strategy
+    required: false
+    content: >
+      Brand hashtags, campaign hashtags, trending hashtags.
+      Platform-specific hashtag counts.
+    typical_length_words: 100
+
+  - id: kpis
+    heading: Success Metrics
+    required: false
+    content: >
+      Target metrics per platform: reach, engagement rate,
+      follower growth, click-through rate.
+    typical_length_words: 100
+
+  - id: notes
+    heading: Notes & Approvals
+    required: false
+    content: >
+      Special instructions, approval workflow,
+      asset requirements, collaboration notes.
+    typical_length_words: 50

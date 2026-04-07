@@ -1,0 +1,81 @@
+# Phase activation flags
+# Governs which capabilities are active. Policy evaluator (S8) reads this
+# to gate routing decisions. Anti-drift #2: phase.yaml governs.
+#
+# core + publishing are active at launch.
+# Extended phases activate as their sessions ship.
+
+phases:
+  core:
+    active: true
+    description: >
+      Poster, document, brochure, ebook, children's book production.
+      Research, refinement, onboarding, rework workflows.
+    includes:
+      - poster_production
+      - document_production
+      - brochure_production
+      - ebook_production
+      - childrens_book_production
+      - research
+      - refinement
+      - onboarding
+      - rework
+
+  publishing:
+    active: true
+    description: >
+      Compound artifact production — ebooks, illustrated children's books,
+      serialised fiction. First-class revenue lane, not extended.
+    includes:
+      - childrens_book_production
+      - ebook_production
+      - serial_fiction_production
+
+  research:
+    active: true
+    description: >
+      Market research, competitor analysis, content research workflows.
+    includes:
+      - research
+
+  social:
+    active: false
+    description: >
+      Social media batch production, caption generation, content calendars.
+      Activates when S22/S24 tools ship.
+    includes:
+      - social_batch
+      - social_caption
+      - content_calendar
+
+  extended_ops:
+    active: false
+    description: >
+      BizOps workflows — invoicing, proposals, company profiles.
+      Activates when S16 ships.
+    includes:
+      - invoice
+      - proposal
+      - company_profile
+
+  self_improvement:
+    active: false
+    description: >
+      Pattern detection, failure analysis, experiment framework,
+      drift detection. Activates when S19 ships.
+    includes:
+      - calibration
+      - drift_detection
+      - experiment_runner
+
+# Model lock — Month 1-2, anti-drift #54
+model_lock:
+  text_model: gpt-5.4-mini
+  scorer_model: gpt-5.4-mini
+  guardrail_model: gpt-5.4-mini
+  embedding_model: text-embedding-3-small
+  image_models:
+    - flux.2
+    - kontext
+    - nano-banana-pro

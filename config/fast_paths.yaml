@@ -1,0 +1,127 @@
+# Fast Path Routing
+# Deterministic patterns that bypass LLM classification.
+# When input matches a pattern, route directly to workflow at zero tokens.
+# See architecture §13.2 (fast-path routing).
+#
+# Each entry:
+#   pattern:        regex or keyword list to match against input
+#   workflow:       target workflow YAML in manifests/workflows/
+#   routing_method: always "fast_path" for these entries
+#   artifact_family: default artifact family for the match
+#   phase_gate:     which phase must be active (from config/phase.yaml)
+
+fast_paths:
+
+  - name: poster
+    pattern: "poster|banner|flyer|visual|graphic"
+    workflow: poster_production.yaml
+    routing_method: fast_path
+    artifact_family: promotional
+    phase_gate: core
+    notes: Simplest workflow — 4 stages
+
+  - name: document
+    pattern: "document|report|plan|proposal|profile|write|draft"
+    workflow: document_production.yaml
+    routing_method: fast_path
+    artifact_family: documents
+    phase_gate: core
+    notes: General document production
+
+  - name: invoice
+    pattern: "invoice|bil|invois|receipt|quotation"
+    workflow: invoice.yaml
+    routing_method: fast_path
+    artifact_family: business_pdf
+    phase_gate: extended_ops
+    notes: Typst to PDF, requires S16
+
+  - name: research
+    pattern: "research|analyse|competitor|market|trend|audit"
+    workflow: research.yaml
+    routing_method: fast_path
+    artifact_family: market_analysis
+    phase_gate: core
+    notes: Standalone research workflow
+
+  - name: brochure
+    pattern: "brochure|brosur|bifold|trifold|pamphlet"
+    workflow: brochure_production.yaml
+    routing_method: fast_path
+    artifact_family: brochure
+    phase_gate: core
+
+  - name: content_calendar
+    pattern: "calendar|content calendar|jadual|schedule"
+    workflow: content_calendar.yaml
+    routing_method: fast_path
+    artifact_family: documents
+    phase_gate: social
+    notes: Structural stub until S22 builds tools
+
+  - name: social_batch
+    pattern: "social batch|social media pack|social kit|batch post"
+    workflow: social_batch.yaml
+    routing_method: fast_path
+    artifact_family: marketing_bundle
+    phase_gate: social
+    notes: Structural stub until S24 builds tools
+
+  - name: childrens_book
+    pattern: "children|kanak|kids book|picture book|buku cerita|buku kanak"
+    workflow: childrens_book_production.yaml
+    routing_method: fast_path
+    artifact_family: illustrated_books
+    phase_gate: core
+    notes: Most complex workflow — rolling_summary, creative_workshop, section_tripwire
+
+  - name: ebook
+    pattern: "ebook|e-book|guide|industry guide|long form|novel"
+    workflow: ebook_production.yaml
+    routing_method: fast_path
+    artifact_family: long_form
+    phase_gate: core
+    notes: Rolling context per section
+
+  - name: onboarding
+    pattern: "onboard|new client|client setup|warm start"
+    workflow: onboarding.yaml
+    routing_method: fast_path
+    artifact_family: null
+    phase_gate: core
+    notes: New client warm start
+
+  - name: rework
+    pattern: "rework|revision|fix|correct|perbaiki|ubah"
+    workflow: rework.yaml
+    routing_method: fast_path
+    artifact_family: null
+    phase_gate: core
+    notes: Post-delivery correction. Does NOT modify ArtifactSpec.
+
+# Client-specific fast paths
+# When a known client + artifact keyword is present, route directly.
+# These are additive — checked after generic patterns.
+client_fast_paths:
+
+  - name: dmb_poster
+    client_pattern: "dmb|darul makmur"
+    artifact_pattern: "poster|banner|flyer"
+    workflow: poster_production.yaml
+    routing_method: fast_path
+    artifact_family: promotional
+    phase_gate: core
+
+  - name: dmb_brochure
+    client_pattern: "dmb|darul makmur"
+    artifact_pattern: "brochure|brosur"
+    workflow: brochure_production.yaml
+    routing_method: fast_path
+    artifact_family: brochure
+    phase_gate: core
+
+# Fallback
+# If no fast path matches, route to LLM classification (S11 routing).
+fallback:
+  routing_method: llm_classify
+  model: gpt-5.4-mini

@@ -1,0 +1,92 @@
+# Document Scaffold: Proposal
+# Defines section structure for business proposals.
+# Consumed by document_production and proposal workflows.
+# See architecture §11.6.
+
+scaffold:
+  name: proposal
+  description: Business proposal for services or projects
+  typical_pages: 8-15
+  tone: professional, confident, solution-oriented
+  language_default: en
+
+sections:
+  - id: cover
+    heading: null
+    required: true
+    content: >
+      Company logo, proposal title, client name, date, reference number.
+      Clean, branded cover page.
+    typical_length_words: 20
+
+  - id: executive_summary
+    heading: Executive Summary
+    required: true
+    content: >
+      One-page overview: problem statement, proposed solution,
+      key benefits, investment summary. Written last, placed first.
+    typical_length_words: 200
+
+  - id: understanding
+    heading: Understanding Your Needs
+    required: true
+    content: >
+      Demonstrate understanding of client's situation, challenges,
+      and goals. Reference specific pain points from brief intake.
+    typical_length_words: 300
+
+  - id: scope
+    heading: Scope of Work
+    required: true
+    content: >
+      Detailed breakdown of deliverables, activities, and responsibilities.
+      Clear boundaries of what is and is not included.
+    typical_length_words: 400
+
+  - id: approach
+    heading: Our Approach
+    required: false
+    content: >
+      Methodology, process, tools used. Why this approach works.
+      Can include case study references.
+    typical_length_words: 300
+
+  - id: timeline
+    heading: Timeline & Milestones
+    required: true
+    content: >
+      Gantt-style or phase-based timeline. Key milestones and
+      review checkpoints. Delivery dates.
+    typical_length_words: 150
+
+  - id: pricing
+    heading: Investment
+    required: true
+    content: >
+      Itemised pricing with clear descriptions. Payment terms.
+      Optional: tiered pricing (basic/standard/premium).
+    typical_length_words: 200
+
+  - id: team
+    heading: Your Team
+    required: false
+    content: >
+      Key personnel involved, their roles and relevant experience.
+      Photos optional.
+    typical_length_words: 150
+
+  - id: terms
+    heading: Terms & Conditions
+    required: true
+    content: >
+      Payment schedule, revision policy, IP ownership,
+      confidentiality, cancellation terms.
+    typical_length_words: 300
+
+  - id: next_steps
+    heading: Next Steps
+    required: true
+    content: >
+      Clear CTA: what the client needs to do to proceed.
+      Contact information, validity period of proposal.
+    typical_length_words: 100

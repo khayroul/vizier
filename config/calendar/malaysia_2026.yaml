@@ -1,0 +1,388 @@
+# Malaysian Calendar and Events 2026
+# ~50 events covering festive, commercial, school, state-level occasions.
+# Morning brief checks this to surface upcoming events and suggest campaigns.
+# See architecture §11.8.
+#
+# Fields:
+#   name:                Event name
+#   date:                Start date (YYYY-MM-DD)
+#   end_date:            End date if multi-day (optional)
+#   type:                festive | commercial | national | school | religious | state
+#   prep_window_days:    Days before event to start campaign prep
+#   industries_affected: Which industries should act on this event
+#   content_themes:      Suggested content angles
+
+events:
+
+  # === JANUARY ===
+  - name: New Year's Day
+    date: 2026-01-01
+    type: national
+    prep_window_days: 14
+    industries_affected: [all]
+    content_themes: [new_beginnings, resolutions, fresh_start]
+
+  - name: Back to School
+    date: 2026-01-04
+    type: commercial
+    prep_window_days: 21
+    industries_affected: [education, stationery, fashion, food]
+    content_themes: [preparation, school_supplies, uniforms, back_to_routine]
+
+  - name: Thaipusam
+    date: 2026-01-25
+    type: festive
+    prep_window_days: 14
+    industries_affected: [all]
+    content_themes: [devotion, endurance, community, gratitude]
+
+  # === FEBRUARY ===
+  - name: Federal Territory Day
+    date: 2026-02-01
+    type: state
+    prep_window_days: 7
+    industries_affected: [retail, food, general]
+    content_themes: [city_pride, kuala_lumpur, putrajaya, labuan]
+
+  - name: Chinese New Year
+    date: 2026-02-17
+    end_date: 2026-02-18
+    type: festive
+    prep_window_days: 30
+    industries_affected: [all]
+    content_themes: [prosperity, reunion, family, ang_pow, abundance, mandarin_oranges]
+
+  - name: Valentine's Day
+    date: 2026-02-14
+    type: commercial
+    prep_window_days: 14
+    industries_affected: [food, beauty, fashion, retail, florist]
+    content_themes: [love, gifts, couple, romance]
+
+  # === MARCH ===
+  - name: Ramadan Begins
+    date: 2026-02-28
+    end_date: 2026-03-29
+    type: religious
+    prep_window_days: 21
+    industries_affected: [all]
+    content_themes: [fasting, spirituality, reflection, community, iftar, sahur, charity]
+
+  - name: Nuzul Al-Quran
+    date: 2026-03-17
+    type: religious
+    prep_window_days: 7
+    industries_affected: [all]
+    content_themes: [quran, revelation, gratitude, spirituality]
+
+  - name: Hari Raya Aidilfitri
+    date: 2026-03-30
+    end_date: 2026-03-31
+    type: festive
+    prep_window_days: 30
+    industries_affected: [all]
+    content_themes: [family, gratitude, forgiveness, new_beginnings, ketupat, baju_raya, open_house]
+
+  # === APRIL ===
+  - name: Hari Raya Aidilfitri (continued)
+    date: 2026-04-01
+    type: festive
+    prep_window_days: 0
+    industries_affected: [all]
+    content_themes: [open_house, balik_kampung, family, reunion]
+
+  - name: School Holiday (Mid-term 1)
+    date: 2026-03-28
+    end_date: 2026-04-05
+    type: school
+    prep_window_days: 14
+    industries_affected: [education, travel, food, entertainment]
+    content_themes: [family_time, travel, activities, rest]
+
+  - name: World Health Day
+    date: 2026-04-07
+    type: commercial
+    prep_window_days: 7
+    industries_affected: [healthcare, beauty, wellness, food]
+    content_themes: [health, wellness, self_care]
+
+  # === MAY ===
+  - name: Labour Day
+    date: 2026-05-01
+    type: national
+    prep_window_days: 7
+    industries_affected: [all]
+    content_themes: [workers, appreciation, hard_work, rest]
+
+  - name: Wesak Day
+    date: 2026-05-12
+    type: festive
+    prep_window_days: 7
+    industries_affected: [all]
+    content_themes: [enlightenment, compassion, peace, mindfulness]
+
+  - name: Mother's Day
+    date: 2026-05-10
+    type: commercial
+    prep_window_days: 14
+    industries_affected: [food, beauty, fashion, retail, florist]
+    content_themes: [mother, appreciation, love, family, gifts]
+
+  - name: School Holiday (Mid-year)
+    date: 2026-05-23
+    end_date: 2026-06-07
+    type: school
+    prep_window_days: 14
+    industries_affected: [travel, entertainment, education, food]
+    content_themes: [vacation, family_outing, enrichment, camps]
+
+  # === JUNE ===
+  - name: Hari Raya Haji
+    date: 2026-06-06
+    end_date: 2026-06-07
+    type: festive
+    prep_window_days: 21
+    industries_affected: [all]
+    content_themes: [sacrifice, faith, community, family, korban]
+
+  - name: Yang di-Pertuan Agong Birthday
+    date: 2026-06-01
+    type: national
+    prep_window_days: 7
+    industries_affected: [all]
+    content_themes: [loyalty, patriotism, nation]
+
+  - name: Father's Day
+    date: 2026-06-21
+    type: commercial
+    prep_window_days: 14
+    industries_affected: [food, fashion, retail, electronics]
+    content_themes: [father, appreciation, love, family, gifts]
+
+  - name: Awal Muharram (Islamic New Year)
+    date: 2026-06-27
+    type: religious
+    prep_window_days: 7
+    industries_affected: [all]
+    content_themes: [hijrah, new_beginnings, reflection, renewal]
+
+  # === JULY ===
+  - name: George Town Heritage Day
+    date: 2026-07-07
+    type: state
+    prep_window_days: 7
+    industries_affected: [tourism, food, culture]
+    content_themes: [heritage, penang, culture, history]
+
+  - name: Mid-Year Sales
+    date: 2026-07-01
+    end_date: 2026-07-31
+    type: commercial
+    prep_window_days: 14
+    industries_affected: [retail, fashion, electronics, beauty]
+    content_themes: [sale, discount, clearance, mid_year_deals]
+
+  # === AUGUST ===
+  - name: Maulidur Rasul (Prophet's Birthday)
+    date: 2026-08-06
+    type: religious
+    prep_window_days: 14
+    industries_affected: [all]
+    content_themes: [prophet, sunnah, love, mercy, community]
+
+  - name: Merdeka Day (National Day)
+    date: 2026-08-31
+    type: national
+    prep_window_days: 30
+    industries_affected: [all]
+    content_themes: [independence, patriotism, unity, malaysia, merdeka, national_pride]
+
+  - name: School Holiday (Mid-term 2)
+    date: 2026-08-22
+    end_date: 2026-08-30
+    type: school
+    prep_window_days: 14
+    industries_affected: [travel, entertainment, education, food]
+    content_themes: [short_break, family, activities]
+
+  # === SEPTEMBER ===
+  - name: Malaysia Day
+    date: 2026-09-16
+    type: national
+    prep_window_days: 21
+    industries_affected: [all]
+    content_themes: [unity, diversity, sabah, sarawak, formation_of_malaysia]
+
+  - name: Hari Malaysia Sales
+    date: 2026-09-09
+    end_date: 2026-09-16
+    type: commercial
+    prep_window_days: 14
+    industries_affected: [retail, fashion, electronics]
+    content_themes: [sale, patriotic_deals, malaysia_day_offers]
+
+  # === OCTOBER ===
+  - name: Deepavali
+    date: 2026-10-20
+    type: festive
+    prep_window_days: 21
+    industries_affected: [all]
+    content_themes: [light, triumph_over_darkness, family, prosperity, rangoli, sweets]
+
+  - name: 10.10 Sales
+    date: 2026-10-10
+    type: commercial
+    prep_window_days: 14
+    industries_affected: [retail, ecommerce, fashion, electronics]
+    content_themes: [flash_sale, online_deals, double_day]
+
+  - name: World Teachers' Day
+    date: 2026-10-05
+    type: commercial
+    prep_window_days: 7
+    industries_affected: [education, stationery, food]
+    content_themes: [teachers, appreciation, education, gratitude]
+
+  # === NOVEMBER ===
+  - name: 11.11 Singles' Day / Mega Sales
+    date: 2026-11-11
+    type: commercial
+    prep_window_days: 21
+    industries_affected: [retail, ecommerce, fashion, electronics, beauty]
+    content_themes: [mega_sale, online_deals, shopee, lazada, double_day]
+
+  - name: School Holiday (Year-end)
+    date: 2026-11-21
+    end_date: 2026-12-31
+    type: school
+    prep_window_days: 14
+    industries_affected: [travel, entertainment, education, food]
+    content_themes: [vacation, year_end, family, travel, camps]
+
+  - name: Penang Heritage Month
+    date: 2026-11-01
+    end_date: 2026-11-30
+    type: state
+    prep_window_days: 14
+    industries_affected: [tourism, food, culture, retail]
+    content_themes: [heritage, culture, penang, food, tourism]
+
+  # === DECEMBER ===
+  - name: 12.12 Year-End Sales
+    date: 2026-12-12
+    type: commercial
+    prep_window_days: 21
+    industries_affected: [retail, ecommerce, fashion, electronics, beauty]
+    content_themes: [year_end_sale, mega_deals, last_chance, gift_shopping]
+
+  - name: Christmas
+    date: 2026-12-25
+    type: festive
+    prep_window_days: 21
+    industries_affected: [retail, food, fashion, beauty, entertainment]
+    content_themes: [celebration, gifts, joy, year_end, holiday]
+
+  - name: Year-End Countdown
+    date: 2026-12-31
+    type: commercial
+    prep_window_days: 7
+    industries_affected: [food, entertainment, retail]
+    content_themes: [new_year_eve, countdown, reflection, celebration]
+
+  - name: Year-End School Holiday Activities
+    date: 2026-12-01
+    end_date: 2026-12-31
+    type: school
+    prep_window_days: 14
+    industries_affected: [education, entertainment, travel]
+    content_themes: [enrichment, camps, holiday_programs]
+
+  # === RECURRING / ALWAYS-ON ===
+  - name: Payday Season
+    date: 2026-01-25
+    type: commercial
+    prep_window_days: 5
+    industries_affected: [retail, food, ecommerce]
+    content_themes: [payday, treat_yourself, salary_in]
+    recurrence: monthly_25th
+
+  - name: Friday Prayer Reminder (Jumaat)
+    date: 2026-01-02
+    type: religious
+    prep_window_days: 1
+    industries_affected: [food, general]
+    content_themes: [jumuah, blessings, solat]
+    recurrence: weekly_friday
+
+  - name: Sarawak Day
+    date: 2026-07-22
+    type: state
+    prep_window_days: 7
+    industries_affected: [tourism, food, culture]
+    content_themes: [sarawak, borneo, independence, culture]
+
+  - name: Sabah Day
+    date: 2026-10-01
+    type: state
+    prep_window_days: 7
+    industries_affected: [tourism, food, culture]
+    content_themes: [sabah, borneo, culture, heritage]
+
+  - name: Israk and Mikraj
+    date: 2026-01-16
+    type: religious
+    prep_window_days: 7
+    industries_affected: [all]
+    content_themes: [spiritual_journey, faith, prayer, ascension]
+
+  - name: Hari Wilayah Persekutuan
+    date: 2026-02-01
+    type: state
+    prep_window_days: 7
+    industries_affected: [general]
+    content_themes: [kuala_lumpur, putrajaya, labuan]
+
+  - name: Hari Pekerja (Workers' Day)
+    date: 2026-05-01
+    type: national
+    prep_window_days: 7
+    industries_affected: [all]
+    content_themes: [workers, dignity, appreciation]
+
+  - name: Thaipusam Preparation
+    date: 2026-01-18
+    type: religious
+    prep_window_days: 7
+    industries_affected: [food, retail]
+    content_themes: [preparation, devotion, fasting]
+
+  - name: Harvest Festival (Sabah)
+    date: 2026-05-30
+    end_date: 2026-05-31
+    type: state
+    prep_window_days: 14
+    industries_affected: [tourism, food, agriculture, culture]
+    content_themes: [harvest, padi, kadazan, dusun, tapai, sumazau]
+
+  - name: Gawai Dayak (Sarawak)
+    date: 2026-06-01
+    end_date: 2026-06-02
+    type: state
+    prep_window_days: 14
+    industries_affected: [tourism, food, culture]
+    content_themes: [harvest, dayak, iban, bidayuh, tuak, ngajat]
+
+  - name: Hari Raya Aidilfitri Prep (Bazaar Ramadan)
+    date: 2026-03-01
+    end_date: 2026-03-29
+    type: commercial
+    prep_window_days: 7
+    industries_affected: [food, retail, fashion]
+    content_themes: [bazaar_ramadan, kuih, baju_raya, shopping]
+
+  - name: Back to School (Semester 2)
+    date: 2026-06-08
+    type: commercial
+    prep_window_days: 14
+    industries_affected: [education, stationery, fashion, food]
+    content_themes: [second_semester, school_supplies, preparation]
