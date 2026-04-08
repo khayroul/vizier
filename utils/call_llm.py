@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from typing import Any
 
 import httpx
@@ -154,6 +155,39 @@ def build_anthropic_request(
 # ---------------------------------------------------------------------------
 
 
+_RETRYABLE_STATUS = {502, 503, 529}
+_MAX_RETRIES = 2
+_RETRY_BACKOFF = (2.0, 5.0)  # seconds for retry 1, 2
+
+
+def _post_with_retry(
+    url: str,
+    *,
+    json: dict[str, Any],
+    headers: dict[str, str],
+    timeout: float = 120.0,
+) -> httpx.Response:
+    """HTTP POST with exponential backoff on 502/503/529."""
+    last_exc: httpx.HTTPStatusError | None = None
+    for attempt in range(_MAX_RETRIES + 1):
+        resp = httpx.post(url, json=json, headers=headers, timeout=timeout)
+        if resp.status_code not in _RETRYABLE_STATUS:
+            resp.raise_for_status()
+            return resp
+        # Retryable error
+        if attempt < _MAX_RETRIES:
+            wait = _RETRY_BACKOFF[attempt]
+            logger.warning(
+                "call_llm: %d from %s — retrying in %.1fs (attempt %d/%d)",
+                resp.status_code, url, wait, attempt + 1, _MAX_RETRIES,
+            )
+            time.sleep(wait)
+        else:
+            resp.raise_for_status()  # final attempt — raise
+    # Unreachable, but satisfies type checker
+    raise httpx.HTTPStatusError("Max retries exceeded", request=resp.request, response=resp)  # type: ignore[possibly-undefined]
+
+
 def _is_anthropic_model(model: str) -> bool:
     return model.startswith("claude")
 
@@ -193,13 +227,12 @@ def call_llm(
         api_key = os.environ.get("ANTHROPIC_API_KEY", "")
         headers["x-api-key"] = api_key
 
-        resp = httpx.post(
+        resp = _post_with_retry(
             "https://api.anthropic.com/v1/messages",
             json=body,
             headers=headers,
             timeout=120.0,
         )
-        resp.raise_for_status()
         data = resp.json()
 
         content = ""
@@ -221,7 +254,7 @@ def call_llm(
         )
         api_key = os.environ.get("OPENAI_API_KEY", "")
 
-        resp = httpx.post(
+        resp = _post_with_retry(
             "https://api.openai.com/v1/chat/completions",
             json=req_body,
             headers={
@@ -230,7 +263,6 @@ def call_llm(
             },
             timeout=120.0,
         )
-        resp.raise_for_status()
         data = resp.json()
 
         content = data["choices"][0]["message"]["content"]

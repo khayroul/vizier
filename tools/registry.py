@@ -83,6 +83,15 @@ def _image_generate(context: dict[str, Any]) -> dict[str, Any]:
     expanded = expand_brief(prompt)
     visual_prompt = expanded.get("composition", prompt)
 
+    # Anti-drift #49: text is rendered by Typst, never baked into images
+    _NO_TEXT = (
+        " The image must contain absolutely no text, no letters, no words, "
+        "no numbers, no logos, no watermarks. Leave clean blank space for "
+        "headline and body text to be overlaid by the layout engine."
+    )
+    if "no text" not in visual_prompt.lower():
+        visual_prompt = visual_prompt.rstrip(".") + "." + _NO_TEXT
+
     image_bytes = generate_image(prompt=visual_prompt, model=model)
 
     # Save to local file — prevents fal.ai CDN URL expiry issues

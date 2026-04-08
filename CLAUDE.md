@@ -19,6 +19,8 @@ Vizier is a governed, self-improving AI production engine. An operator directs i
 
 ## 2. Architecture Navigation Map
 
+**Tech scout injections:** `docs/VIZIER_TECH_SCOUT_INJECTION_CHECKLIST.md` — additions to worker prompts from tech scouting session. Control tower reads this BEFORE generating any worker prompt and includes relevant injections.
+
 **Read ONLY the sections listed for your session.** Do not read the full architecture document unless specifically asked.
 
 | Session | What You're Building | Read These Sections | Anti-Drift Rules |
