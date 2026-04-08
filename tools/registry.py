@@ -66,6 +66,37 @@ def _classify_artifact(context: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _sanitize_visual_prompt(prompt: str) -> str:
+    """Remove text-content leakage from visual prompts (anti-drift #49).
+
+    FLUX hallucinates gibberish when the prompt contains quoted text,
+    headline instructions, or layout/UI language. Strip those patterns
+    so the model generates a clean background image.
+    """
+    import re
+
+    # Remove quoted strings (text content that FLUX would try to render)
+    prompt = re.sub(r"['\"][^'\"]{3,}['\"]", "", prompt)
+    # Remove "headline: ...", "CTA: ...", "body: ..." lines
+    prompt = re.sub(
+        r"(?i)(headline|subheadline|cta|body text|body copy|"
+        r"caption|tagline|slogan|title|subtitle|footer|header"
+        r"|text reads|text says|include text|with text)\s*[:=][^\n.]*",
+        "",
+        prompt,
+    )
+    # Remove words that trigger layout/mockup generation
+    prompt = re.sub(
+        r"(?i)\b(website|mockup|ui |ux |wireframe|infographic"
+        r"|brochure layout|poster layout|flyer layout)\b",
+        "",
+        prompt,
+    )
+    # Collapse whitespace
+    prompt = re.sub(r"\s{2,}", " ", prompt).strip()
+    return prompt
+
+
 def _image_generate(context: dict[str, Any]) -> dict[str, Any]:
     """Generate an image via fal.ai with brief expansion (anti-drift #25)."""
     from pathlib import Path
@@ -83,14 +114,19 @@ def _image_generate(context: dict[str, Any]) -> dict[str, Any]:
     expanded = expand_brief(prompt)
     visual_prompt = expanded.get("composition", prompt)
 
-    # Anti-drift #49: text is rendered by Typst, never baked into images
+    # Anti-drift #49: text is rendered by Typst, never baked into images.
+    # Strip any quoted text, headline/body instructions, and text-layout
+    # language that makes FLUX try to render words.
+    visual_prompt = _sanitize_visual_prompt(visual_prompt)
+
+    # Final reinforcement — FLUX still hallucinates text otherwise
     _NO_TEXT = (
-        " The image must contain absolutely no text, no letters, no words, "
-        "no numbers, no logos, no watermarks. Leave clean blank space for "
-        "headline and body text to be overlaid by the layout engine."
+        " Photographic background image only. Absolutely no text, "
+        "no letters, no words, no numbers, no logos, no watermarks, "
+        "no UI elements, no mockups, no website layouts. "
+        "Clean visual scene suitable as a background."
     )
-    if "no text" not in visual_prompt.lower():
-        visual_prompt = visual_prompt.rstrip(".") + "." + _NO_TEXT
+    visual_prompt = visual_prompt.rstrip(".") + "." + _NO_TEXT
 
     image_bytes = generate_image(prompt=visual_prompt, model=model)
 
