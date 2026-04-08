@@ -203,7 +203,8 @@ class TestLoadClientStyle:
 class TestDeliver:
     """Test the delivery stage for poster workflows."""
 
-    def test_non_poster_workflow_noop(self) -> None:
+    def test_non_poster_workflow_returns_stub(self) -> None:
+        """Non-poster workflows return explicit stub status (fail-closed)."""
         from tools.registry import _deliver
 
         context: dict[str, Any] = {
@@ -211,7 +212,8 @@ class TestDeliver:
             "stage_results": [],
         }
         result = _deliver(context)
-        assert result["output"] == "delivered"
+        assert result["status"] == "stub"
+        assert "delivery_not_implemented" in result["output"]
 
     def test_poster_no_image(self) -> None:
         from tools.registry import _deliver

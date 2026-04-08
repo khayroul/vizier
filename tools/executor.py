@@ -408,9 +408,9 @@ class WorkflowExecutor:
                     self.rolling_context.get_context_window()
                 )
 
-            # Run tools for this stage — merge results without clobbering
-            # earlier tools' outputs (e.g. generate_poster sets poster_copy,
-            # image_generate must not erase it).
+            # Run tools for this stage — chain outputs so later tools see
+            # earlier tools' results (e.g. image_generate sees poster_copy
+            # from generate_poster). Merge without clobbering populated keys.
             stage_output: dict[str, Any] = {"stage": stage.name, "output": ""}
             for tool_name in stage.tools:
                 try:
@@ -418,7 +418,15 @@ class WorkflowExecutor:
                 except ToolNotFoundError:
                     trace.error = f"Tool '{tool_name}' not found in registry"
                     raise
-                tool_result = tool({**context, "prompt": prompt, "stage": stage.name})
+                # Chain: each tool sees the cumulative stage output so far
+                tool_context = {
+                    **context,
+                    "prompt": prompt,
+                    "stage": stage.name,
+                    "current_output": stage_output,
+                    "previous_tool_result": stage_output,
+                }
+                tool_result = tool(tool_context)
                 for key, value in tool_result.items():
                     if key in stage_output and stage_output[key] and not value:
                         continue  # don't overwrite populated key with empty

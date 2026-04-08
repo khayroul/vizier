@@ -85,7 +85,8 @@ class TestRunGovernedHappyPath:
 
         mock_route.assert_called_once_with("make a poster", client_id="c1", job_id="j1")
         mock_readiness.assert_called_once()
-        mock_policy_cls.return_value.evaluate.assert_called_once()
+        # Policy evaluate is called once for capability + once per workflow tool
+        assert mock_policy_cls.return_value.evaluate.call_count >= 1
         mock_executor_cls.return_value.run.assert_called_once()
         assert result["workflow"] == "poster_production"
 

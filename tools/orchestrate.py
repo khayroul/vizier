@@ -109,6 +109,8 @@ def run_governed(
         "job_id": job_id,
         "client_id": client_id,
         "raw_input": raw_input,
+        "artifact_family": family.value,
+        "language": spec.language,
         "routing": routing_result.model_dump(mode="json"),
         "readiness": readiness.model_dump(mode="json"),
     }
@@ -132,12 +134,34 @@ def run_governed(
 
         tool_registry = build_production_registry()
 
-    # Step 5: Execute workflow
+    # Step 5: Pre-flight tool gate — validate all workflow tools against policy
     workflow_path = _WORKFLOWS_DIR / f"{workflow_name}.yaml"
+    from tools.workflow_schema import load_workflow
+
+    pack = load_workflow(workflow_path)
+    for stage in pack.stages:
+        for tool_name in stage.tools:
+            tool_decision = evaluator.evaluate(PolicyRequest(
+                capability=workflow_name,
+                tool_name=tool_name,
+                job_id=job_id,
+                client_id=client_id,
+            ))
+            if tool_decision.action == PolicyAction.block:
+                raise PolicyDenied(
+                    f"Tool '{tool_name}' in stage '{stage.name}' blocked by policy: "
+                    f"{tool_decision.reason} (gate={tool_decision.gate})"
+                )
+
+    # Step 6: Execute workflow with tripwire scorer/reviser if available
+    scorer_fn = tool_registry.get("_tripwire_scorer")
+    reviser_fn = tool_registry.get("_tripwire_reviser")
     executor = WorkflowExecutor(
         workflow_path=workflow_path,
         tool_registry=tool_registry,
         client_id=client_id,
+        scorer_fn=scorer_fn,
+        reviser_fn=reviser_fn,
     )
     result = executor.run(job_context=job_context)
 

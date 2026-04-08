@@ -263,9 +263,14 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
     job_ctx = context.get("job_context", {})
     workflow = job_ctx.get("routing", {}).get("workflow", "")
 
-    # Only poster delivery is wired — others fall through to no-op
+    # Only poster delivery is fully wired — others return explicit stub
+    # so callers can distinguish real delivery from unimplemented paths.
     if workflow != "poster_production":
-        return {"status": "ok", "output": "delivered", "cost_usd": 0.0}
+        return {
+            "status": "stub",
+            "output": f"delivery_not_implemented for workflow '{workflow}'",
+            "cost_usd": 0.0,
+        }
 
     stage_results = context.get("stage_results", [])
 
@@ -399,6 +404,91 @@ def _summarise(context: dict[str, Any]) -> dict[str, Any]:
     return {
         "status": "ok",
         "output": result.get("content", ""),
+        "input_tokens": result.get("input_tokens", 0),
+        "output_tokens": result.get("output_tokens", 0),
+        "cost_usd": result.get("cost_usd", 0.0),
+    }
+
+
+def _tripwire_scorer(context: dict[str, Any]) -> dict[str, Any]:
+    """Default tripwire scorer — LLM-based quality critique (anti-drift #21).
+
+    Evaluates output against the stage's threshold and returns a score
+    with structured critique dimensions. Anti-drift #38: critique must
+    identify specific issues, not just return a score.
+    """
+    from utils.call_llm import call_llm
+
+    output_text = str(context.get("output", {}).get("output", ""))
+    stage = context.get("stage", "unknown")
+    threshold = context.get("threshold", 3.0)
+
+    result = call_llm(
+        stable_prefix=[{"role": "system", "content": (
+            "You are a quality scorer. Rate the output 1-5 on these dimensions: "
+            "relevance, completeness, clarity, accuracy. "
+            "Return JSON: {\"score\": <float>, \"critique\": "
+            "{\"relevance\": <1-5>, \"completeness\": <1-5>, "
+            "\"clarity\": <1-5>, \"accuracy\": <1-5>, "
+            "\"issues\": [\"specific issue 1\", ...]}}"
+        )}],
+        variable_suffix=[{"role": "user", "content": (
+            f"Stage: {stage}\nThreshold: {threshold}\n\nOutput to evaluate:\n{output_text[:2000]}"
+        )}],
+        model="gpt-5.4-mini",
+        temperature=0.0,
+        max_tokens=512,
+    )
+
+    import json as _json
+
+    try:
+        content = result.get("content", "").strip()
+        if content.startswith("```"):
+            content = content.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+        parsed = _json.loads(content)
+        return {
+            "score": float(parsed.get("score", 3.0)),
+            "critique": parsed.get("critique", {}),
+        }
+    except (ValueError, _json.JSONDecodeError):
+        logger.warning("Tripwire scorer returned non-JSON: %s", content[:100])
+        return {"score": 3.0, "critique": {}}
+
+
+def _tripwire_reviser(context: dict[str, Any]) -> dict[str, Any]:
+    """Default tripwire reviser — LLM-based revision from critique (anti-drift #38).
+
+    Takes the original output and structured critique, produces a revised version
+    addressing the specific issues identified.
+    """
+    from utils.call_llm import call_llm
+
+    original = str(context.get("original_output", {}).get("output", ""))
+    critique = context.get("critique", {})
+    issues = critique.get("issues", [])
+    stage = context.get("stage", "unknown")
+    attempt = context.get("attempt", 1)
+
+    result = call_llm(
+        stable_prefix=[{"role": "system", "content": (
+            "You are a quality reviser. Given the original output and specific "
+            "quality issues, produce a revised version that addresses each issue. "
+            "Return only the revised content."
+        )}],
+        variable_suffix=[{"role": "user", "content": (
+            f"Stage: {stage} (revision attempt {attempt})\n"
+            f"Issues to fix: {issues}\n\n"
+            f"Original output:\n{original[:2000]}"
+        )}],
+        model="gpt-5.4-mini",
+        temperature=0.3,
+        max_tokens=2048,
+    )
+
+    return {
+        "status": "ok",
+        "output": result.get("content", original),
         "input_tokens": result.get("input_tokens", 0),
         "output_tokens": result.get("output_tokens", 0),
         "cost_usd": result.get("cost_usd", 0.0),
@@ -727,4 +817,7 @@ def build_production_registry() -> dict[str, Any]:
             "Handled by executor tripwire logic, not a tool",
         ),
         "character_consistency": _character_verify,
+        # --- Tripwire (used by run_governed, not workflow YAMLs) ---
+        "_tripwire_scorer": _tripwire_scorer,
+        "_tripwire_reviser": _tripwire_reviser,
     }
