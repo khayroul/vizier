@@ -36,8 +36,8 @@ from contracts.publishing import (
     PageScaffold,
     PlanningObject,
     PlanningSection,
-    StyleLock,
     StoryBible,
+    StyleLock,
     TextImageRelationship,
     TextPlacementStrategy,
 )

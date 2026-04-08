@@ -167,7 +167,9 @@ def record_result(
 
     if exp:
         sample = exp["sample_size"] or 10
-        if (exp["control_count"] or 0) >= sample and (exp["experiment_count"] or 0) >= sample:
+        ctrl_done = (exp["control_count"] or 0) >= sample
+        exp_done = (exp["experiment_count"] or 0) >= sample
+        if ctrl_done and exp_done:
             evaluate_experiment(experiment_id)
 
 

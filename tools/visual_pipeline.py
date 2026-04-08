@@ -96,7 +96,11 @@ def run_visual_pipeline(
                 width=width,
                 height=height,
             )
-            trace.proof = {"model": model, "attempt": attempt, "size_bytes": len(image_bytes)}
+            trace.proof = {
+                "model": model,
+                "attempt": attempt,
+                "size_bytes": len(image_bytes),
+            }
 
         with collector.step(f"nima_prescreen_attempt_{attempt}") as trace:
             score = nima_score(image_bytes)
@@ -106,7 +110,11 @@ def run_visual_pipeline(
         if prescreen["action"] != "regenerate":
             break
 
-        logger.info("NIMA score %.2f < 4.0, regenerating (attempt %d/%d)", score, attempt + 1, max_regenerations)
+        logger.info(
+            "NIMA score %.2f < 4.0, regenerating "
+            "(attempt %d/%d)",
+            score, attempt + 1, max_regenerations,
+        )
 
     # Step 5+6: Critique + exemplar scoring
     with collector.step("critique_and_exemplar_scoring") as trace:

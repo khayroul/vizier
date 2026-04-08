@@ -200,7 +200,6 @@ class PatternDetector:
             if isinstance(quality, str):
                 quality = json.loads(quality)
             overall = quality.get("overall_score", 0.0)
-            approved = row["first_pass_approved"] or False
 
             for step in steps:
                 step_presence.setdefault(step, []).append((True, overall))
@@ -247,7 +246,10 @@ def generate_improvement_proposal(pattern: dict[str, Any]) -> dict[str, Any]:
         "id": str(uuid.uuid4()),
         "observation": f"Pattern '{pattern.get('pattern', 'unknown')}' detected",
         "proposed_change": f"Adjust based on pattern: {pattern.get('pattern', '')}",
-        "expected_impact": f"Approval rate delta: {pattern.get('approval_rate_with', 0) - pattern.get('approval_rate_without', 0):.1%}",
+        "expected_impact": _format_approval_delta(
+            pattern.get("approval_rate_with", 0),
+            pattern.get("approval_rate_without", 0),
+        ),
         "confidence": _confidence_level(sample_size),
         "sample_size": sample_size,
         "experiment_config": {
@@ -358,8 +360,11 @@ class FailureAnalysis:
             "Respond with JSON: {\"diagnosis\": \"...\", \"proposed_rule\": \"...\"}"
         )
 
+        sys_msg = (
+            "You are a production quality analyst."
+        )
         result = call_llm(
-            stable_prefix=[{"role": "system", "content": "You are a production quality analyst."}],
+            stable_prefix=[{"role": "system", "content": sys_msg}],
             variable_suffix=[{"role": "user", "content": prompt}],
             model="gpt-5.4-mini",
             temperature=0.3,
@@ -390,7 +395,8 @@ class FailureAnalysis:
             "sample_size": common.get("sample_size", 0),
         }
         path = _RULES_DIR / filename
-        path.write_text(yaml.dump(rule_data, default_flow_style=False), encoding="utf-8")
+        rule_text = yaml.dump(rule_data, default_flow_style=False)
+        path.write_text(rule_text, encoding="utf-8")
         logger.info("Saved improvement rule: %s", path)
 
 
@@ -415,10 +421,19 @@ class RuleManager:
             # Handle both single-rule and operators-list format
             if "operators" in content:
                 for op in content["operators"]:
-                    if artifact_type is None or artifact_type in op.get("applies_to", []):
+                    applies = op.get("applies_to", [])
+                    if (
+                        artifact_type is None
+                        or artifact_type in applies
+                    ):
                         rules.append(op)
             else:
-                if artifact_type is None or content.get("artifact_type") == artifact_type:
+                matches = (
+                    artifact_type is None
+                    or content.get("artifact_type")
+                    == artifact_type
+                )
+                if matches:
                     rules.append(content)
 
         return rules
@@ -446,38 +461,58 @@ class RuleManager:
 
 def format_proposal_message(proposal: dict[str, Any]) -> str:
     """Format an improvement proposal for Telegram notification."""
+    obs = proposal.get("observation", "unknown")
+    change = proposal.get("proposed_change", "")
+    impact = proposal.get("expected_impact", "")
+    conf = proposal.get("confidence", "low")
+    size = proposal.get("sample_size", 0)
     return (
-        f"\U0001f4a1 IMPROVEMENT PROPOSAL: {proposal.get('observation', 'unknown')}\n"
+        f"\U0001f4a1 IMPROVEMENT PROPOSAL: {obs}\n"
         f"\n"
-        f"Observation: {proposal.get('observation', '')}\n"
-        f"Proposed change: {proposal.get('proposed_change', '')}\n"
-        f"Expected: {proposal.get('expected_impact', '')}\n"
-        f"Confidence: {proposal.get('confidence', 'low')} ({proposal.get('sample_size', 0)} jobs)\n"
+        f"Observation: {obs}\n"
+        f"Proposed change: {change}\n"
+        f"Expected: {impact}\n"
+        f"Confidence: {conf} ({size} jobs)\n"
         f"\n"
-        f"/test \u2014 run experiment  |  /promote \u2014 apply now  |  /reject \u2014 discard"
+        "/test \u2014 run experiment  "
+        "|  /promote \u2014 apply now  "
+        "|  /reject \u2014 discard"
     )
 
 
 def format_experiment_result(result: dict[str, Any]) -> str:
     """Format experiment completion for Telegram notification."""
+    name = result.get("name", "unknown")
+    ctrl_appr = result.get("control_approved", 0)
+    ctrl_total = result.get("control_total", 0)
+    ctrl_cost = result.get("control_avg_cost", 0)
+    exp_appr = result.get("experiment_approved", 0)
+    exp_total = result.get("experiment_total", 0)
+    exp_cost = result.get("experiment_avg_cost", 0)
     return (
-        f"\u2705 EXPERIMENT COMPLETE: {result.get('name', 'unknown')}\n"
-        f"Control: {result.get('control_approved', 0)}/{result.get('control_total', 0)} approved, "
-        f"{result.get('control_avg_cost', 0)} avg tokens\n"
-        f"Experiment: {result.get('experiment_approved', 0)}/{result.get('experiment_total', 0)} approved, "
-        f"{result.get('experiment_avg_cost', 0)} avg tokens\n"
-        f"/promote \u2014 lock it in  |  /extend \u2014 5 more jobs  |  /reject \u2014 revert"
+        f"\u2705 EXPERIMENT COMPLETE: {name}\n"
+        f"Control: {ctrl_appr}/{ctrl_total} approved, "
+        f"{ctrl_cost} avg tokens\n"
+        f"Experiment: {exp_appr}/{exp_total} approved, "
+        f"{exp_cost} avg tokens\n"
+        "/promote \u2014 lock it in  "
+        "|  /extend \u2014 5 more jobs  "
+        "|  /reject \u2014 revert"
     )
 
 
 def format_drift_alert(drift_data: dict[str, Any]) -> str:
     """Format drift detection alert for Telegram notification."""
+    orig = drift_data.get("original_avg", 0)
+    curr = drift_data.get("current_avg", 0)
+    drift = drift_data.get("drift", 0)
     return (
-        f"\u26a0\ufe0f DRIFT ALERT: Quality baseline may be shifting.\n"
-        f"Anchor set original avg: {drift_data.get('original_avg', 0)}/5\n"
-        f"Anchor set current scorer avg: {drift_data.get('current_avg', 0)}/5 "
-        f"(+{drift_data.get('drift', 0):.1f} drift)\n"
-        f"/review-anchors \u2014 open anchor review"
+        "\u26a0\ufe0f DRIFT ALERT: Quality baseline "
+        "may be shifting.\n"
+        f"Anchor set original avg: {orig}/5\n"
+        f"Anchor set current scorer avg: {curr}/5 "
+        f"(+{drift:.1f} drift)\n"
+        "/review-anchors \u2014 open anchor review"
     )
 
 
@@ -552,6 +587,15 @@ def _extract_common_features(cluster: list[dict[str, Any]]) -> dict[str, Any]:
         dim: count for dim, count in low_dims.items() if count >= 2
     }
     return features
+
+
+def _format_approval_delta(
+    rate_with: float,
+    rate_without: float,
+) -> str:
+    """Format approval rate delta as a string."""
+    delta = rate_with - rate_without
+    return f"Approval rate delta: {delta:.1%}"
 
 
 def _confidence_level(sample_size: int) -> str:

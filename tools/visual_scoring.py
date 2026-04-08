@@ -1,6 +1,7 @@
 """Visual scoring pipeline — NIMA pre-screen, 4-dim critique, exemplar scoring, lineage.
 
-NIMA runs locally on MPS (<100ms, zero tokens). Critique uses GPT-5.4-mini (anti-drift #22, #54).
+NIMA runs locally on MPS (<100ms, zero tokens).
+Critique uses GPT-5.4-mini (anti-drift #22, #54).
 Composition grammar rules are ADVISORY, not strict blockers (anti-drift #41).
 """
 
@@ -63,10 +64,10 @@ def nima_score(image_bytes: bytes) -> float:
     Returns:
         Mean aesthetic score (1.0-10.0 range). Baseline ~5.5 for random images.
     """
-    from PIL import Image
     import io
 
     import torch  # type: ignore[import-not-found]
+    from PIL import Image
 
     image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     tensor = _get_nima_transform()(image).unsqueeze(0)  # type: ignore[arg-type]
@@ -152,7 +153,8 @@ def critique_4dim(
         exemplar_descriptions: Optional descriptions of similar approved designs.
 
     Returns:
-        Dict keyed by dimension name, each with 'score' (float) and 'issues' (list[str]).
+        Dict keyed by dimension name, each with
+        'score' (float) and 'issues' (list[str]).
     """
     dims_config = _load_quality_dimensions()
     dimensions = dims_config["dimensions"]
@@ -178,7 +180,8 @@ def critique_4dim(
             f"Design brief: {json.dumps(brief, ensure_ascii=False)}\n"
             f"Image description: {image_description}"
             f"{exemplar_context}\n\n"
-            f"Return JSON: {{\"score\": <1-5>, \"issues\": [\"specific issue 1\", ...]}}"
+            "Return JSON: {\"score\": <1-5>, "
+            "\"issues\": [\"specific issue 1\", ...]}"
         )
 
         llm_result = call_llm(
@@ -258,12 +261,18 @@ def score_with_exemplars(
             top_k=3,
         )
     except (NotImplementedError, ImportError):
-        logger.info("retrieve_similar_exemplars not available, skipping exemplar scoring")
+        logger.info(
+            "retrieve_similar_exemplars not available, "
+            "skipping exemplar scoring",
+        )
         exemplars = []
 
     exemplar_descriptions = [
-        f"{ex.get('artifact_family', 'design')} (similarity: {ex.get('similarity', 0):.2f}, "
-        f"tags: {', '.join(ex.get('style_tags', []))})"
+        (
+            f"{ex.get('artifact_family', 'design')} "
+            f"(similarity: {ex.get('similarity', 0):.2f}, "
+            f"tags: {', '.join(ex.get('style_tags', []))})"
+        )
         for ex in exemplars
     ]
 
@@ -307,7 +316,8 @@ def record_visual_lineage(
     with get_cursor() as cur:
         cur.execute(
             """
-            INSERT INTO visual_lineage (job_id, artifact_id, asset_id, role, selection_reason)
+            INSERT INTO visual_lineage
+                (job_id, artifact_id, asset_id, role, selection_reason)
             VALUES (%s, %s, %s, %s, %s)
             """,
             (str(job_id), str(artifact_id) if artifact_id else None,

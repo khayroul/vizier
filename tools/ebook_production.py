@@ -39,7 +39,9 @@ def _expand_outline(
                 )}],
                 variable_suffix=[{"role": "user", "content": (
                     f"Expand this outline item into a section brief.\n"
-                    f"Section {idx + 1}: {item.get('title', '')} — {item.get('summary', '')}\n\n"
+                    f"Section {idx + 1}: "
+                    f"{item.get('title', '')} \u2014 "
+                    f"{item.get('summary', '')}\n\n"
                     "Provide:\n"
                     "1. Target word count (1000-3000)\n"
                     "2. Key points to cover (3-5 bullet points)\n"
@@ -181,7 +183,10 @@ def produce_ebook(
         medium_scope="section",
         checkpoints=[
             Checkpoint(description="introduction_complete", target_step=1),
-            Checkpoint(description="body_complete", target_step=max(1, len(outline) - 1)),
+            Checkpoint(
+                description="body_complete",
+                target_step=max(1, len(outline) - 1),
+            ),
             Checkpoint(description="conclusion_complete", target_step=len(outline)),
         ],
     )
@@ -234,7 +239,11 @@ def produce_ebook(
     if style_lock:
         colors = {
             "primary": style_lock.palette[0] if style_lock.palette else "#264653",
-            "secondary": style_lock.palette[1] if len(style_lock.palette) > 1 else "#FFF8F0",
+            "secondary": (
+                style_lock.palette[1]
+                if len(style_lock.palette) > 1
+                else "#FFF8F0"
+            ),
         }
         fonts = {"body": style_lock.typography}
 

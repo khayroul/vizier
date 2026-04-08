@@ -109,7 +109,10 @@ def _rescore_anchor(anchor: dict[str, Any]) -> float:
     )
 
     result = call_llm(
-        stable_prefix=[{"role": "system", "content": "You are a production quality scorer."}],
+        stable_prefix=[{
+            "role": "system",
+            "content": "You are a production quality scorer.",
+        }],
         variable_suffix=[{"role": "user", "content": prompt}],
         model="gpt-5.4-mini",
         temperature=0.1,
@@ -287,7 +290,10 @@ class ExemplarOptimiser:
         )
 
         result = call_llm(
-            stable_prefix=[{"role": "system", "content": "You are a design quality evaluator."}],
+            stable_prefix=[{
+                "role": "system",
+                "content": "You are a design quality evaluator.",
+            }],
             variable_suffix=[{"role": "user", "content": prompt}],
             model="gpt-5.4-mini",
             temperature=0.2,
@@ -326,7 +332,11 @@ class PromptVariationTester:
         test_cases = _load_test_cases(artifact_type)
 
         if len(test_cases) < 1:
-            return {"error": "No test cases found", "current_score": 0.0, "variants": []}
+            return {
+                "error": "No test cases found",
+                "current_score": 0.0,
+                "variants": [],
+            }
 
         # Score current template
         current_score = self._score_template(current_template, test_cases)
@@ -361,7 +371,11 @@ class PromptVariationTester:
             }],
             variable_suffix=[{
                 "role": "user",
-                "content": f"Rewrite this template (variant {index + 1}):\n\n{template[:2000]}",
+                "content": (
+                    f"Rewrite this template "
+                    f"(variant {index + 1}):\n\n"
+                    f"{template[:2000]}"
+                ),
             }],
             model="gpt-5.4-mini",
             temperature=0.8,
@@ -382,7 +396,10 @@ class PromptVariationTester:
         )
 
         result = call_llm(
-            stable_prefix=[{"role": "system", "content": "You are a prompt quality evaluator."}],
+            stable_prefix=[{
+                "role": "system",
+                "content": "You are a prompt quality evaluator.",
+            }],
             variable_suffix=[{"role": "user", "content": prompt}],
             model="gpt-5.4-mini",
             temperature=0.2,

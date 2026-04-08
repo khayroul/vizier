@@ -270,7 +270,11 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
             copy_text = stage_result["poster_copy"]
 
     if not image_path:
-        return {"status": "ok", "output": "delivered (no image produced)", "cost_usd": 0.0}
+        return {
+            "status": "ok",
+            "output": "delivered (no image produced)",
+            "cost_usd": 0.0,
+        }
 
     parsed = _parse_poster_copy(copy_text)
     style = _load_client_style(job_ctx.get("client_id", "default"))
@@ -315,7 +319,9 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
 
 def _readiness_check(context: dict[str, Any]) -> dict[str, Any]:
     """Evaluate spec readiness."""
-    from contracts.readiness import evaluate_readiness  # noqa: F401 — stub, will use when fleshed out
+    from contracts.readiness import (
+        evaluate_readiness,  # noqa: F401 — stub, will use when fleshed out
+    )
 
     # In production this would receive a ProvisionalArtifactSpec from context
     return {"status": "ok", "output": "readiness_checked", "cost_usd": 0.0}
@@ -371,7 +377,10 @@ def _summarise(context: dict[str, Any]) -> dict[str, Any]:
 
     prompt = context.get("prompt", "")
     result = call_llm(
-        stable_prefix=[{"role": "system", "content": "Summarise the research findings."}],
+        stable_prefix=[{
+            "role": "system",
+            "content": "Summarise the research findings.",
+        }],
         variable_suffix=[{"role": "user", "content": prompt}],
         model="gpt-5.4-mini",
         temperature=0.3,
@@ -453,17 +462,32 @@ def _generate_page_text(context: dict[str, Any]) -> dict[str, Any]:
 
 def _character_verify(context: dict[str, Any]) -> dict[str, Any]:
     """Verify character consistency across illustrations."""
-    return {"status": "ok", "output": "character_verified", "score": 0.9, "cost_usd": 0.0}
+    return {
+        "status": "ok",
+        "output": "character_verified",
+        "score": 0.9,
+        "cost_usd": 0.0,
+    }
 
 
 def _narrative_qa(context: dict[str, Any]) -> dict[str, Any]:
     """Run narrative quality checks on story content."""
-    return {"status": "ok", "output": "narrative_qa_passed", "score": 4.0, "cost_usd": 0.0}
+    return {
+        "status": "ok",
+        "output": "narrative_qa_passed",
+        "score": 4.0,
+        "cost_usd": 0.0,
+    }
 
 
 def _document_qa(context: dict[str, Any]) -> dict[str, Any]:
     """Run document quality checks."""
-    return {"status": "ok", "output": "document_qa_passed", "score": 4.0, "cost_usd": 0.0}
+    return {
+        "status": "ok",
+        "output": "document_qa_passed",
+        "score": 4.0,
+        "cost_usd": 0.0,
+    }
 
 
 def _generate_poster(context: dict[str, Any]) -> dict[str, Any]:
@@ -685,7 +709,13 @@ def build_production_registry() -> dict[str, Any]:
         "trace_insight": _trace_insight,
         # --- Policy-level tools (approved_tools in phase.yaml) ---
         "creative_workshop": _character_workshop,
-        "rolling_summary": _stub("rolling_summary", "Handled by executor rolling context, not a tool"),
-        "section_tripwire": _stub("section_tripwire", "Handled by executor tripwire logic, not a tool"),
+        "rolling_summary": _stub(
+            "rolling_summary",
+            "Handled by executor rolling context, not a tool",
+        ),
+        "section_tripwire": _stub(
+            "section_tripwire",
+            "Handled by executor tripwire logic, not a tool",
+        ),
         "character_consistency": _character_verify,
     }

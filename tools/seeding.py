@@ -192,9 +192,10 @@ def _seed_from_brand_patterns(client_id: str) -> list[dict[str, Any]]:
                 "tags": pattern.get("tags", ["brand_pattern"]),
             }
             prefix = contextualise_card(card, source_info)
-            cards.append(
-                _store_card(card, prefix, client_id, "brand_pattern", source_info["title"])
-            )
+            cards.append(_store_card(
+                card, prefix, client_id,
+                "brand_pattern", source_info["title"],
+            ))
 
     return cards
 
@@ -238,9 +239,10 @@ def _seed_from_copy_patterns(client_id: str) -> list[dict[str, Any]]:
                 "tags": pattern.get("tags", ["copy_pattern"]),
             }
             prefix = contextualise_card(card, source_info)
-            cards.append(
-                _store_card(card, prefix, client_id, "copy_pattern", source_info["title"])
-            )
+            cards.append(_store_card(
+                card, prefix, client_id,
+                "copy_pattern", source_info["title"],
+            ))
 
     return cards
 
@@ -270,7 +272,11 @@ def _store_card(
                 %s, %s, %s, 'active')
             RETURNING id
             """,
-            (client_id, client_id, source_type, source_title, card_data.get("domain", "general")),
+            (
+                client_id, client_id, source_type,
+                source_title,
+                card_data.get("domain", "general"),
+            ),
         )
         source_row = cur.fetchone()
         assert source_row is not None

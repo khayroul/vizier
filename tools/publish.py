@@ -19,7 +19,6 @@ from ebooklib import epub
 
 from contracts.context import RollingContext, TrackedEntity
 from contracts.publishing import (
-    AgeGroup,
     NarrativeScaffold,
     PageScaffold,
     StyleLock,
@@ -107,10 +106,23 @@ def _typst_header(
         f'#let book-author = "{_escape_typst(author)}"',
         f'#let age-group = "{age_group}"',
         "",
-        '#let body-size = if age-group == "3-5" { 20pt } else if age-group == "5-7" { 16pt } else { 14pt }',
-        '#let body-leading = if age-group == "3-5" { 1.5em } else if age-group == "5-7" { 1.4em } else { 1.3em }',
+        (
+            '#let body-size = if age-group == "3-5" '
+            '{ 20pt } else if age-group == "5-7" '
+            '{ 16pt } else { 14pt }'
+        ),
+        (
+            '#let body-leading = if age-group == "3-5" '
+            '{ 1.5em } else if age-group == "5-7" '
+            '{ 1.4em } else { 1.3em }'
+        ),
         "",
-        f"#set page(width: {page_width}, height: {page_height}, margin: (rest: 0pt), footer: none, header: none)",
+        (
+            f"#set page(width: {page_width}, "
+            f"height: {page_height}, "
+            "margin: (rest: 0pt), footer: none, "
+            "header: none)"
+        ),
         "#set text(font: body-font, size: body-size, fill: primary)",
         "#set par(leading: body-leading, spacing: 1.2em)",
         "",
@@ -127,11 +139,18 @@ def _title_page(strategy: TextPlacementStrategy, img_path: str) -> str:
     if strategy == TextPlacementStrategy.text_always_below:
         return "\n".join([
             "#page[",
-            f'  #box(width: 100%, height: 55%, clip: true)[#image("{img_path}", width: 100%, height: 100%, fit: "cover")]',
+            (
+                '  #box(width: 100%, height: 55%, clip: true)'
+                f'[#image("{img_path}", width: 100%, '
+                'height: 100%, fit: "cover")]'
+            ),
             "  #rect(width: 100%, height: 45%, fill: primary)[",
             "    #align(center + horizon)[",
             "      #pad(x: 2cm)[",
-            '        #text(font: heading-font, size: 36pt, weight: "bold", fill: secondary)[#book-title]',
+            (
+                '        #text(font: heading-font, size: 36pt, '
+                'weight: "bold", fill: secondary)[#book-title]'
+            ),
             "        #v(0.8em)",
             "        #text(size: 14pt, fill: secondary.darken(10%))[#book-author]",
             "      ]",
@@ -145,7 +164,11 @@ def _title_page(strategy: TextPlacementStrategy, img_path: str) -> str:
             "  #rect(width: 100%, height: 100%, fill: primary)[",
             "    #align(center + horizon)[",
             "      #pad(x: 2cm)[",
-            '        #text(font: heading-font, size: 30pt, weight: "bold", fill: secondary)[#book-title]',
+            (
+                '        #text(font: heading-font, '
+                'size: 30pt, weight: "bold", '
+                'fill: secondary)[#book-title]'
+            ),
             "        #v(1em)",
             "        #text(size: 14pt, fill: secondary.darken(10%))[#book-author]",
             "      ]",
@@ -159,7 +182,11 @@ def _title_page(strategy: TextPlacementStrategy, img_path: str) -> str:
         "  #rect(width: 100%, height: 100%, fill: primary)[",
         "    #align(center + horizon)[",
         "      #pad(x: 2cm)[",
-        '        #text(font: heading-font, size: 36pt, weight: "bold", fill: secondary)[#book-title]',
+        (
+            '        #text(font: heading-font, '
+            'size: 36pt, weight: "bold", '
+            'fill: secondary)[#book-title]'
+        ),
         "        #v(1em)",
         "        #text(size: 14pt, fill: secondary.darken(10%))[#book-author]",
         "      ]",
@@ -181,12 +208,20 @@ def _story_page(
         return "\n".join([
             f"// Page {page_num}",
             "#page[",
-            f'  #box(width: 100%, height: 60%, clip: true)[#image("{img_path}", width: 100%, height: 100%, fit: "cover")]',
+            (
+                '  #box(width: 100%, height: 60%, clip: true)'
+                f'[#image("{img_path}", width: 100%, '
+                'height: 100%, fit: "cover")]'
+            ),
             "  #rect(width: 100%, height: 40%, fill: secondary)[",
             "    #pad(x: 2cm, top: 1cm, bottom: 0.8cm)[",
             "      #align(center + horizon)[" + escaped + "]",
             "    ]",
-            f"    #place(bottom + center, dy: -0.4cm)[#text(size: 9pt, fill: luma(150))[{page_num}]]",
+            (
+                "    #place(bottom + center, dy: -0.4cm)"
+                "[#text(size: 9pt, fill: luma(150))"
+                f"[{page_num}]]"
+            ),
             "  ]",
             "]",
         ])
@@ -199,12 +234,23 @@ def _story_page(
             "    #pad(left: 1.5cm, right: 2cm, top: 3cm, bottom: 1.5cm)[",
             "      #align(horizon)[" + escaped + "]",
             "    ]",
-            f"    #place(bottom + left, dx: 1.5cm, dy: -0.5cm)[#text(size: 9pt, fill: luma(150))[{page_num}]]",
+            (
+                "    #place(bottom + left, dx: 1.5cm, "
+                "dy: -0.5cm)[#text(size: 9pt, "
+                f"fill: luma(150))[{page_num}]]"
+            ),
             "  ]",
             "]",
             "#page[",
-            f'  #image("{img_path}", width: 100%, height: 100%, fit: "cover")',
-            f"  #place(bottom + right, dx: -0.5cm, dy: -0.5cm)[#text(size: 9pt, fill: luma(150))[{page_num + 1}]]",
+            (
+                f'  #image("{img_path}", width: 100%, '
+                'height: 100%, fit: "cover")'
+            ),
+            (
+                "  #place(bottom + right, dx: -0.5cm, "
+                "dy: -0.5cm)[#text(size: 9pt, "
+                f"fill: luma(150))[{page_num + 1}]]"
+            ),
             "]",
         ])
     # text_overlay_with_reserved_zone — full-bleed + overlay
@@ -219,7 +265,11 @@ def _story_page(
         "      ]",
         "    ]",
         "  )",
-        f"  #place(bottom + right, dx: -0.5cm, dy: -0.3cm)[#text(size: 9pt, fill: white)[{page_num}]]",
+        (
+            "  #place(bottom + right, dx: -0.5cm, "
+            "dy: -0.3cm)[#text(size: 9pt, "
+            f"fill: white)[{page_num}]]"
+        ),
         "]",
     ])
 
@@ -236,11 +286,19 @@ def _closing_page(
         return "\n".join([
             f"// Closing — page {page_num}",
             "#page[",
-            f'  #box(width: 100%, height: 55%, clip: true)[#image("{img_path}", width: 100%, height: 100%, fit: "cover")]',
+            (
+                '  #box(width: 100%, height: 55%, clip: true)'
+                f'[#image("{img_path}", width: 100%, '
+                'height: 100%, fit: "cover")]'
+            ),
             "  #rect(width: 100%, height: 45%, fill: secondary)[",
             "    #align(center + horizon)[",
             "      #pad(x: 2cm)[",
-            '        #text(font: heading-font, size: 22pt, weight: "bold", fill: primary)[Tamat]',
+            (
+                '        #text(font: heading-font, '
+                'size: 22pt, weight: "bold", '
+                'fill: primary)[Tamat]'
+            ),
             "        #v(0.6em)",
             "        " + escaped,
             "        #v(1.5em)",
@@ -257,7 +315,11 @@ def _closing_page(
             "  #rect(width: 100%, height: 100%, fill: secondary)[",
             "    #align(center + horizon)[",
             "      #pad(x: 2cm)[",
-            '        #text(font: heading-font, size: 22pt, weight: "bold", fill: primary)[Tamat]',
+            (
+                '        #text(font: heading-font, '
+                'size: 22pt, weight: "bold", '
+                'fill: primary)[Tamat]'
+            ),
             "        #v(1em)",
             "        " + escaped,
             "        #v(2em)",
@@ -276,14 +338,22 @@ def _closing_page(
         "    rect(width: 100%, height: 30%, fill: white.transparentize(15%))[",
         "      #pad(x: 2cm, y: 0.8cm)[",
         "        #align(center + horizon)[",
-        '          #text(font: heading-font, size: 20pt, weight: "bold", fill: primary)[Tamat]',
+        (
+            '          #text(font: heading-font, '
+            'size: 20pt, weight: "bold", '
+            'fill: primary)[Tamat]'
+        ),
         "          #v(0.4em)",
         "          " + escaped,
         "        ]",
         "      ]",
         "    ]",
         "  )",
-        f"  #place(bottom + right, dx: -0.5cm, dy: -0.3cm)[#text(size: 9pt, fill: luma(100))[{page_num}]]",
+        (
+            "  #place(bottom + right, dx: -0.5cm, "
+            "dy: -0.3cm)[#text(size: 9pt, "
+            f"fill: luma(100))[{page_num}]]"
+        ),
         "]",
     ])
 
@@ -462,8 +532,12 @@ def assemble_ebook(
         input_args += ["--input", f"body_font={fonts['body']}"]
 
     env = {**os.environ, "TYPST_FONT_PATHS": str(_FONTS_DIR)}
+    compile_cmd = [
+        "typst", "compile", "--root", "/",
+        *input_args, str(typ_path), str(pdf_path),
+    ]
     result = subprocess.run(
-        ["typst", "compile", "--root", "/", *input_args, str(typ_path), str(pdf_path)],
+        compile_cmd,
         capture_output=True,
         text=True,
         env=env,
@@ -571,8 +645,12 @@ def assemble_document_pdf(
 
     pdf_path = output_dir / f"{template_name}.pdf"
     env = {**os.environ, "TYPST_FONT_PATHS": str(_FONTS_DIR)}
+    compile_cmd = [
+        "typst", "compile", "--root", "/",
+        *input_args, str(template_path), str(pdf_path),
+    ]
     result = subprocess.run(
-        ["typst", "compile", "--root", "/", *input_args, str(template_path), str(pdf_path)],
+        compile_cmd,
         capture_output=True,
         text=True,
         env=env,

@@ -85,12 +85,20 @@ def promote_template(
 
     # Inject version header into new content
     now_str = datetime.now(timezone.utc).isoformat()
-    header = f"version: {new_version}\nvalidation_score: 0.0\nlast_promoted_at: {now_str}\n"
+    header = (
+        f"version: {new_version}\n"
+        f"validation_score: 0.0\n"
+        f"last_promoted_at: {now_str}\n"
+    )
 
     # Replace existing header or prepend
     if re.search(r"^version:\s*\d+", new_content, re.MULTILINE):
         new_content = re.sub(
-            r"^version:\s*\d+", f"version: {new_version}", new_content, count=1, flags=re.MULTILINE
+            r"^version:\s*\d+",
+            f"version: {new_version}",
+            new_content,
+            count=1,
+            flags=re.MULTILINE,
         )
         new_content = re.sub(
             r"^last_promoted_at:\s*.+",
@@ -108,9 +116,16 @@ def promote_template(
     _log_system_state(
         version=new_version,
         change_type="template_promotion",
-        description=f"Promoted {path.name} v{old_version}→v{new_version}: {decision_note}",
+        description=(
+            f"Promoted {path.name} "
+            f"v{old_version}\u2192v{new_version}: "
+            f"{decision_note}"
+        ),
         changed_by="operator",
-        previous_state={"version": old_version, "content_hash": hash(current)},
+        previous_state={
+            "version": old_version,
+            "content_hash": hash(current),
+        },
     )
 
     # Log decision to docs/decisions/
@@ -194,10 +209,15 @@ def _log_system_state(
     with get_cursor() as cur:
         cur.execute(
             """
-            INSERT INTO system_state (version, change_type, change_description, changed_by, previous_state)
+            INSERT INTO system_state
+                (version, change_type, change_description,
+                 changed_by, previous_state)
             VALUES (%s, %s, %s, %s, %s)
             """,
-            (str(version), change_type, description, changed_by, json.dumps(previous_state)),
+            (
+                str(version), change_type, description,
+                changed_by, json.dumps(previous_state),
+            ),
         )
 
 

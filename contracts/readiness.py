@@ -25,12 +25,19 @@ class RefinementLimits(BaseModel):
     max_cycles: int = Field(default=4, ge=1, le=10)
     max_unanswered_clarifications: int = Field(default=2, ge=0)
     max_prototype_rounds: int = Field(default=3, ge=0)
-    cost_ceiling_usd: float = Field(default=5.0, ge=0.0, description="Max shaping cost before approval needed")
+    cost_ceiling_usd: float = Field(
+        default=5.0,
+        ge=0.0,
+        description="Max shaping cost before approval needed",
+    )
     convergence_threshold: float = Field(
         default=0.1,
         ge=0.0,
         le=1.0,
-        description="Minimum completeness improvement per 2 cycles to avoid non-convergence flag",
+        description=(
+            "Minimum completeness improvement per 2 cycles"
+            " to avoid non-convergence flag"
+        ),
     )
 
 
@@ -80,7 +87,9 @@ def evaluate_readiness(
         missing_nice.append("brand_config_id")
 
     # Calculate completeness
-    total_fields = 7  # objective, format, tone, copy_register, dimensions, page_count, brand_config
+    # objective, format, tone, copy_register,
+    # dimensions, page_count, brand_config
+    total_fields = 7
     filled = total_fields - len(missing_critical) - len(missing_nice)
     completeness = filled / total_fields
 
@@ -92,19 +101,31 @@ def evaluate_readiness(
             completeness=completeness,
             missing_critical=missing_critical,
             missing_nice_to_have=missing_nice,
-            reason=f"Max cycles ({limits.max_cycles}) reached with critical fields missing: {missing_critical}",
+            reason=(
+            f"Max cycles ({limits.max_cycles}) reached"
+            f" with critical fields missing: {missing_critical}"
+        ),
         )
 
     # Determine status
     if not missing_critical and completeness >= 0.8:
         status: Literal["ready", "shapeable", "blocked"] = "ready"
-        reason = "All critical fields present and completeness threshold met"
+        reason = (
+            "All critical fields present"
+            " and completeness threshold met"
+        )
     elif missing_critical and not spec.objective and not spec.raw_brief:
         status = "blocked"
-        reason = f"Cannot shape without objective or raw brief. Missing: {missing_critical}"
+        reason = (
+            "Cannot shape without objective or raw brief."
+            f" Missing: {missing_critical}"
+        )
     else:
         status = "shapeable"
-        reason = f"Missing critical: {missing_critical}, nice-to-have: {missing_nice}"
+        reason = (
+            f"Missing critical: {missing_critical},"
+            f" nice-to-have: {missing_nice}"
+        )
 
     return ReadinessResult(
         status=status,

@@ -13,7 +13,6 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
@@ -54,7 +53,11 @@ class StructuralRequirements(BaseModel):
     """Structural requirements for the artifact."""
 
     artifact_family: ArtifactFamily
-    language: str = Field(min_length=2, max_length=5, description="ISO language code or BM/EN")
+    language: str = Field(
+        min_length=2,
+        max_length=5,
+        description="ISO language code or BM/EN",
+    )
     page_count: int | None = Field(default=None, ge=1)
     dimensions: str | None = Field(default=None, description="e.g. '1080x1080', 'A4'")
     sections: list[str] | None = None
@@ -63,8 +66,14 @@ class StructuralRequirements(BaseModel):
 class StyleRequirements(BaseModel):
     """Style requirements for the artifact."""
 
-    tone: str | None = Field(default=None, description="e.g. 'formal', 'casual', 'playful'")
-    copy_register: str | None = Field(default=None, description="e.g. 'formal_bm', 'casual_bm'")
+    tone: str | None = Field(
+        default=None,
+        description="e.g. 'formal', 'casual', 'playful'",
+    )
+    copy_register: str | None = Field(
+        default=None,
+        description="e.g. 'formal_bm', 'casual_bm'",
+    )
     brand_config_id: str | None = None
     persona_id: str | None = None
     design_system: str | None = None
@@ -115,9 +124,18 @@ class ArtifactSpec(BaseModel):
     qa: QARequirements = Field(default_factory=QARequirements)
     delivery: DeliveryRequirements
 
-    objective: str = Field(min_length=1, description="What this artifact should achieve")
-    context: str | None = Field(default=None, description="Additional context for production")
-    model_preference: str = Field(default="gpt-5.4-mini", description="Anti-drift #54: GPT-5.4-mini Month 1-2")
+    objective: str = Field(
+        min_length=1,
+        description="What this artifact should achieve",
+    )
+    context: str | None = Field(
+        default=None,
+        description="Additional context for production",
+    )
+    model_preference: str = Field(
+        default="gpt-5.4-mini",
+        description="Anti-drift #54: GPT-5.4-mini Month 1-2",
+    )
 
     @model_validator(mode="after")
     def validate_completeness(self) -> ArtifactSpec:
@@ -170,7 +188,10 @@ class ProvisionalArtifactSpec(BaseModel):
     # Free-form
     objective: str | None = None
     context: str | None = None
-    raw_brief: str | None = Field(default=None, description="Original unstructured brief from client")
+    raw_brief: str | None = Field(
+        default=None,
+        description="Original unstructured brief from client",
+    )
 
     # Scoring (0.0 - 1.0)
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)

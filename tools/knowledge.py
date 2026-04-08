@@ -64,7 +64,8 @@ def ingest_card(
         }
         with get_cursor() as cur:
             cur.execute(
-                "SELECT source_type, title, domain FROM knowledge_sources WHERE id = %s",
+                "SELECT source_type, title, domain "
+                "FROM knowledge_sources WHERE id = %s",
                 (source_id,),
             )
             row = cur.fetchone()
@@ -98,7 +99,10 @@ def ingest_card(
         assert card_row is not None
 
     card_id = str(card_row["id"])
-    logger.info("Ingested card %s (type=%s, prefix=%d chars)", card_id, card_type, len(prefix))
+    logger.info(
+        "Ingested card %s (type=%s, prefix=%d chars)",
+        card_id, card_type, len(prefix),
+    )
     return card_id
 
 
@@ -132,7 +136,10 @@ def promote_exemplar(
         )
         fb_row = cur.fetchone()
         if fb_row and fb_row["anchor_set"]:
-            logger.info("Skipping exemplar promotion — anchor_set feedback (anti-drift #56)")
+            logger.info(
+                "Skipping exemplar promotion "
+                "\u2014 anchor_set feedback (anti-drift #56)",
+            )
             return None
 
     # Get artifact metadata (artifact_family derived from artifact_type —
@@ -201,8 +208,16 @@ def record_outcome(
                 outcome_data.get("revision_count", 0),
                 outcome_data.get("accepted_as_on_brand"),
                 outcome_data.get("human_feedback_summary"),
-                json.dumps(outcome_data.get("cost_summary")) if outcome_data.get("cost_summary") else None,
-                json.dumps(outcome_data.get("quality_summary")) if outcome_data.get("quality_summary") else None,
+                (
+                    json.dumps(outcome_data.get("cost_summary"))
+                    if outcome_data.get("cost_summary")
+                    else None
+                ),
+                (
+                    json.dumps(outcome_data.get("quality_summary"))
+                    if outcome_data.get("quality_summary")
+                    else None
+                ),
                 outcome_data.get("promote_to_exemplar", False),
             ),
         )

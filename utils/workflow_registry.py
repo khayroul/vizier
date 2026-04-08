@@ -136,7 +136,8 @@ def validate_workflow_registry(data: dict[str, Any] | None = None) -> None:
     phase_names = set(phase_config.get("phases", {}).keys())
 
     # Lazy import to avoid circular dependency:
-    # workflow_registry → contracts.artifact_spec → contracts/__init__ → contracts.routing → workflow_registry
+    # workflow_registry -> contracts.artifact_spec ->
+    # contracts/__init__ -> contracts.routing -> workflow_registry
     from contracts.artifact_spec import ArtifactFamily
 
     valid_families = {member.value for member in ArtifactFamily}
@@ -145,7 +146,10 @@ def validate_workflow_registry(data: dict[str, Any] | None = None) -> None:
     for wf_name in workflows:
         yaml_path = _WORKFLOWS_DIR / f"{wf_name}.yaml"
         if not yaml_path.exists():
-            errors.append(f"Registry workflow '{wf_name}' has no manifest at {yaml_path}")
+            errors.append(
+                f"Registry workflow '{wf_name}' "
+                f"has no manifest at {yaml_path}"
+            )
 
     # 2. Every manifest YAML has a registry entry
     if _WORKFLOWS_DIR.exists():
@@ -158,13 +162,19 @@ def validate_workflow_registry(data: dict[str, Any] | None = None) -> None:
     for wf_name, wf_cfg in workflows.items():
         family = wf_cfg.get("artifact_family", "")
         if family not in valid_families:
-            errors.append(f"Workflow '{wf_name}' has invalid artifact_family '{family}'")
+            errors.append(
+                f"Workflow '{wf_name}' has invalid "
+                f"artifact_family '{family}'"
+            )
 
     # 4. Every phase_gate matches a phase key in phase.yaml
     for wf_name, wf_cfg in workflows.items():
         gate = wf_cfg.get("phase_gate", "")
         if gate not in phase_names:
-            errors.append(f"Workflow '{wf_name}' has phase_gate '{gate}' not in phase.yaml")
+            errors.append(
+                f"Workflow '{wf_name}' has phase_gate "
+                f"'{gate}' not in phase.yaml"
+            )
 
     # 5. Every workflow in phase.yaml includes lists exists in the registry
     # Non-workflow capabilities (e.g. calibration tools) are allowed in
@@ -172,7 +182,9 @@ def validate_workflow_registry(data: dict[str, Any] | None = None) -> None:
     non_workflow_capabilities = {"calibration", "drift_detection", "experiment_runner"}
     for phase_name, phase_cfg in phase_config.get("phases", {}).items():
         for included_wf in phase_cfg.get("includes", []):
-            if included_wf not in workflows and included_wf not in non_workflow_capabilities:
+            not_in_registry = included_wf not in workflows
+            not_in_allowlist = included_wf not in non_workflow_capabilities
+            if not_in_registry and not_in_allowlist:
                 errors.append(
                     f"Phase '{phase_name}' includes '{included_wf}' which is "
                     "not in the workflow registry or the non-workflow allowlist"
@@ -181,7 +193,11 @@ def validate_workflow_registry(data: dict[str, Any] | None = None) -> None:
     # 6. Every family in artifact_family_density is a valid ArtifactFamily
     for family_name in density:
         if family_name not in valid_families:
-            errors.append(f"artifact_family_density key '{family_name}' is not a valid ArtifactFamily")
+            errors.append(
+                f"artifact_family_density key "
+                f"'{family_name}' is not a valid "
+                "ArtifactFamily"
+            )
 
     if errors:
         raise ConfigValidationError(

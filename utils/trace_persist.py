@@ -11,7 +11,6 @@ import logging
 from uuid import UUID
 
 from contracts.trace import ProductionTrace, TraceCollector
-
 from utils.database import get_cursor
 
 logger = logging.getLogger(__name__)
@@ -38,7 +37,11 @@ def persist_trace(job_id: str | UUID, trace: ProductionTrace) -> None:
         if cur.rowcount == 0:
             logger.warning("persist_trace: no job found with id=%s", job_id)
         else:
-            logger.info("Persisted trace for job %s (%d steps)", job_id, len(trace.steps))
+            logger.info(
+                "Persisted trace for job %s (%d steps)",
+                job_id,
+                len(trace.steps),
+            )
 
 
 def load_trace(job_id: str | UUID) -> ProductionTrace | None:
@@ -57,7 +60,9 @@ def load_trace(job_id: str | UUID) -> ProductionTrace | None:
         return ProductionTrace.model_validate(row["production_trace"])
 
 
-def collect_and_persist(job_id: str | UUID, collector: TraceCollector) -> ProductionTrace:
+def collect_and_persist(
+    job_id: str | UUID, collector: TraceCollector,
+) -> ProductionTrace:
     """Finalise a TraceCollector and persist to Postgres in one call.
 
     Returns the finalised ProductionTrace.

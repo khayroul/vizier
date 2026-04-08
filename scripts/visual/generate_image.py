@@ -8,7 +8,6 @@ from typing import Mapping
 
 import httpx
 import structlog
-
 from adapter.env_loader import ensure_env
 from middleware.deliverable_context import build_gateway_headers
 
@@ -49,7 +48,9 @@ def run(
     if not re.match(r"^[a-zA-Z0-9_/-]+$", effective_model) or ".." in effective_model:
         msg = f"Invalid model ID: {effective_model!r}"
         raise ValueError(msg)
-    gateway_base_url = os.environ.get("VIZIER_GATEWAY_BASE_URL", DEFAULT_GATEWAY_BASE_URL).rstrip("/")
+    gateway_base_url = os.environ.get(
+        "VIZIER_GATEWAY_BASE_URL", DEFAULT_GATEWAY_BASE_URL,
+    ).rstrip("/")
     headers = build_gateway_headers(source="pipeline", modality="image_generation")
     if gateway_headers:
         headers.update({str(key): str(value) for key, value in gateway_headers.items()})
@@ -68,7 +69,11 @@ def run(
         timeout=60,
     )
     if response.status_code != 200:
-        msg = f"Vizier gateway image generation failed with status {response.status_code}: {response.text}"
+        msg = (
+            f"Vizier gateway image generation failed "
+            f"with status {response.status_code}: "
+            f"{response.text}"
+        )
         raise RuntimeError(msg)
     data = response.json()
 

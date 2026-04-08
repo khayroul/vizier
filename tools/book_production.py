@@ -18,8 +18,8 @@ from contracts.publishing import (
     CharacterBible,
     NarrativeScaffold,
     PageScaffold,
-    StyleLock,
     StoryBible,
+    StyleLock,
 )
 from contracts.trace import TraceCollector
 from tools.illustrate import IllustrationPipeline
@@ -34,8 +34,14 @@ logger = logging.getLogger(__name__)
 
 # Page turn effect → text ending guidance
 _TURN_GUIDANCE: dict[str, str] = {
-    "continuation": "End mid-tension — the reader should feel compelled to turn the page.",
-    "reveal": "Start with a payoff or surprise that resolves the previous page's tension.",
+    "continuation": (
+        "End mid-tension \u2014 the reader should feel "
+        "compelled to turn the page."
+    ),
+    "reveal": (
+        "Start with a payoff or surprise that resolves "
+        "the previous page's tension."
+    ),
     "pause": "Provide a gentle landing — a moment of calm or reflection.",
     "climax": "This is the peak emotional moment. Maximum intensity.",
 }
@@ -63,7 +69,8 @@ def _generate_page_text(
         f"for age group {story_bible.target_age.value}. "
         f"Title: '{story_bible.title}'. "
         f"Theme: {story_bible.thematic_constraints.lesson}. "
-        f"Avoid: {', '.join(story_bible.thematic_constraints.avoid) or 'nothing specific'}."
+        "Avoid: "
+        f"{', '.join(story_bible.thematic_constraints.avoid) or 'nothing specific'}."
     )
     if persona_path:
         system_prompt += f"\nPersona: {persona_path}"
@@ -96,12 +103,21 @@ def _generate_page_text(
     # Step 2: Self-refine — critique
     with collector.step(f"critique_page_{page.page}") as trace:
         critique_result = call_llm(
-            stable_prefix=[{"role": "system", "content": "You are an editor for children's literature."}],
+            stable_prefix=[{
+                "role": "system",
+                "content": (
+                    "You are an editor for "
+                    "children's literature."
+                ),
+            }],
             variable_suffix=[{"role": "user", "content": (
-                f"Critique this children's book page text for age {story_bible.target_age.value}.\n"
-                f"Word target: {page.word_target} (±20%). Emotional beat: {page.emotional_beat}.\n"
+                "Critique this children's book page text "
+                f"for age {story_bible.target_age.value}.\n"
+                f"Word target: {page.word_target} (±20%). "
+                f"Emotional beat: {page.emotional_beat}.\n"
                 f"Text:\n{draft}\n\n"
-                "List specific issues: word count, age-appropriateness, emotional tone, flow."
+                "List specific issues: word count, "
+                "age-appropriateness, emotional tone, flow."
             )}],
             model="gpt-5.4-mini",
             temperature=0.3,
@@ -184,7 +200,10 @@ def produce_book(
         checkpoints=[
             Checkpoint(description="character_introduced", target_step=2),
             Checkpoint(description="conflict_established", target_step=4),
-            Checkpoint(description="resolution_reached", target_step=scaffold.page_count - 1),
+            Checkpoint(
+                description="resolution_reached",
+                target_step=scaffold.page_count - 1,
+            ),
         ],
     )
 
@@ -233,7 +252,10 @@ def produce_book(
                 if cp.description == page.checkpoint_progress and not cp.reached:
                     cp.reached = True
                     cp.reached_at = rolling_context.current_step - 1
-                    logger.info("Checkpoint '%s' reached at page %d", cp.description, page.page)
+                    logger.info(
+                        "Checkpoint '%s' reached at page %d",
+                        cp.description, page.page,
+                    )
 
     # Assembly
     with collector.step("assemble_pdf") as trace:

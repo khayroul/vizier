@@ -14,7 +14,6 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, model_validator
 
-
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
@@ -66,7 +65,10 @@ class FaceDetails(BaseModel):
     eyes: str = Field(min_length=1)
     nose: str = Field(min_length=1)
     mouth: str = Field(min_length=1)
-    distinctive: str = Field(default="", description="Distinctive features like dimples, scars")
+    distinctive: str = Field(
+        default="",
+        description="Distinctive features like dimples, scars",
+    )
 
 
 class HairDetails(BaseModel):
@@ -81,7 +83,10 @@ class PhysicalDescription(BaseModel):
 
     age: int = Field(ge=0)
     ethnicity: str = Field(min_length=1)
-    skin_tone: str = Field(min_length=4, description="Hex colour code, e.g. #8D6E63")
+    skin_tone: str = Field(
+        min_length=4,
+        description="Hex colour code, e.g. #8D6E63",
+    )
     height: str = Field(min_length=1)
     build: str = Field(min_length=1)
     face: FaceDetails
@@ -105,19 +110,40 @@ class ClothingDescription(BaseModel):
 class StyleNotes(BaseModel):
     """Art style notes for character rendering (§42.1)."""
 
-    art_style: str = Field(min_length=1, description="e.g. 'soft watercolour, Studio Ghibli influence'")
-    line_weight: str = Field(min_length=1, description="e.g. 'thin, delicate'")
-    colour_palette: str = Field(min_length=1, description="e.g. 'warm earth tones, soft pastels'")
-    never: list[str] = Field(default_factory=list, description="Things to never include")
-    always: list[str] = Field(default_factory=list, description="Things to always include")
+    art_style: str = Field(
+        min_length=1,
+        description="e.g. 'soft watercolour, Studio Ghibli influence'",
+    )
+    line_weight: str = Field(
+        min_length=1,
+        description="e.g. 'thin, delicate'",
+    )
+    colour_palette: str = Field(
+        min_length=1,
+        description="e.g. 'warm earth tones, soft pastels'",
+    )
+    never: list[str] = Field(
+        default_factory=list,
+        description="Things to never include",
+    )
+    always: list[str] = Field(
+        default_factory=list,
+        description="Things to always include",
+    )
 
 
 class ReferenceImages(BaseModel):
     """Operator-curated reference images for character consistency."""
 
-    front_view: str | None = Field(default=None, description="Path to front view image")
-    three_quarter: str | None = Field(default=None, description="Path to 3/4 view image")
-    profile: str | None = Field(default=None, description="Path to profile view image")
+    front_view: str | None = Field(
+        default=None, description="Path to front view image"
+    )
+    three_quarter: str | None = Field(
+        default=None, description="Path to 3/4 view image"
+    )
+    profile: str | None = Field(
+        default=None, description="Path to profile view image"
+    )
 
 
 class LoRAConfig(BaseModel):
@@ -218,18 +244,37 @@ class StoryBible(BaseModel):
 class CompositionGuide(BaseModel):
     """Composition guide for an illustration (§42.3)."""
 
-    camera: str = Field(min_length=1, description="e.g. close_up, medium_shot, wide_shot")
-    character_position: str = Field(min_length=1, description="e.g. centre, left_third, right_third")
-    background_detail: str = Field(min_length=1, description="minimal, medium, detailed")
-    colour_temperature: str = Field(min_length=1, description="warm, cool, neutral")
-    text_zone: str = Field(min_length=1, description="bottom_third, top_third, left_side, right_side")
+    camera: str = Field(
+        min_length=1,
+        description="e.g. close_up, medium_shot, wide_shot",
+    )
+    character_position: str = Field(
+        min_length=1,
+        description="e.g. centre, left_third, right_third",
+    )
+    background_detail: str = Field(
+        min_length=1,
+        description="minimal, medium, detailed",
+    )
+    colour_temperature: str = Field(
+        min_length=1,
+        description="warm, cool, neutral",
+    )
+    text_zone: str = Field(
+        min_length=1,
+        description=(
+            "bottom_third, top_third, left_side, right_side"
+        ),
+    )
 
 
 class TypographyConstraints(BaseModel):
     """Typography constraints per age group (§42.3)."""
 
     min_font_size_pt: int = Field(ge=8)
-    line_spacing_percent: int = Field(ge=100, description="e.g. 130 for 130%")
+    line_spacing_percent: int = Field(
+        ge=100, description="e.g. 130 for 130%"
+    )
     max_lines_per_page: int = Field(ge=1)
 
 
@@ -248,7 +293,10 @@ class PageScaffold(BaseModel):
     text_image_relationship: TextImageRelationship
     illustration_shows: str = Field(
         min_length=1,
-        description="Detailed description for illustration prompt. NOT derived from page text.",
+        description=(
+            "Detailed description for illustration prompt."
+            " NOT derived from page text."
+        ),
     )
     page_turn_effect: PageTurnEffect
     composition_guide: CompositionGuide
@@ -264,10 +312,26 @@ AGE_WORD_TARGETS: dict[AgeGroup, tuple[int, int]] = {
 
 # Age-calibrated typography (§42.3)
 AGE_TYPOGRAPHY: dict[AgeGroup, TypographyConstraints] = {
-    AgeGroup.age_3_5: TypographyConstraints(min_font_size_pt=20, line_spacing_percent=150, max_lines_per_page=3),
-    AgeGroup.age_5_7: TypographyConstraints(min_font_size_pt=16, line_spacing_percent=140, max_lines_per_page=4),
-    AgeGroup.age_8_10: TypographyConstraints(min_font_size_pt=14, line_spacing_percent=130, max_lines_per_page=8),
-    AgeGroup.age_10_12: TypographyConstraints(min_font_size_pt=12, line_spacing_percent=130, max_lines_per_page=12),
+    AgeGroup.age_3_5: TypographyConstraints(
+        min_font_size_pt=20,
+        line_spacing_percent=150,
+        max_lines_per_page=3,
+    ),
+    AgeGroup.age_5_7: TypographyConstraints(
+        min_font_size_pt=16,
+        line_spacing_percent=140,
+        max_lines_per_page=4,
+    ),
+    AgeGroup.age_8_10: TypographyConstraints(
+        min_font_size_pt=14,
+        line_spacing_percent=130,
+        max_lines_per_page=8,
+    ),
+    AgeGroup.age_10_12: TypographyConstraints(
+        min_font_size_pt=12,
+        line_spacing_percent=130,
+        max_lines_per_page=12,
+    ),
 }
 
 # Arc templates by age group (§42.3)
@@ -349,8 +413,13 @@ class StyleLock(BaseModel):
     """
 
     art_style: str = Field(min_length=1)
-    palette: list[str] = Field(min_length=1, description="Colour palette as hex or named colours")
-    typography: str = Field(min_length=1, description="Typography specification")
+    palette: list[str] = Field(
+        min_length=1,
+        description="Colour palette as hex or named colours",
+    )
+    typography: str = Field(
+        min_length=1, description="Typography specification"
+    )
     text_placement_strategy: TextPlacementStrategy
 
 
@@ -363,7 +432,9 @@ class PlanningSection(BaseModel):
     """A section within a planning object (chapter, page, scene)."""
 
     section_id: str = Field(min_length=1)
-    section_type: str = Field(description="chapter, page, scene, section")
+    section_type: str = Field(
+        description="chapter, page, scene, section"
+    )
     title: str = Field(default="")
     order: int = Field(ge=0)
     scaffold_page: int | None = Field(

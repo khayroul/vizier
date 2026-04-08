@@ -12,7 +12,6 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, Field, model_validator
 
-
 # ---------------------------------------------------------------------------
 # Sub-models
 # ---------------------------------------------------------------------------
@@ -84,7 +83,9 @@ class WorkflowPack(BaseModel):
     """
 
     name: str = Field(min_length=1)
-    posture: Literal["production", "research", "refinement", "onboarding"] = "production"
+    posture: Literal[
+        "production", "research", "refinement", "onboarding"
+    ] = "production"
 
     # Model routing — all gpt-5.4-mini Month 1-2
     model_preference: dict[str, str] = Field(default_factory=dict)
@@ -138,18 +139,28 @@ class WorkflowPack(BaseModel):
                 raise ValueError(msg)
 
         if self.scorer_model != _MONTH_1_2_MODEL:
-            msg = f"scorer_model must be '{_MONTH_1_2_MODEL}', got '{self.scorer_model}'"
+            msg = (
+                f"scorer_model must be "
+                f"'{_MONTH_1_2_MODEL}', "
+                f"got '{self.scorer_model}'"
+            )
             raise ValueError(msg)
 
         if self.scorer_fallback != _MONTH_1_2_MODEL:
-            msg = f"scorer_fallback must be '{_MONTH_1_2_MODEL}', got '{self.scorer_fallback}'"
+            msg = (
+                f"scorer_fallback must be "
+                f"'{_MONTH_1_2_MODEL}', "
+                f"got '{self.scorer_fallback}'"
+            )
             raise ValueError(msg)
 
         for guardrail in self.parallel_guardrails:
             if guardrail.model != _MONTH_1_2_MODEL:
                 msg = (
-                    f"parallel_guardrails['{guardrail.name}'].model = '{guardrail.model}' "
-                    f"violates anti-drift #22/#54."
+                    "parallel_guardrails"
+                    f"['{guardrail.name}'].model "
+                    f"= '{guardrail.model}' "
+                    "violates anti-drift #22/#54."
                 )
                 raise ValueError(msg)
 

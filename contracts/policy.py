@@ -30,8 +30,14 @@ class PolicyDecision(BaseModel):
 
     decision_id: UUID = Field(default_factory=uuid4)
     action: PolicyAction
-    reason: str = Field(min_length=1, description="Human-readable reason for the decision")
-    gate: str = Field(min_length=1, description="Which gate produced this: budget, tool, phase, cost")
+    reason: str = Field(
+        min_length=1,
+        description="Human-readable reason for the decision",
+    )
+    gate: str = Field(
+        min_length=1,
+        description="Which gate produced this: budget, tool, phase, cost",
+    )
     job_id: str | None = None
     client_id: str | None = None
     capability: str | None = Field(

@@ -56,22 +56,58 @@ def _load_seasonal_context() -> dict[str, Any]:
 
     # Malaysian seasonal context
     seasons: dict[str, dict[str, Any]] = {
-        "raya_aidilfitri": {"months": [3, 4], "label": "Hari Raya Aidilfitri season", "mood": "festive, warm, family"},
-        "raya_haji": {"months": [6, 7], "label": "Hari Raya Haji season", "mood": "devotional, respectful"},
-        "merdeka": {"months": [8, 9], "label": "Merdeka / Malaysia Day season", "mood": "patriotic, proud, united"},
-        "deepavali": {"months": [10, 11], "label": "Deepavali season", "mood": "bright, joyful, colourful"},
-        "christmas_year_end": {"months": [12, 1], "label": "Year-end / Christmas season", "mood": "celebratory, reflective"},
-        "cny": {"months": [1, 2], "label": "Chinese New Year season", "mood": "prosperous, festive, red-gold"},
-        "default": {"months": [], "label": "General season", "mood": "professional, warm"},
+        "raya_aidilfitri": {
+            "months": [3, 4],
+            "label": "Hari Raya Aidilfitri season",
+            "mood": "festive, warm, family",
+        },
+        "raya_haji": {
+            "months": [6, 7],
+            "label": "Hari Raya Haji season",
+            "mood": "devotional, respectful",
+        },
+        "merdeka": {
+            "months": [8, 9],
+            "label": "Merdeka / Malaysia Day season",
+            "mood": "patriotic, proud, united",
+        },
+        "deepavali": {
+            "months": [10, 11],
+            "label": "Deepavali season",
+            "mood": "bright, joyful, colourful",
+        },
+        "christmas_year_end": {
+            "months": [12, 1],
+            "label": "Year-end / Christmas season",
+            "mood": "celebratory, reflective",
+        },
+        "cny": {
+            "months": [1, 2],
+            "label": "Chinese New Year season",
+            "mood": "prosperous, festive, red-gold",
+        },
+        "default": {
+            "months": [],
+            "label": "General season",
+            "mood": "professional, warm",
+        },
     }
 
     for name, info in seasons.items():
         if name == "default":
             continue
         if month in info["months"]:
-            return {"season": name, "label": info["label"], "mood": info["mood"]}
+            return {
+                "season": name,
+                "label": info["label"],
+                "mood": info["mood"],
+            }
 
-    return {"season": "default", "label": "General season", "mood": "professional, warm"}
+    return {
+        "season": "default",
+        "label": "General season",
+        "mood": "professional, warm",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -145,17 +181,31 @@ def retrieve_knowledge(
     # Hybrid: merge semantic + FTS per variant
     all_merged: list[dict[str, Any]] = []
     for variant in variants:
-        fts = _search_fts(variant, client_id, document_set_id, n_candidates) if variant else []
-        merged = _rrf_merge(semantic, fts, rrf_w.get("dense", 1.0), rrf_w.get("sparse", 0.25))
+        fts = (
+            _search_fts(variant, client_id, document_set_id, n_candidates)
+            if variant
+            else []
+        )
+        merged = _rrf_merge(
+            semantic,
+            fts,
+            rrf_w.get("dense", 1.0),
+            rrf_w.get("sparse", 0.25),
+        )
         all_merged.extend(merged)
 
     # Deduplicate across variants
     best: dict[str, dict[str, Any]] = {}
     for item in all_merged:
         cid = str(item["id"])
-        if cid not in best or item.get("rrf_score", 0) > best[cid].get("rrf_score", 0):
+        existing_score = best[cid].get("rrf_score", 0) if cid in best else 0
+        if cid not in best or item.get("rrf_score", 0) > existing_score:
             best[cid] = item
-    deduped = sorted(best.values(), key=lambda x: x.get("rrf_score", 0), reverse=True)
+    deduped = sorted(
+        best.values(),
+        key=lambda x: x.get("rrf_score", 0),
+        reverse=True,
+    )
 
     # Rerank
     query_text = variants[0] if variants else query
@@ -193,7 +243,10 @@ def _retrieve_by_embedding_raw(
             ORDER BY similarity DESC
             LIMIT %s
         """
-        params = (embedding_str, client_id, document_set_id, embedding_str, min_score, top_k)
+        params = (
+            embedding_str, client_id, document_set_id,
+            embedding_str, min_score, top_k,
+        )
     else:
         query = """
             SELECT kc.id, kc.title, kc.content, kc.card_type, kc.tags,
@@ -328,17 +381,24 @@ def _rrf_merge(
 
     for rank, item in enumerate(semantic_results):
         card_id = str(item["id"])
-        scores[card_id] = scores.get(card_id, 0.0) + dense_weight / (_RRF_K + rank + 1)
+        rrf_score = dense_weight / (_RRF_K + rank + 1)
+        scores[card_id] = scores.get(card_id, 0.0) + rrf_score
         card_data[card_id] = item
 
     for rank, item in enumerate(fts_results):
         card_id = str(item["id"])
-        scores[card_id] = scores.get(card_id, 0.0) + sparse_weight / (_RRF_K + rank + 1)
+        rrf_score = sparse_weight / (_RRF_K + rank + 1)
+        scores[card_id] = scores.get(card_id, 0.0) + rrf_score
         if card_id not in card_data:
             card_data[card_id] = item
 
-    sorted_ids = sorted(scores, key=lambda cid: scores[cid], reverse=True)
-    return [{**card_data[cid], "rrf_score": scores[cid]} for cid in sorted_ids]
+    sorted_ids = sorted(
+        scores, key=lambda cid: scores[cid], reverse=True,
+    )
+    return [
+        {**card_data[cid], "rrf_score": scores[cid]}
+        for cid in sorted_ids
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -349,7 +409,8 @@ _QUERY_VARIANT_PREFIX: list[dict[str, str]] = [
     {
         "role": "system",
         "content": (
-            "You generate search query variants for a Malaysian marketing knowledge base. "
+            "You generate search query variants for a "
+            "Malaysian marketing knowledge base. "
             "Given a query, produce exactly 3 variants:\n"
             "1. Bahasa Melayu translation\n"
             "2. English synonym expansion (different words, same meaning)\n"
@@ -378,7 +439,11 @@ def _generate_query_variants(query: str, n: int = 4) -> list[str]:
         )
         raw = result["content"].strip()
         parsed = json.loads(raw)
-        variants = parsed.get("variants", parsed) if isinstance(parsed, dict) else parsed
+        variants = (
+            parsed.get("variants", parsed)
+            if isinstance(parsed, dict)
+            else parsed
+        )
         if isinstance(variants, list):
             return [query, *[str(v) for v in variants[:n - 1]]]
     except (json.JSONDecodeError, KeyError, TypeError):
@@ -395,9 +460,10 @@ _RERANK_PREFIX: list[dict[str, str]] = [
     {
         "role": "system",
         "content": (
-            "You are a relevance judge. Given a query and numbered candidate documents, "
-            "return the indices (0-based) of the most relevant documents, "
-            "ordered by relevance (most relevant first). "
+            "You are a relevance judge. Given a query and "
+            "numbered candidate documents, "
+            "return the indices (0-based) of the most relevant "
+            "documents, ordered by relevance (most relevant first). "
             'Return JSON: {"indices": [0, 3, 7, ...]}'
         ),
     },
@@ -414,13 +480,19 @@ def _rerank_with_llm(
     On JSON parse failure, falls back to input order (RRF-merged).
     """
     if len(candidates) <= top_k:
-        return [{**c, "relevance_score": 1.0 - (idx * 0.1)} for idx, c in enumerate(candidates)]
+        return [
+            {**c, "relevance_score": 1.0 - (idx * 0.1)}
+            for idx, c in enumerate(candidates)
+        ]
 
     numbered = "\n".join(
         f"[{i}] {c.get('title', '')} — {c.get('content', '')[:200]}"
         for i, c in enumerate(candidates)
     )
-    user_msg = f"Query: {query}\n\nCandidates:\n{numbered}\n\nReturn top {top_k} indices."
+    user_msg = (
+        f"Query: {query}\n\nCandidates:\n{numbered}"
+        f"\n\nReturn top {top_k} indices."
+    )
 
     try:
         result = call_llm(
@@ -446,8 +518,11 @@ def _rerank_with_llm(
     except (json.JSONDecodeError, KeyError, TypeError):
         logger.warning("Reranker JSON parse failed, falling back to RRF order")
 
-    # Fallback: return top_k in original order (immutable — no mutation)
-    return [{**c, "relevance_score": 1.0 - (idx * 0.1)} for idx, c in enumerate(candidates[:top_k])]
+    # Fallback: return top_k in original order (immutable)
+    return [
+        {**c, "relevance_score": 1.0 - (idx * 0.1)}
+        for idx, c in enumerate(candidates[:top_k])
+    ]
 
 
 # ---------------------------------------------------------------------------

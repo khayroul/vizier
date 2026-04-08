@@ -45,7 +45,10 @@ def load_series_context(series_id: str) -> RollingContext:
     if ctx_path.exists():
         data = json.loads(ctx_path.read_text(encoding="utf-8"))
         ctx = RollingContext.model_validate(data)
-        logger.info("Loaded series context for '%s' (step %d)", series_id, ctx.current_step)
+        logger.info(
+            "Loaded series context for '%s' (step %d)",
+            series_id, ctx.current_step,
+        )
         return ctx
 
     logger.info("No prior context for series '%s' — starting fresh", series_id)
@@ -75,7 +78,10 @@ def save_series_context(series_id: str, context: RollingContext) -> None:
         context.model_dump_json(indent=2),
         encoding="utf-8",
     )
-    logger.info("Saved series context for '%s' (step %d)", series_id, context.current_step)
+    logger.info(
+        "Saved series context for '%s' (step %d)",
+        series_id, context.current_step,
+    )
 
 
 def _load_entity_registry(series_id: str) -> list[dict[str, object]]:
@@ -174,8 +180,10 @@ def _generate_episode_outline(
     with collector.step(f"episode_{episode_number}_outline") as trace:
         result = call_llm(
             stable_prefix=[{"role": "system", "content": (
-                f"You are planning episode {episode_number} of a serial fiction series. "
-                f"Title: '{story_bible.title}'. Language: {story_bible.language}. "
+                "You are planning episode "
+                f"{episode_number} of a serial fiction "
+                f"series. Title: '{story_bible.title}'. "
+                f"Language: {story_bible.language}. "
                 f"Age group: {story_bible.target_age.value}. "
                 f"Theme: {story_bible.thematic_constraints.lesson}."
             )}],
@@ -183,7 +191,8 @@ def _generate_episode_outline(
                 f"Episode premise: {premise}\n"
                 f"Series context so far: {ctx_window}\n\n"
                 "Generate a 3-5 chapter outline for this episode. "
-                "For each chapter provide: chapter_number, title, summary (2-3 sentences). "
+                "For each chapter provide: chapter_number, "
+                "title, summary (2-3 sentences). "
                 "Output as JSON array."
             )}],
             model="gpt-5.4-mini",
@@ -257,15 +266,26 @@ def _generate_chapter(
     # 3-pass critique: narrative coherence, character consistency, arc progression
     critique_dims = [
         ("narrative_coherence", "Does the chapter flow logically? Any plot holes?"),
-        ("character_consistency", f"Are characters ({char_names}) consistent with prior episodes?"),
+        (
+            "character_consistency",
+            f"Are characters ({char_names}) consistent "
+            "with prior episodes?",
+        ),
         ("arc_progression", "Does this chapter advance the episode and series arcs?"),
     ]
 
     critique_combined = ""
     for dim_name, dim_question in critique_dims:
-        with collector.step(f"ep{episode_number}_ch{chapter_idx}_critique_{dim_name}") as trace:
+        step_name = (
+            f"ep{episode_number}_ch{chapter_idx}"
+            f"_critique_{dim_name}"
+        )
+        with collector.step(step_name) as trace:
             crit_result = call_llm(
-                stable_prefix=[{"role": "system", "content": "You are a fiction editor."}],
+                stable_prefix=[{
+                    "role": "system",
+                    "content": "You are a fiction editor.",
+                }],
                 variable_suffix=[{"role": "user", "content": (
                     f"Critique this chapter for {dim_name}:\n{dim_question}\n\n"
                     f"Chapter text:\n{draft}\n\n"

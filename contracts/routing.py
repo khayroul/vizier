@@ -53,11 +53,19 @@ class RoutingResult(BaseModel):
 
     routing_id: UUID = Field(default_factory=uuid4)
     job_id: str | None = None
-    workflow: str = Field(description="Selected workflow name, e.g. 'poster_production'")
+    workflow: str = Field(
+        description="Selected workflow name, e.g. 'poster_production'"
+    )
     model_preference: str = Field(default="gpt-5.4-mini", description="Anti-drift #54")
-    image_model: str | None = Field(default=None, description="Selected image model if applicable")
+    image_model: str | None = Field(
+        default=None,
+        description="Selected image model if applicable",
+    )
     design_system: str | None = None
-    fast_path: bool = Field(default=False, description="True if matched a fast-path pattern")
+    fast_path: bool = Field(
+        default=False,
+        description="True if matched a fast-path pattern",
+    )
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     reason: str = Field(default="", description="Why this route was chosen")
     token_cost: int = Field(default=0, description="Tokens consumed by routing")
@@ -111,7 +119,9 @@ def _is_phase_active(phase_gate: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def fast_path_route(raw_input: str, client_id: str | None = None) -> RoutingResult | None:
+def fast_path_route(
+    raw_input: str, client_id: str | None = None,
+) -> RoutingResult | None:
     """Deterministic pattern match against config/fast_paths.yaml.
 
     Returns RoutingResult with fast_path=True and token_cost=0, or None if
@@ -128,7 +138,12 @@ def fast_path_route(raw_input: str, client_id: str | None = None) -> RoutingResu
             if re.search(client_pat, text) and re.search(artifact_pat, text):
                 phase_gate = entry.get("phase_gate", "core")
                 if not _is_phase_active(phase_gate):
-                    logger.info("Phase '%s' inactive, skipping client fast-path '%s'", phase_gate, entry["name"])
+                    logger.info(
+                        "Phase '%s' inactive, skipping"
+                        " client fast-path '%s'",
+                        phase_gate,
+                        entry["name"],
+                    )
                     continue
                 workflow = entry["workflow"].replace(".yaml", "")
                 return RoutingResult(
@@ -145,7 +160,12 @@ def fast_path_route(raw_input: str, client_id: str | None = None) -> RoutingResu
         if re.search(pattern, text):
             phase_gate = entry.get("phase_gate", "core")
             if not _is_phase_active(phase_gate):
-                logger.info("Phase '%s' inactive, skipping fast-path '%s'", phase_gate, entry["name"])
+                logger.info(
+                    "Phase '%s' inactive, skipping"
+                    " fast-path '%s'",
+                    phase_gate,
+                    entry["name"],
+                )
                 continue
             workflow = entry["workflow"].replace(".yaml", "")
             return RoutingResult(
@@ -163,20 +183,27 @@ def fast_path_route(raw_input: str, client_id: str | None = None) -> RoutingResu
 # 2. LLM Router (~80 lines)
 # ---------------------------------------------------------------------------
 
-_LLM_ROUTING_SYSTEM = """You are Vizier's routing classifier. Given a user request, determine which workflow to use.
-
-Available workflows (only use active ones):
-{workflows}
-
-Respond with ONLY a JSON object:
-{{"workflow": "<workflow_name>", "confidence": <0.0-1.0>, "artifact_family": "<family>", "reason": "<brief reason>"}}
-
-Rules:
-- Choose the most specific workflow that matches the request
-- If the request is in Malay (BM), still route correctly
-- confidence should reflect how certain you are about the match
-- If you cannot determine a workflow, use "refinement" with low confidence
-"""
+_LLM_ROUTING_SYSTEM = (
+    "You are Vizier's routing classifier."
+    " Given a user request, determine which"
+    " workflow to use.\n"
+    "\nAvailable workflows (only use active ones):\n"
+    "{workflows}\n"
+    "\nRespond with ONLY a JSON object:\n"
+    '{{"workflow": "<workflow_name>",'
+    ' "confidence": <0.0-1.0>,'
+    ' "artifact_family": "<family>",'
+    ' "reason": "<brief reason>"}}\n'
+    "\nRules:\n"
+    "- Choose the most specific workflow"
+    " that matches the request\n"
+    "- If the request is in Malay (BM),"
+    " still route correctly\n"
+    "- confidence should reflect how certain"
+    " you are about the match\n"
+    "- If you cannot determine a workflow,"
+    ' use "refinement" with low confidence'
+)
 
 @track_span(step_type="routing")
 def llm_route(raw_input: str, client_id: str | None = None) -> RoutingResult:
@@ -216,7 +243,10 @@ def llm_route(raw_input: str, client_id: str | None = None) -> RoutingResult:
             workflow="refinement",
             confidence=0.3,
             token_cost=token_cost,
-            reason=f"LLM response unparseable, falling back to refinement: {content[:100]}",
+            reason=(
+                "LLM response unparseable,"
+                f" falling back to refinement: {content[:100]}"
+            ),
         )
 
     workflow = parsed.get("workflow", "refinement")
@@ -235,8 +265,11 @@ def llm_route(raw_input: str, client_id: str | None = None) -> RoutingResult:
 # 3. Iterative Refinement (~100 lines)
 # ---------------------------------------------------------------------------
 
-_REFINEMENT_SYSTEM = """You are Vizier's refinement assistant. The user's request is vague and needs clarification.
-Given what you know, ask 2-3 specific clarifying questions to shape the request into a production spec.
+_REFINEMENT_SYSTEM = """\
+You are Vizier's refinement assistant. \
+The user's request is vague and needs clarification.
+Given what you know, ask 2-3 specific clarifying \
+questions to shape the request into a production spec.
 
 Current spec state:
 {spec_state}
@@ -256,7 +289,10 @@ Respond with ONLY a JSON object:
 }}
 """
 
-_REFINEMENT_APPLY_SYSTEM = """You are Vizier's spec builder. Given a partial spec and user answers to clarifying questions, update the spec fields.
+_REFINEMENT_APPLY_SYSTEM = """\
+You are Vizier's spec builder. Given a partial spec \
+and user answers to clarifying questions, \
+update the spec fields.
 
 Current spec: {spec_json}
 Questions asked: {questions}
@@ -393,7 +429,10 @@ def _apply_answers(
                 answers=json.dumps(answers),
             )}
         ],
-        variable_suffix=[{"role": "user", "content": "Update the spec based on these answers."}],
+        variable_suffix=[{
+            "role": "user",
+            "content": "Update the spec based on these answers.",
+        }],
         model="gpt-5.4-mini",
         temperature=0.0,
         max_tokens=512,
@@ -469,7 +508,12 @@ def select_design_systems(
 
     # Client attributes
     client_industry = set(client_config.get("defaults", {}).get("industry", []))
-    client_mood = set(client_config.get("brand_mood", client_config.get("defaults", {}).get("brand_mood", ["warm", "professional"])))
+    default_mood = client_config.get("defaults", {}).get(
+        "brand_mood", ["warm", "professional"],
+    )
+    client_mood = set(
+        client_config.get("brand_mood", default_mood)
+    )
     client_colour = client_config.get("defaults", {}).get("colour_temperature", "warm")
 
     # Artifact density — use "moderate" default when family is unresolved
@@ -548,5 +592,10 @@ def route(
         top_systems = select_design_systems(client_id, family)
         result.design_system = top_systems[0] if top_systems else None
 
-    logger.info("LLM routed: %s → %s (confidence=%.2f)", raw_input[:50], result.workflow, result.confidence)
+    logger.info(
+        "LLM routed: %s → %s (confidence=%.2f)",
+        raw_input[:50],
+        result.workflow,
+        result.confidence,
+    )
     return result

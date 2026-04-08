@@ -65,7 +65,10 @@ def build_illustration_prompt(
     parts: list[str] = [
         f"Scene: {page.illustration_shows}",
         f"Camera: {guide.camera}. Character position: {guide.character_position}.",
-        f"Background: {guide.background_detail} detail. Colour temperature: {guide.colour_temperature}.",
+        (
+            f"Background: {guide.background_detail} detail. "
+            f"Colour temperature: {guide.colour_temperature}."
+        ),
         f"Art style: {style_lock.art_style}.",
         f"Colour palette: {', '.join(style_lock.palette)}.",
     ]
@@ -80,7 +83,8 @@ def build_illustration_prompt(
                 f"{phys.build} build, {phys.hair.style} hair ({phys.hair.colour}), "
                 f"skin tone {phys.skin_tone}. "
                 f"Wearing {bible.clothing.default}. "
-                f"Style: {bible.style_notes.art_style}, {bible.style_notes.line_weight} lines."
+                f"Style: {bible.style_notes.art_style}, "
+                f"{bible.style_notes.line_weight} lines."
             )
             if bible.style_notes.always:
                 parts.append(f"Always include: {', '.join(bible.style_notes.always)}.")
@@ -279,7 +283,11 @@ class IllustrationPipeline:
 
         paths: list[Path] = []
         for idx in range(count):
-            with self.collector.step(f"generate_ref_{character_bible.character_id}_{idx}") as trace:
+            ref_step = (
+                f"generate_ref_"
+                f"{character_bible.character_id}_{idx}"
+            )
+            with self.collector.step(ref_step) as trace:
                 expanded = expand_brief(raw_brief)
                 prompt = expanded.get("composition", raw_brief)
 
@@ -398,7 +406,11 @@ class IllustrationPipeline:
         best_score = 0.0
 
         for attempt in range(max_retries + 1):
-            with self.collector.step(f"illustrate_page_{page_num}_attempt_{attempt}") as trace:
+            step_name = (
+                f"illustrate_page_{page_num}"
+                f"_attempt_{attempt}"
+            )
+            with self.collector.step(step_name) as trace:
                 expanded = expand_brief(raw_brief)
                 prompt = expanded.get("composition", raw_brief)
 

@@ -37,7 +37,9 @@ def persist_policy_decision(decision: PolicyDecision) -> None:
             cur.execute(
                 """
                 INSERT INTO policy_logs
-                    (decision_id, job_id, client_id, capability, action, gate, reason, constraints)
+                    (decision_id, job_id, client_id,
+                     capability, action, gate,
+                     reason, constraints)
                 VALUES
                     (%(decision_id)s, %(job_id)s, %(client_id)s, %(capability)s,
                      %(action)s, %(gate)s, %(reason)s, %(constraints)s)
@@ -50,7 +52,11 @@ def persist_policy_decision(decision: PolicyDecision) -> None:
                     "action": decision.action.value,
                     "gate": decision.gate,
                     "reason": decision.reason,
-                    "constraints": json.dumps(decision.constraints) if decision.constraints else "{}",
+                    "constraints": (
+                        json.dumps(decision.constraints)
+                        if decision.constraints
+                        else "{}"
+                    ),
                 },
             )
     except (psycopg2.Error, OSError, ImportError, RuntimeError):
@@ -75,7 +81,8 @@ class PolicyRequest:
         job_id: Job identifier for cost tracking and audit.
         client_id: Client identifier for audit.
         running_cost_usd: Current job's accumulated cost for cost gate.
-        prompt_tokens: Not used by PolicyEvaluator — see observability.check_context_size.
+        prompt_tokens: Not used by PolicyEvaluator
+            — see observability.check_context_size.
     """
 
     capability: str
@@ -167,7 +174,10 @@ class PolicyEvaluator:
             if request.capability in includes:
                 return PolicyDecision(
                     action=PolicyAction.allow,
-                    reason=f"Capability '{request.capability}' active in phase '{phase_name}'",
+                    reason=(
+                        f"Capability '{request.capability}' "
+                        f"active in phase '{phase_name}'"
+                    ),
                     gate="phase",
                     job_id=request.job_id,
                     client_id=request.client_id,
@@ -313,7 +323,10 @@ class PolicyEvaluator:
                 job_id=request.job_id,
                 client_id=request.client_id,
                 capability=request.capability,
-                constraints={"ceiling_usd": ceiling, "current_usd": request.running_cost_usd},
+                constraints={
+                    "ceiling_usd": ceiling,
+                    "current_usd": request.running_cost_usd,
+                },
             )
 
         return PolicyDecision(

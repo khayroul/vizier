@@ -7,7 +7,6 @@ creative workshop, client overrides, and reminder prompts.
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 from pathlib import Path
@@ -381,8 +380,13 @@ class WorkflowExecutor:
     ) -> dict[str, Any]:
         """Execute a single workflow stage within a trace step."""
         with collector.step(stage.name) as trace:
-            # Build prompt with quality techniques
-            prompt = context.get("prompt", stage.action)
+            # Build prompt: stage action + user's original brief
+            raw_input = (context.get("job_context") or {}).get("raw_input", "")
+            base_prompt = context.get("prompt", stage.action)
+            if raw_input and raw_input not in base_prompt:
+                prompt = f"{stage.action}\n\nOriginal brief: {raw_input}"
+            else:
+                prompt = base_prompt
             prompt = apply_quality_techniques(
                 prompt, self.pack.quality_techniques, stage.role
             )
@@ -481,7 +485,8 @@ class WorkflowExecutor:
 
         production_trace = collector.finalise()
 
-        # Persist trace to database (non-fatal — trace failures must not crash workflows)
+        # Persist trace to database
+        # (non-fatal: trace failures must not crash workflows)
         job_id = job_context.get("job_id")
         if job_id and production_trace:
             try:

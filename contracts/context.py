@@ -12,7 +12,6 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-
 # ---------------------------------------------------------------------------
 # Sub-models
 # ---------------------------------------------------------------------------
@@ -22,21 +21,34 @@ class TrackedEntity(BaseModel):
     """An entity (character, product, location, etc.) tracked across steps."""
 
     entity_id: str = Field(min_length=1)
-    entity_type: str = Field(description="character, product, location, claim, price, etc.")
+    entity_type: str = Field(
+        description=(
+            "character, product, location, claim, price, etc."
+        ),
+    )
     name: str
     state: dict[str, str | int | float | bool | None] = Field(
         default_factory=dict,
         description="Current state of the entity — updated after each step",
     )
-    introduced_at: int = Field(ge=0, description="Step index where entity first appeared")
-    last_updated_at: int = Field(ge=0, description="Step index where entity was last updated")
+    introduced_at: int = Field(
+        ge=0,
+        description="Step index where entity first appeared",
+    )
+    last_updated_at: int = Field(
+        ge=0,
+        description="Step index where entity was last updated",
+    )
 
 
 class ImmutableFact(BaseModel):
     """A fact that can never be contradicted once established."""
 
     fact: str = Field(min_length=1)
-    established_at: int = Field(ge=0, description="Step index where fact was established")
+    established_at: int = Field(
+        ge=0,
+        description="Step index where fact was established",
+    )
     source: str = Field(default="", description="Where this fact came from")
 
 
@@ -44,7 +56,11 @@ class Checkpoint(BaseModel):
     """A target state the sequence must reach."""
 
     description: str = Field(min_length=1)
-    target_step: int | None = Field(default=None, ge=0, description="Step by which this should be reached")
+    target_step: int | None = Field(
+        default=None,
+        ge=0,
+        description="Step by which this should be reached",
+    )
     reached: bool = False
     reached_at: int | None = None
 
@@ -82,9 +98,15 @@ class RollingContext(BaseModel):
     context_type: ContextType
 
     # Three-tier rolling summary
-    recent: list[ContextTierEntry] = Field(default_factory=list, description="Full fidelity")
-    medium: list[ContextTierEntry] = Field(default_factory=list, description="Beat level")
-    long_term: list[ContextTierEntry] = Field(default_factory=list, description="Compressed permanent")
+    recent: list[ContextTierEntry] = Field(
+        default_factory=list, description="Full fidelity"
+    )
+    medium: list[ContextTierEntry] = Field(
+        default_factory=list, description="Beat level"
+    )
+    long_term: list[ContextTierEntry] = Field(
+        default_factory=list, description="Compressed permanent"
+    )
 
     # Entity and fact tracking
     entities: list[TrackedEntity] = Field(default_factory=list)
@@ -94,9 +116,15 @@ class RollingContext(BaseModel):
     checkpoints: list[Checkpoint] = Field(default_factory=list)
 
     # Configuration
-    recent_window: int = Field(default=5, ge=1, description="Max items in recent tier at full fidelity")
+    recent_window: int = Field(
+        default=5,
+        ge=1,
+        description="Max items in recent tier at full fidelity",
+    )
     medium_scope: MediumScope = Field(default="arc")
-    compression_model: str = Field(default="gpt-5.4-mini", description="Anti-drift #54")
+    compression_model: str = Field(
+        default="gpt-5.4-mini", description="Anti-drift #54"
+    )
 
     # Internal counter
     current_step: int = Field(default=0, ge=0)
@@ -162,7 +190,16 @@ class RollingContext(BaseModel):
             "recent": [entry.model_dump(mode="json") for entry in self.recent],
             "medium": [entry.model_dump(mode="json") for entry in self.medium],
             "long_term": [entry.model_dump(mode="json") for entry in self.long_term],
-            "entities": [entity.model_dump(mode="json") for entity in self.entities],
-            "immutable_facts": [fact.model_dump(mode="json") for fact in self.immutable_facts],
-            "checkpoints": [cp.model_dump(mode="json") for cp in self.checkpoints],
+            "entities": [
+                entity.model_dump(mode="json")
+                for entity in self.entities
+            ],
+            "immutable_facts": [
+                fact.model_dump(mode="json")
+                for fact in self.immutable_facts
+            ],
+            "checkpoints": [
+                cp.model_dump(mode="json")
+                for cp in self.checkpoints
+            ],
         }

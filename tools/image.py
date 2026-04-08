@@ -66,7 +66,11 @@ def select_image_model(
 # Brief expansion (anti-drift #25: ALWAYS before generation)
 # ---------------------------------------------------------------------------
 
-_TEMPLATE_PATH = Path(__file__).resolve().parent.parent / "config" / "prompt_templates" / "visual_brief_expander.md"
+_TEMPLATE_PATH = (
+    Path(__file__).resolve().parent.parent
+    / "config" / "prompt_templates"
+    / "visual_brief_expander.md"
+)
 
 _EXPAND_PREFIX: list[dict[str, str]] = []  # loaded lazily
 
@@ -101,7 +105,10 @@ def expand_brief(
     """
     brand_context = ""
     if brand_config:
-        brand_context = f"\n\nBrand config: {json.dumps(brand_config, ensure_ascii=False)}"
+        brand_json = json.dumps(
+            brand_config, ensure_ascii=False,
+        )
+        brand_context = f"\n\nBrand config: {brand_json}"
 
     user_msg = f"Expand this brief:{brand_context}\n\n{raw_brief}"
 

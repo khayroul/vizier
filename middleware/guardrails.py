@@ -1,7 +1,8 @@
 """Parallel guardrails — brand voice, BM naturalness, GuardrailMailbox.
 
 All guardrails run on GPT-5.4-mini (anti-drift #22, #54).
-Guardrails are ADVISORY, not blocking — the QA stage decides whether to act (section 37.2).
+Guardrails are ADVISORY, not blocking — the QA stage decides
+whether to act (section 37.2).
 Flags deduplicated by GuardrailMailbox before QA stage processes them.
 """
 
@@ -26,8 +27,9 @@ _BRAND_VOICE_PREFIX: list[dict[str, str]] = [
         "content": (
             "You are a brand voice consistency checker. Given copy text and a target "
             "register (formal/casual/neutral), determine if the copy matches. "
-            "Return JSON: {\"flagged\": true/false, \"issue\": \"description if flagged\", "
-            "\"register_detected\": \"formal/casual/neutral\"}"
+            'Return JSON: {"flagged": true/false, '
+            '"issue": "description if flagged", '
+            '"register_detected": "formal/casual/neutral"}'
         ),
     },
 ]
@@ -51,7 +53,8 @@ def check_brand_voice(
     """
     brand_context = ""
     if brand_config:
-        brand_context = f"\nBrand context: {brand_config.get('brand_voice', 'not specified')}"
+        voice = brand_config.get('brand_voice', 'not specified')
+        brand_context = f"\nBrand context: {voice}"
 
     user_msg = (
         f"Target register: {copy_register}{brand_context}\n\n"
@@ -141,7 +144,11 @@ def check_bm_naturalness(text: str) -> dict[str, Any]:
     # Passive voice density — high passive = formal/bureaucratic
     passive_patterns = re.findall(r"\bdi\w+kan\b", text_lower)
     if len(passive_patterns) > 3:
-        issues.append(f"High passive voice density: {len(passive_patterns)} passive constructions")
+        passive_count = len(passive_patterns)
+        issues.append(
+            f"High passive voice density: "
+            f"{passive_count} passive constructions"
+        )
 
     formal_density = (len(formal_found) + len(indo_found)) / max(len(text.split()), 1)
 
@@ -171,7 +178,8 @@ class GuardrailMailbox:
         """Add a guardrail flag.
 
         Args:
-            issue_type: Category of the issue (e.g. 'register_mismatch', 'bm_naturalness').
+            issue_type: Category of the issue
+                (e.g. 'register_mismatch', 'bm_naturalness').
             detail: Specific description of this occurrence.
         """
         self._flags[issue_type].append(detail)
@@ -188,7 +196,11 @@ class GuardrailMailbox:
                 "issue_type": issue_type,
                 "count": len(details),
                 "details": details,
-                "summary": details[0] if len(details) == 1 else f"{len(details)} occurrences",
+                "summary": (
+                    details[0]
+                    if len(details) == 1
+                    else f"{len(details)} occurrences"
+                ),
             })
         return items
 

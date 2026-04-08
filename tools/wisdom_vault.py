@@ -126,7 +126,10 @@ def import_book(
         )
         card_count += 1
 
-    logger.info("Imported book '%s': %d cards from %s", resolved_title, card_count, path.name)
+    logger.info(
+        "Imported book '%s': %d cards from %s",
+        resolved_title, card_count, path.name,
+    )
     return {"source_id": source_id, "card_count": card_count, "title": resolved_title}
 
 
