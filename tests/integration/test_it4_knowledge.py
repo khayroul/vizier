@@ -11,6 +11,7 @@ Uses real Postgres (pgvector + FTS), mocks call_llm and embed_text.
 from __future__ import annotations
 
 import math
+import os
 import uuid
 from typing import Any
 from unittest.mock import patch
@@ -144,6 +145,8 @@ _CARDS = [
 @pytest.fixture()
 def test_client():
     """Create a test client. Cleaned up after test."""
+    if not os.environ.get("DATABASE_URL"):
+        pytest.skip("DATABASE_URL not set")
     client_id = _make_uuid()
     with get_cursor() as cur:
         cur.execute(

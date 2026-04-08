@@ -13,10 +13,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-import torch  # type: ignore[import-not-found]
-import torch.nn as nn  # type: ignore[import-not-found]
 import yaml
-from torchvision import models, transforms  # type: ignore[import-untyped]
 
 from utils.call_llm import call_llm
 from utils.database import get_cursor
@@ -27,16 +24,23 @@ logger = logging.getLogger(__name__)
 # NIMA aesthetic pre-screen (section 30.5)
 # ---------------------------------------------------------------------------
 
-_NIMA_TRANSFORM = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-])
+def _get_nima_transform():  # type: ignore[no-untyped-def]
+    """Lazy-load NIMA image transform (requires torchvision)."""
+    from torchvision import transforms  # type: ignore[import-untyped]
+    return transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ])
 
 
 @functools.lru_cache(maxsize=1)
-def _load_nima_model() -> nn.Module:
+def _load_nima_model():  # type: ignore[no-untyped-def]
     """Load MobileNetV2 with NIMA classification head on MPS."""
+    import torch  # type: ignore[import-not-found]
+    import torch.nn as nn  # type: ignore[import-not-found]
+    from torchvision import models  # type: ignore[import-untyped]
+
     base = models.mobilenet_v2(weights=models.MobileNet_V2_Weights.DEFAULT)
     # Replace classifier with NIMA head: 10-class distribution
     base.classifier = nn.Sequential(
@@ -62,8 +66,10 @@ def nima_score(image_bytes: bytes) -> float:
     from PIL import Image
     import io
 
+    import torch  # type: ignore[import-not-found]
+
     image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    tensor = _NIMA_TRANSFORM(image).unsqueeze(0)  # type: ignore[arg-type]
+    tensor = _get_nima_transform()(image).unsqueeze(0)  # type: ignore[arg-type]
 
     device = next(_load_nima_model().parameters()).device
     tensor = tensor.to(device)

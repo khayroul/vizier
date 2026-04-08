@@ -425,6 +425,10 @@ class TestRollingContextIntegration:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(
+    not all(__import__("importlib").util.find_spec(m) for m in ("torch", "open_clip")),
+    reason="torch/open_clip not installed",
+)
 class TestVisualConsistency:
     """check_visual_consistency() returns real CLIP similarity scores."""
 

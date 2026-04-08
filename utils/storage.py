@@ -12,9 +12,6 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from minio import Minio  # type: ignore[import-untyped]  # minio has no type stubs
-from minio.error import S3Error  # type: ignore[import-untyped]
-
 if TYPE_CHECKING:
     pass
 
@@ -28,6 +25,8 @@ def get_minio_client() -> Any:
 
     Returns a Minio instance. Typed as Any because minio lacks type stubs.
     """
+    from minio import Minio  # type: ignore[import-untyped]
+
     endpoint = os.environ.get("MINIO_ENDPOINT", "localhost:9000")
     access_key = os.environ.get("MINIO_ACCESS_KEY", "minioadmin")
     secret_key = os.environ.get("MINIO_SECRET_KEY", "minioadmin")
@@ -149,16 +148,13 @@ def object_exists(
     try:
         client.stat_object(BUCKET_NAME, object_name)
         return True
-    except S3Error:
+    except Exception:
         return False
 
 
 # ---------------------------------------------------------------------------
 # fal.ai URL upload (for Kontext image_url parameter)
 # ---------------------------------------------------------------------------
-
-import fal_client  # type: ignore[import-untyped]
-
 
 def upload_to_fal(
     data: bytes,
@@ -178,6 +174,7 @@ def upload_to_fal(
     Returns:
         Publicly accessible fal.ai-hosted URL.
     """
+    import fal_client  # type: ignore[import-untyped]
     url: str = fal_client.upload(data, content_type=content_type)
     logger.info("Uploaded %d bytes to fal.ai: %s", len(data), url[:80])
     return url

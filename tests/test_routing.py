@@ -477,6 +477,10 @@ class TestRoutingResult:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(
+    not all(__import__("importlib").util.find_spec(m) for m in ("torch", "open_clip")),
+    reason="torch/open_clip not installed",
+)
 class TestCLIPEncoding:
     """CLIP ViT-B/32 image encoding tests."""
 

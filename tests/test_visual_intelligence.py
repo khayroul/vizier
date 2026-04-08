@@ -150,6 +150,10 @@ class TestBriefExpansion:
 # ===========================================================================
 
 
+@pytest.mark.skipif(
+    not __import__("importlib").util.find_spec("torch"),
+    reason="torch not installed",
+)
 class TestNIMA:
     """Test NIMA aesthetic scoring and pre-screen classification."""
 

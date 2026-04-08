@@ -16,9 +16,7 @@ from io import BytesIO
 from typing import Any
 
 import numpy as np
-import torch  # type: ignore[import-untyped]  # torch installed but no stubs
 from PIL import Image
-from sklearn.cluster import KMeans  # type: ignore[import-untyped]
 
 logger = logging.getLogger(__name__)
 
@@ -26,10 +24,19 @@ logger = logging.getLogger(__name__)
 # Device + model singletons (lazy-loaded)
 # ---------------------------------------------------------------------------
 
-_DEVICE: str = "mps" if torch.backends.mps.is_available() else "cpu"
+_DEVICE: str | None = None
 _CLIP_MODEL: Any = None
 _CLIP_PREPROCESS: Any = None
 _CLIP_TOKENIZER: Any = None
+
+
+def _get_device() -> str:
+    """Return the compute device, lazy-detecting MPS availability."""
+    global _DEVICE  # noqa: PLW0603
+    if _DEVICE is None:
+        import torch  # type: ignore[import-untyped]
+        _DEVICE = "mps" if torch.backends.mps.is_available() else "cpu"
+    return _DEVICE
 
 
 def _load_clip() -> tuple[Any, Any, Any]:
@@ -38,8 +45,9 @@ def _load_clip() -> tuple[Any, Any, Any]:
     if _CLIP_MODEL is None:
         import open_clip  # type: ignore[import-untyped]
 
+        device = _get_device()
         model, _, preprocess = open_clip.create_model_and_transforms(
-            "ViT-B-32", pretrained="laion2b_s34b_b79k", device=_DEVICE
+            "ViT-B-32", pretrained="laion2b_s34b_b79k", device=device
         )
         model.eval()
         _CLIP_MODEL = model
@@ -128,6 +136,8 @@ def populate_asset_visual_dna(asset_id: str, image_data: bytes) -> dict[str, Any
 
 def _extract_dominant_colours(img: Image.Image, n_colours: int = 5) -> list[str]:
     """Extract dominant colours as hex strings via k-means clustering."""
+    from sklearn.cluster import KMeans  # type: ignore[import-untyped]
+
     # Downsample for speed
     small = img.resize((100, 100))
     pixels = np.array(small).reshape(-1, 3).astype(np.float32)
@@ -203,9 +213,12 @@ def _classify_layout(img: Image.Image) -> str:
 
 def _extract_clip_embedding(img: Image.Image) -> np.ndarray:
     """Compute 512-dim CLIP ViT-B/32 embedding on MPS/CPU."""
-    model, preprocess, _ = _load_clip()
+    import torch  # type: ignore[import-untyped]
 
-    tensor = preprocess(img).unsqueeze(0).to(_DEVICE)  # type: ignore[union-attr]
+    model, preprocess, _ = _load_clip()
+    device = _get_device()
+
+    tensor = preprocess(img).unsqueeze(0).to(device)  # type: ignore[union-attr]
     with torch.no_grad():
         features = model.encode_image(tensor)
         features = features / features.norm(dim=-1, keepdim=True)

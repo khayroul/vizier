@@ -4,10 +4,6 @@ import logging
 from io import BytesIO
 from typing import Any
 
-import open_clip  # type: ignore[import-untyped]
-import torch  # type: ignore[import-untyped]
-from PIL import Image
-
 from utils.call_llm import call_llm
 from utils.database import get_cursor
 
@@ -29,6 +25,9 @@ def _ensure_clip() -> tuple[Any, Any, str]:
     if _clip_model is not None:
         return _clip_model, _clip_preprocess, _clip_device
 
+    import open_clip  # type: ignore[import-untyped]
+    import torch  # type: ignore[import-untyped]
+
     _clip_device = "mps" if torch.backends.mps.is_available() else "cpu"
     _clip_model, _, _clip_preprocess = open_clip.create_model_and_transforms(
         "ViT-B-32", pretrained="openai",
@@ -48,6 +47,9 @@ def encode_image(image_bytes: bytes) -> list[float]:
     Returns:
         512-dimensional normalised embedding as list of floats.
     """
+    import torch  # type: ignore[import-untyped]
+    from PIL import Image
+
     model, preprocess, device = _ensure_clip()
     img = Image.open(BytesIO(image_bytes)).convert("RGB")
     tensor = preprocess(img).unsqueeze(0).to(device)  # type: ignore[union-attr]

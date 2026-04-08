@@ -177,6 +177,7 @@ def test_payment_does_not_transition_from_draft(client_id: str) -> None:
 
 def test_generate_invoice_creates_pdf(client_id: str, tmp_path: Path) -> None:
     """generate_invoice() creates a PDF file with correct invoice number."""
+    pytest.importorskip("minio")
     from tools.invoice import generate_invoice
 
     job_id = str(uuid4())

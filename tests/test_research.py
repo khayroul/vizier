@@ -188,6 +188,10 @@ class TestContextualiseCard:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(
+    not all(__import__("importlib").util.find_spec(m) for m in ("torch", "sklearn", "open_clip")),
+    reason="torch/sklearn/open_clip not installed",
+)
 class TestVisualDNA:
     """Test tools.visual_dna extraction."""
 
@@ -406,6 +410,10 @@ class TestFetchTrends:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(
+    not all(__import__("importlib").util.find_spec(m) for m in ("torch", "sklearn", "minio")),
+    reason="torch/sklearn/minio not installed",
+)
 class TestSwipeIngest:
     """Test tools.research.ingest_swipe."""
 

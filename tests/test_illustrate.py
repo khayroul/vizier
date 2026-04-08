@@ -234,6 +234,10 @@ class TestBuildIllustrationPrompt:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(
+    not all(__import__("importlib").util.find_spec(m) for m in ("torch", "open_clip")),
+    reason="torch/open_clip not installed",
+)
 class TestVerifyConsistency:
     """CLIP consistency verification with position-aware cropping."""
 
@@ -415,6 +419,10 @@ _MOCK_PATCHES = [
 ]
 
 
+@pytest.mark.skipif(
+    not all(__import__("importlib").util.find_spec(m) for m in ("torch", "open_clip")),
+    reason="torch/open_clip not installed",
+)
 class TestIllustratePage:
     """illustrate_page() generates text-free illustrations with consistency tracking."""
 
@@ -584,6 +592,10 @@ class TestIllustratePage:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(
+    not all(__import__("importlib").util.find_spec(m) for m in ("torch", "open_clip")),
+    reason="torch/open_clip not installed",
+)
 class TestCreativeWorkshopFlow:
     """Creative workshop -> specimen -> production -> assembly flow."""
 

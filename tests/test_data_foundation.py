@@ -491,6 +491,7 @@ def test_collect_and_persist(job_id: str) -> None:
 # ---------------------------------------------------------------------------
 
 def test_minio_upload_download() -> None:
+    pytest.importorskip("minio")
     test_data = b"PNG test data for S10a"
     obj_name = f"test/{uuid4()}.png"
 
@@ -513,6 +514,7 @@ def test_minio_upload_download() -> None:
 
 def test_end_to_end_poster_flow(client_id: str) -> None:
     """Full flow: create job, trace steps, persist trace, create feedback, verify trigger."""
+    pytest.importorskip("minio")
     jid = str(uuid4())
     aid = str(uuid4())
     sid = str(uuid4())
