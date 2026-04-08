@@ -39,14 +39,34 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "requires_db: skip test when Postgres is not reachable",
     )
+    config.addinivalue_line(
+        "markers",
+        "requires_api: skip test unless real external APIs are available (run with --run-api)",
+    )
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--run-api",
+        action="store_true",
+        default=False,
+        help="Run tests that hit real external APIs (OpenAI, fal.ai)",
+    )
 
 
 def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> None:
-    if _check_db():
-        return
-    skip_marker = pytest.mark.skip(reason="Postgres not reachable (DATABASE_URL)")
-    for item in items:
-        if item.get_closest_marker("requires_db"):
-            item.add_marker(skip_marker)
+    # Auto-skip DB tests when Postgres is unreachable
+    if not _check_db():
+        skip_db = pytest.mark.skip(reason="Postgres not reachable (DATABASE_URL)")
+        for item in items:
+            if item.get_closest_marker("requires_db"):
+                item.add_marker(skip_db)
+
+    # Auto-skip API tests unless --run-api is passed
+    if not config.getoption("--run-api"):
+        skip_api = pytest.mark.skip(reason="Real API tests skipped (pass --run-api to run)")
+        for item in items:
+            if item.get_closest_marker("requires_api"):
+                item.add_marker(skip_api)

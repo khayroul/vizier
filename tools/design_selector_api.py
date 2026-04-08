@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import json
 import logging
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import parse_qs, urlparse
 
 from contracts.routing import select_design_systems
 

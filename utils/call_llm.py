@@ -19,7 +19,11 @@ from typing import Any
 
 import httpx
 
-from utils.spans import DB_PATH, record_memory_routing, track_span  # noqa: F401 — DB_PATH re-exported for test monkeypatching
+from utils.spans import (  # noqa: F401 — DB_PATH re-exported for test monkeypatching
+    DB_PATH,
+    record_memory_routing,
+    track_span,
+)
 
 logger = logging.getLogger(__name__)
 

@@ -140,7 +140,12 @@ CREATE TABLE IF NOT EXISTS feedback (
     artifact_id             uuid REFERENCES artifacts(id),
     client_id               uuid REFERENCES clients(id),
     -- Feedback state machine (§29.5)
-    feedback_status         text DEFAULT 'awaiting',
+    feedback_status         text DEFAULT 'awaiting'
+        CHECK (feedback_status IN (
+            'awaiting', 'explicitly_approved', 'revision_requested',
+            'rejected', 'silence_flagged', 'prompted',
+            'responded', 'unresponsive'
+        )),
     delivered_at            timestamptz,
     feedback_received_at    timestamptz,
     prompted_at             timestamptz,
@@ -164,6 +169,23 @@ CREATE TABLE IF NOT EXISTS feedback (
     response_time_hours     float,
     created_at              timestamptz DEFAULT now()
 );
+
+-- Migrate existing feedback tables: add CHECK constraint on feedback_status.
+-- Postgres requires dropping + re-adding if the constraint already exists.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'feedback_feedback_status_check'
+    ) THEN
+        ALTER TABLE feedback ADD CONSTRAINT feedback_feedback_status_check
+            CHECK (feedback_status IN (
+                'awaiting', 'explicitly_approved', 'revision_requested',
+                'rejected', 'silence_flagged', 'prompted',
+                'responded', 'unresponsive'
+            ));
+    END IF;
+END $$;
 
 -- ============================================================================
 -- §16.2  KNOWLEDGE 4 TABLES

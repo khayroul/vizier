@@ -247,7 +247,9 @@ def validate_visual_qa(
         ValidationResult indicating pass/fail with error details.
     """
     # Lazy import — module lives outside the main package tree
-    from scripts.visual.calculate_delta import calculate_delta  # type: ignore[import-not-found]
+    from scripts.visual.calculate_delta import (
+        calculate_delta,  # type: ignore[import-not-found]
+    )
 
     delta = calculate_delta(target=target, rendered=rendered)
     if delta.composite_score >= threshold:

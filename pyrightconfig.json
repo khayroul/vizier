@@ -1,0 +1,17 @@
+{
+  "include": ["contracts", "middleware", "tools", "utils"],
+  "exclude": ["hermes-agent", "augments", "graphify-out", "data"],
+  "pythonVersion": "3.11",
+  "typeCheckingMode": "basic",
+  "overrides": [
+    {
+      "include": ["contracts"],
+      "typeCheckingMode": "strict",
+      "reportMissingImports": true,
+      "reportMissingTypeStubs": false,
+      "reportUnusedImport": true,
+      "reportUnusedVariable": true,
+      "reportIncompatibleMethodOverride": true
+    }
+  ]
+}
