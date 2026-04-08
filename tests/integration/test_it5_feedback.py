@@ -16,6 +16,8 @@ from datetime import datetime, timedelta, timezone
 import psycopg2
 import pytest
 
+pytestmark = pytest.mark.requires_db
+
 from utils.database import get_cursor
 
 

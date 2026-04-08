@@ -12,6 +12,8 @@ from uuid import uuid4
 
 import pytest
 
+pytestmark = pytest.mark.requires_db
+
 os.environ.setdefault("DATABASE_URL", "postgres://localhost:5432/vizier")
 
 from utils.database import get_cursor, run_migration

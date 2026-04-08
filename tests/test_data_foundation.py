@@ -19,6 +19,8 @@ from uuid import uuid4
 import psycopg2
 import pytest
 
+pytestmark = pytest.mark.requires_db
+
 # Ensure env is loaded for tests
 os.environ.setdefault("DATABASE_URL", "postgres://localhost:5432/vizier")
 os.environ.setdefault("MINIO_ENDPOINT", "localhost:9000")
@@ -606,9 +608,9 @@ def test_end_to_end_poster_flow(client_id: str) -> None:
 def test_policy_log_insert(job_id: str) -> None:
     with get_cursor() as cur:
         cur.execute(
-            """INSERT INTO policy_logs (job_id, action, outcome, reason)
-               VALUES (%s, %s, %s, %s) RETURNING id""",
-            (job_id, "allow", "passed", "budget within limits"),
+            """INSERT INTO policy_logs (job_id, action, gate, reason, capability)
+               VALUES (%s, %s, %s, %s, %s) RETURNING id""",
+            (job_id, "allow", "budget", "budget within limits", "poster_production"),
         )
         assert cur.fetchone()["id"] is not None
 

@@ -28,6 +28,8 @@ import numpy as np
 import pytest
 from PIL import Image
 
+pytestmark = pytest.mark.requires_db
+
 # Ensure env is loaded for tests
 os.environ.setdefault("DATABASE_URL", "postgres://localhost:5432/vizier")
 os.environ.setdefault("MINIO_ENDPOINT", "localhost:9000")

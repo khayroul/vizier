@@ -17,6 +17,8 @@ from unittest.mock import patch
 
 import pytest
 
+pytestmark = pytest.mark.requires_db
+
 from utils.database import get_cursor
 from utils.embeddings import format_embedding
 from utils.knowledge import (

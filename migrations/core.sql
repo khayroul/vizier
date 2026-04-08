@@ -117,6 +117,23 @@ CREATE TABLE IF NOT EXISTS policy_logs (
     evaluated_at    timestamptz DEFAULT now()
 );
 
+-- Migrate existing policy_logs tables from old schema to new.
+-- Safe to re-run: ADD COLUMN IF NOT EXISTS is idempotent.
+ALTER TABLE policy_logs ADD COLUMN IF NOT EXISTS decision_id uuid;
+ALTER TABLE policy_logs ADD COLUMN IF NOT EXISTS client_id uuid REFERENCES clients(id);
+ALTER TABLE policy_logs ADD COLUMN IF NOT EXISTS capability text;
+ALTER TABLE policy_logs ADD COLUMN IF NOT EXISTS gate text;
+ALTER TABLE policy_logs ADD COLUMN IF NOT EXISTS constraints jsonb DEFAULT '{}'::jsonb;
+-- Drop columns from old schema that no longer exist in the contract.
+ALTER TABLE policy_logs DROP COLUMN IF EXISTS outcome;
+ALTER TABLE policy_logs DROP COLUMN IF EXISTS context;
+-- Ensure NOT NULL on columns that may have been nullable in the old schema.
+-- Backfill NULLs first so ALTER doesn't fail on existing rows.
+UPDATE policy_logs SET gate = 'unknown' WHERE gate IS NULL;
+UPDATE policy_logs SET reason = '' WHERE reason IS NULL;
+ALTER TABLE policy_logs ALTER COLUMN gate SET NOT NULL;
+ALTER TABLE policy_logs ALTER COLUMN reason SET NOT NULL;
+
 CREATE TABLE IF NOT EXISTS feedback (
     id                      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     job_id                  uuid REFERENCES jobs(id),

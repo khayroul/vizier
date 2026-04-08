@@ -18,6 +18,8 @@ from unittest.mock import patch
 
 import pytest
 
+pytestmark = pytest.mark.requires_db
+
 from utils.database import get_cursor
 
 # ---------------------------------------------------------------------------

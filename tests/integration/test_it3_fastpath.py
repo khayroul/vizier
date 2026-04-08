@@ -11,6 +11,10 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
+pytestmark = pytest.mark.requires_db
+
 from contracts.routing import RoutingResult, fast_path_route, route
 from tools.workflow_schema import load_workflow
 from utils.database import get_cursor

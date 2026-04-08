@@ -14,6 +14,8 @@ from uuid import uuid4
 
 import pytest
 
+pytestmark = pytest.mark.requires_db
+
 os.environ.setdefault("DATABASE_URL", "postgres://localhost:5432/vizier")
 os.environ.setdefault("MINIO_ENDPOINT", "localhost:9000")
 os.environ.setdefault("MINIO_ACCESS_KEY", "minioadmin")
