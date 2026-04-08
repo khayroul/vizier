@@ -1,0 +1,130 @@
+default_profile = "vizier-core"
+
+[scan]
+exclude = [
+  "graphify-out/**",
+  "dashboard/node_modules/**",
+  "dashboard/dist/**",
+  "data/generated_images/**",
+  "data/deliverables/**",
+  "logs/**",
+]
+
+[profiles.vizier-core]
+description = "Default Vizier architecture scope: contracts, runtime, workflows, supporting config, and tests."
+include = [
+  "AGENTS.md",
+  "CLAUDE.md",
+  "contracts/**",
+  "middleware/**",
+  "tools/**",
+  "utils/**",
+  "manifests/workflows/**",
+  "config/**",
+  "tests/**",
+  "docs/decisions/**",
+  "docs/handover/**",
+  "augments/listening/**",
+]
+exclude = [
+  "tests/fixtures/**",
+  "hermes-agent/**",
+  "dashboard/**",
+  "data/**",
+]
+
+[profiles.governance]
+description = "Governance, routing, policy, workflows, and enforcement tests."
+include = [
+  "AGENTS.md",
+  "CLAUDE.md",
+  "contracts/**",
+  "middleware/policy.py",
+  "middleware/quality_gate.py",
+  "middleware/guardrails.py",
+  "manifests/workflows/**",
+  "config/phase.yaml",
+  "config/workflow_registry.yaml",
+  "config/fast_paths.yaml",
+  "tests/test_policy.py",
+  "tests/test_routing.py",
+  "tests/test_ring_enforcement.py",
+  "tests/test_workflows.py",
+  "tests/integration/test_it3_fastpath.py",
+]
+exclude = [
+  "hermes-agent/**",
+  "dashboard/**",
+  "data/**",
+]
+
+[profiles.knowledge]
+description = "Knowledge spine, retrieval, seeding, embeddings, and related tests."
+include = [
+  "contracts/knowledge.py",
+  "tools/knowledge.py",
+  "tools/seeding.py",
+  "tools/research.py",
+  "utils/knowledge.py",
+  "utils/retrieval.py",
+  "utils/embeddings.py",
+  "config/brand_patterns/**",
+  "config/copy_patterns/**",
+  "config/clients/**",
+  "tests/test_knowledge_contracts.py",
+  "tests/test_knowledge_spine.py",
+  "tests/test_research.py",
+  "tests/integration/test_it4_knowledge.py",
+]
+exclude = [
+  "hermes-agent/**",
+  "dashboard/**",
+  "data/**",
+]
+
+[profiles.publishing]
+description = "Publishing lane, visual generation, templates, and book-related tests."
+include = [
+  "contracts/publishing.py",
+  "contracts/context.py",
+  "tools/publish.py",
+  "tools/book_production.py",
+  "tools/ebook_production.py",
+  "tools/illustrate.py",
+  "tools/image.py",
+  "tools/visual_pipeline.py",
+  "templates/**",
+  "assets/fonts/**",
+  "tests/test_publish.py",
+  "tests/test_book_production.py",
+  "tests/test_ebook_production.py",
+  "tests/test_illustrate.py",
+  "tests/test_visual_intelligence.py",
+  "tests/integration/test_it1_poster.py",
+  "tests/integration/test_it2_childrens_book.py",
+]
+exclude = [
+  "hermes-agent/**",
+  "dashboard/**",
+  "data/**",
+]
+
+[profiles.hermes-runtime]
+description = "Embedded Hermes runtime and its own docs/tests."
+include = [
+  "hermes-agent/**",
+]
+
+[profiles.full]
+description = "Whole repo except generated artifacts and dependency directories."
+include = [
+  "**",
+]
+exclude = [
+  "graphify-out/**",
+  "dashboard/node_modules/**",
+  "dashboard/dist/**",
+  "data/generated_images/**",
+  "data/deliverables/**",
+  "logs/**",
+]
