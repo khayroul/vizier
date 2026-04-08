@@ -450,6 +450,10 @@ class WorkflowExecutor:
         context: dict[str, Any] = {"job_context": job_context}
 
         for stage in self.pack.stages:
+            # Expose cumulative results so downstream stages (e.g. delivery)
+            # can access outputs from any prior stage, not just the previous one.
+            context["stage_results"] = list(stage_results)
+
             # Run stage
             stage_output = self._run_stage(stage, context, collector)
 
