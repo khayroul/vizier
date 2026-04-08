@@ -30,6 +30,7 @@ from tools.executor import (
 )
 from tools.workflow_schema import (
     QualityTechniquesConfig,
+    StageDefinition,
     WorkflowPack,
     load_workflow,
 )
@@ -153,7 +154,7 @@ class TestWorkflowPackSchema:
         with pytest.raises(ValueError, match="anti-drift #54"):
             WorkflowPack(
                 name="bad_workflow",
-                stages=[{"name": "test", "role": "production", "action": "test"}],
+                stages=[StageDefinition(name="test", role="production", action="test")],
                 model_preference={"en_creative": "claude-opus-4-6"},
             )
 
@@ -162,7 +163,7 @@ class TestWorkflowPackSchema:
         with pytest.raises(ValueError, match="scorer_model"):
             WorkflowPack(
                 name="bad_workflow",
-                stages=[{"name": "test", "role": "production", "action": "test"}],
+                stages=[StageDefinition(name="test", role="production", action="test")],
                 scorer_model="claude-sonnet-4-6",
             )
 
@@ -171,7 +172,7 @@ class TestWorkflowPackSchema:
         for strategy in ("simple", "rolling_summary", "aggressive"):
             pack = WorkflowPack(
                 name="test",
-                stages=[{"name": "s1", "role": "production", "action": "test"}],
+                stages=[StageDefinition(name="s1", role="production", action="test")],
                 context_strategy=strategy,
             )
             assert pack.context_strategy == strategy
@@ -187,7 +188,7 @@ class TestWorkflowPackSchema:
         with pytest.raises(ValueError, match="derivative_source"):
             WorkflowPack(
                 name="test",
-                stages=[{"name": "s1", "role": "production", "action": "test"}],
+                stages=[StageDefinition(name="s1", role="production", action="test")],
                 creative_workshop="derivative",
             )
 
@@ -195,7 +196,7 @@ class TestWorkflowPackSchema:
         """creative_workshop='derivative' works with derivative_source."""
         pack = WorkflowPack(
             name="test",
-            stages=[{"name": "s1", "role": "production", "action": "test"}],
+            stages=[StageDefinition(name="s1", role="production", action="test")],
             creative_workshop="derivative",
             derivative_source="project-123",
         )
