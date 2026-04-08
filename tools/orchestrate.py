@@ -58,6 +58,10 @@ def run_governed(
     *,
     quality_posture: str | None = None,
     budget_profile: str | None = None,
+    platform: str | None = None,
+    reference_image_path: str | None = None,
+    reference_image_url: str | None = None,
+    reference_notes: str | None = None,
 ) -> dict[str, Any]:
     """Run the full governed execution chain.
 
@@ -146,6 +150,14 @@ def run_governed(
         "design_system": routing_result.design_system,
         **runtime_context,
     }
+    if platform:
+        job_context["platform"] = platform
+    if reference_image_path:
+        job_context["reference_image_path"] = reference_image_path
+    if reference_image_url:
+        job_context["reference_image_url"] = reference_image_url
+    if reference_notes:
+        job_context["reference_notes"] = reference_notes
 
     if decision.action == PolicyAction.block:
         raise PolicyDenied(

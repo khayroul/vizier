@@ -205,6 +205,90 @@ def _sanitize_visual_prompt(prompt: str) -> str:
     return prompt
 
 
+def _build_reference_style_guidance(
+    context: dict[str, Any],
+) -> tuple[str | None, str | None, dict[str, Any] | None]:
+    """Summarise an optional reference poster into promptable guidance.
+
+    This gives poster jobs a concrete seam for sample-poster adaptation:
+    if a caller provides a local reference image or a fal-hosted URL, we
+    preserve the layout/palette cues in the prompt and, when possible,
+    route generation through an image-to-image model.
+    """
+    import mimetypes
+
+    job_ctx = context.get("job_context", {})
+    payload = _artifact_payload(context)
+
+    reference_path = (
+        payload.get("reference_image_path")
+        or job_ctx.get("reference_image_path")
+    )
+    reference_url = (
+        payload.get("reference_image_url")
+        or job_ctx.get("reference_image_url")
+    )
+    reference_notes = (
+        payload.get("reference_notes")
+        or job_ctx.get("reference_notes")
+    )
+
+    reference_visual_dna: dict[str, Any] | None = None
+
+    if isinstance(reference_path, str) and reference_path.strip():
+        path = Path(reference_path).expanduser()
+        if path.exists():
+            try:
+                from tools.visual_dna import extract_visual_dna
+                from utils.storage import upload_to_fal
+
+                image_bytes = path.read_bytes()
+                reference_visual_dna = extract_visual_dna(image_bytes)
+                if not reference_url:
+                    mime_type = (
+                        mimetypes.guess_type(str(path))[0]
+                        or "image/jpeg"
+                    )
+                    reference_url = upload_to_fal(
+                        image_bytes,
+                        content_type=mime_type,
+                    )
+            except Exception as exc:
+                logger.warning(
+                    "Reference poster analysis failed for %s: %s",
+                    path,
+                    exc,
+                )
+
+    if not reference_visual_dna and not reference_notes and not reference_url:
+        return None, None, None
+
+    guidance_parts: list[str] = [
+        "Reference poster guidance:",
+        "Use the reference's layout rhythm and visual hierarchy as inspiration, "
+        "but create a new poster tailored to the current brief.",
+        "Do not copy any original text, logos, marks, or trademarks from the "
+        "reference image.",
+    ]
+    if reference_visual_dna:
+        layout_type = str(reference_visual_dna.get("layout_type", "")).strip()
+        colours = reference_visual_dna.get("dominant_colours") or []
+        if layout_type:
+            guidance_parts.append(
+                f"- Layout type to echo: {layout_type}"
+            )
+        if isinstance(colours, list) and colours:
+            guidance_parts.append(
+                "- Palette cues: " + ", ".join(str(colour) for colour in colours[:4])
+            )
+    if isinstance(reference_notes, str) and reference_notes.strip():
+        guidance_parts.append(f"- Operator notes: {reference_notes.strip()}")
+
+    return "\n".join(guidance_parts), (
+        str(reference_url) if isinstance(reference_url, str) and reference_url else None
+    ), reference_visual_dna
+
+
 def _image_generate(context: dict[str, Any]) -> dict[str, Any]:
     """Generate an image via fal.ai with brief expansion (anti-drift #25).
 
@@ -214,28 +298,61 @@ def _image_generate(context: dict[str, Any]) -> dict[str, Any]:
     from pathlib import Path
     from uuid import uuid4
 
-    from tools.image import expand_brief, generate_image, select_image_model
+    from tools.image import (
+        expand_brief,
+        generate_image,
+        select_image_dimensions,
+        select_image_model,
+    )
 
     job_ctx = context.get("job_context", {})
+    payload = _artifact_payload(context)
     prompt = context.get("prompt", "")
     client_id = job_ctx.get("client_id", "default")
 
-    model = select_image_model(
-        language=job_ctx.get("language", "en"),
-        artifact_family=job_ctx.get("artifact_family", "poster"),
-    )
-
     # Load client brand for brief expansion context
-    brand_config = _load_client_brand(client_id)
+    brand_config = {
+        **_load_client_brand(client_id),
+        **dict(job_ctx.get("brand_config") or {}),
+    }
 
     # Include design system from routing if available
     design_system = job_ctx.get("routing", {}).get("design_system")
     if design_system:
         brand_config["design_system"] = design_system
 
+    reference_guidance, reference_image_url, reference_visual_dna = (
+        _build_reference_style_guidance(context)
+    )
+    if reference_visual_dna:
+        brand_config["reference_visual_dna"] = reference_visual_dna
+    prompt_for_expansion = prompt
+    if reference_guidance:
+        prompt_for_expansion = f"{prompt}\n\n{reference_guidance}"
+
     # Anti-drift #25: ALWAYS expand brief before generation
-    expanded = expand_brief(prompt, brand_config=brand_config)
+    expanded = expand_brief(prompt_for_expansion, brand_config=brand_config)
     visual_prompt = expanded.get("composition", prompt)
+
+    if reference_visual_dna:
+        layout_type = reference_visual_dna.get("layout_type")
+        dominant_colours = reference_visual_dna.get("dominant_colours") or []
+        palette_hint = ", ".join(str(colour) for colour in dominant_colours[:4])
+        reference_hint_parts: list[str] = []
+        if layout_type:
+            reference_hint_parts.append(
+                f"Follow a {layout_type} composition inspired by the reference poster"
+            )
+        if palette_hint:
+            reference_hint_parts.append(
+                f"with palette accents inspired by {palette_hint}"
+            )
+        if reference_hint_parts:
+            visual_prompt = (
+                f"{visual_prompt.rstrip('.')} "
+                + " ".join(reference_hint_parts)
+                + "."
+            )
 
     # Anti-drift #49: text is rendered by Typst, never baked into images.
     # Rewrite prompt as a scene description, stripping all artifact language.
@@ -250,7 +367,26 @@ def _image_generate(context: dict[str, Any]) -> dict[str, Any]:
         "no watermarks. Pure visual imagery only."
     )
 
-    image_bytes = generate_image(prompt=visual_prompt, model=model)
+    model = select_image_model(
+        language=str(job_ctx.get("language", "en")),
+        has_text=bool(str(payload.get("poster_copy") or payload.get("text_content") or "").strip()),
+        style=str(brand_config.get("image_mode") or "poster"),
+        artifact_family=str(job_ctx.get("artifact_family", "poster")),
+        image_mode=str(brand_config.get("image_mode") or ""),
+        reference_image_url=reference_image_url,
+    )
+    width, height = select_image_dimensions(
+        artifact_family=str(job_ctx.get("artifact_family", "poster")),
+        platform=str(job_ctx.get("platform") or ""),
+    )
+
+    image_bytes = generate_image(
+        prompt=visual_prompt,
+        model=model,
+        width=width,
+        height=height,
+        image_url=reference_image_url,
+    )
 
     # Save to local file — prevents fal.ai CDN URL expiry issues
     # and provides a stable path for downstream stages (vision, delivery).
@@ -271,6 +407,11 @@ def _image_generate(context: dict[str, Any]) -> dict[str, Any]:
         "output": f"image_generated ({len(image_bytes)} bytes via {model})",
         "image_path": str(local_path),
         "image_model": model,
+        "image_width": width,
+        "image_height": height,
+        "reference_image_url": reference_image_url,
+        "reference_visual_dna": reference_visual_dna,
+        "expanded_brief": expanded,
         "cost_usd": 0.025,  # fal.ai flux/dev approximate cost
     }
 
@@ -280,6 +421,7 @@ def _visual_qa(context: dict[str, Any]) -> dict[str, Any]:
     from tools.visual_pipeline import evaluate_visual_artifact
 
     job_ctx = context.get("job_context", {})
+    previous_output = context.get("previous_output", {})
     payload = _artifact_payload(context)
     image_path = payload.get("image_path") or context.get("previous_output", {}).get("image_path")
     if not image_path:
@@ -291,13 +433,44 @@ def _visual_qa(context: dict[str, Any]) -> dict[str, Any]:
         }
 
     controls = _runtime_controls(context)
+    expanded_brief = (
+        previous_output.get("expanded_brief")
+        if isinstance(previous_output, dict)
+        else None
+    )
+    if not isinstance(expanded_brief, dict):
+        expanded_brief = {}
     brief = {
+        **expanded_brief,
         "raw_brief": str(job_ctx.get("raw_input", "")),
-        "design_system": str(job_ctx.get("design_system") or job_ctx.get("routing", {}).get("design_system") or ""),
+        "design_system": str(
+            job_ctx.get("design_system")
+            or job_ctx.get("routing", {}).get("design_system")
+            or expanded_brief.get("design_system")
+            or ""
+        ),
         "template_name": str(payload.get("template_name") or job_ctx.get("template_name") or ""),
-        "style": str(payload.get("design_system") or ""),
-        "composition": str(payload.get("text_content") or ""),
+        "style": str(
+            expanded_brief.get("style")
+            or payload.get("design_system")
+            or ""
+        ),
+        "composition": str(
+            expanded_brief.get("composition")
+            or payload.get("text_content")
+            or ""
+        ),
     }
+    reference_visual_dna = (
+        previous_output.get("reference_visual_dna")
+        if isinstance(previous_output, dict)
+        else None
+    )
+    if isinstance(reference_visual_dna, dict):
+        brief["reference_layout"] = str(reference_visual_dna.get("layout_type", ""))
+        brief["reference_palette"] = ", ".join(
+            str(colour) for colour in (reference_visual_dna.get("dominant_colours") or [])[:4]
+        )
     quality = evaluate_visual_artifact(
         image_path=str(image_path),
         client_id=str(job_ctx.get("client_id", "default")),
@@ -559,7 +732,15 @@ def _load_client_brand(client_id: str) -> dict[str, Any]:
         brand = dict(data.get("brand", {}))
         defaults = data.get("defaults", {})
         # Merge relevant defaults into brand context
-        for key in ("tone", "copy_register", "language", "style_hint", "image_mode"):
+        for key in (
+            "tone",
+            "copy_register",
+            "language",
+            "style_hint",
+            "image_mode",
+            "style_reference",
+            "style_reference_options",
+        ):
             if key in defaults:
                 brand[key] = defaults[key]
         brand["brand_mood"] = data.get("brand_mood", [])

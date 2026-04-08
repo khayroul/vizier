@@ -29,6 +29,7 @@ _IMAGE_MODELS: dict[str, str] = {
     "photorealistic": "fal-ai/flux-pro",         # photorealistic product
     "draft": "fal-ai/nano-banana",               # free draft preview
     "character_iterative": "fal-ai/flux-pro/kontext",  # character consistency
+    "reference_adapt": "fal-ai/flux-pro/kontext",  # poster/image-to-image adaptation
     "generic": "fal-ai/flux/dev",                # default fallback
 }
 
@@ -39,6 +40,8 @@ def select_image_model(
     has_text: bool = False,
     style: str = "poster",
     artifact_family: str = "poster",
+    image_mode: str | None = None,
+    reference_image_url: str | None = None,
 ) -> str:
     """Select the best fal.ai model based on job characteristics.
 
@@ -51,15 +54,42 @@ def select_image_model(
     Returns:
         The fal.ai model endpoint string.
     """
-    if style == "draft":
+    mode = (image_mode or style or "").strip().lower().replace("-", "_")
+
+    if mode in {"draft", "draft_preview", "preview"}:
         return _IMAGE_MODELS["draft"]
-    if style == "photorealistic":
+    if reference_image_url:
+        return _IMAGE_MODELS["reference_adapt"]
+    if mode in {"photorealistic", "photo", "product", "lifestyle"}:
         return _IMAGE_MODELS["photorealistic"]
     if language == "ms" and has_text:
         return _IMAGE_MODELS["bm_text"]
     if artifact_family == "childrens_book":
         return _IMAGE_MODELS["character_iterative"]
     return _IMAGE_MODELS["generic"]
+
+
+def select_image_dimensions(
+    *,
+    artifact_family: str = "poster",
+    platform: str | None = None,
+) -> tuple[int, int]:
+    """Select a generation canvas that matches the downstream layout.
+
+    Posters render as portrait layouts, so square image generation wastes
+    composition budget and increases cropping pressure in delivery.
+    """
+    platform_key = (platform or "").strip().lower()
+
+    if artifact_family == "poster":
+        if platform_key in {"instagram", "telegram", "social", "story", "facebook"}:
+            return (1080, 1350)
+        return (1024, 1450)
+
+    if artifact_family in {"brochure", "document"}:
+        return (1024, 1450)
+
+    return (1024, 1024)
 
 
 # ---------------------------------------------------------------------------
