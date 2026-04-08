@@ -168,7 +168,6 @@ def _post_with_retry(
     timeout: float = 120.0,
 ) -> httpx.Response:
     """HTTP POST with exponential backoff on 502/503/529."""
-    last_exc: httpx.HTTPStatusError | None = None
     for attempt in range(_MAX_RETRIES + 1):
         resp = httpx.post(url, json=json, headers=headers, timeout=timeout)
         if resp.status_code not in _RETRYABLE_STATUS:
