@@ -15,12 +15,11 @@ from __future__ import annotations
 
 import logging
 import os
-from pathlib import Path
 from typing import Any
 
 import httpx
 
-from utils.spans import DB_PATH, record_memory_routing, track_span
+from utils.spans import DB_PATH, record_memory_routing, track_span  # noqa: F401 — DB_PATH re-exported for test monkeypatching
 
 logger = logging.getLogger(__name__)
 

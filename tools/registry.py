@@ -126,9 +126,6 @@ def _visual_qa(context: dict[str, Any]) -> dict[str, Any]:
 
 def _typst_render(context: dict[str, Any]) -> dict[str, Any]:
     """Render a Typst template to PDF."""
-    import subprocess
-
-    job_ctx = context.get("job_context", {})
     source = context.get("typst_source", "")
     if not source:
         return {"status": "ok", "output": "No Typst source provided", "cost_usd": 0.0}
@@ -162,7 +159,6 @@ def _knowledge_retrieve(context: dict[str, Any]) -> dict[str, Any]:
     """Retrieve relevant knowledge cards."""
     from tools.knowledge import ingest_card  # noqa: F401 — validates import
 
-    job_ctx = context.get("job_context", {})
     return {
         "status": "ok",
         "output": "knowledge_retrieved",
@@ -319,7 +315,7 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
 
 def _readiness_check(context: dict[str, Any]) -> dict[str, Any]:
     """Evaluate spec readiness."""
-    from contracts.readiness import evaluate_readiness
+    from contracts.readiness import evaluate_readiness  # noqa: F401 — stub, will use when fleshed out
 
     # In production this would receive a ProvisionalArtifactSpec from context
     return {"status": "ok", "output": "readiness_checked", "cost_usd": 0.0}

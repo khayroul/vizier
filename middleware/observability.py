@@ -76,7 +76,7 @@ def observe_with_metadata(
 
             if client is not None:
                 try:
-                    trace = client.trace(
+                    _trace = client.trace(  # noqa: F841 — Langfuse auto-flushes on creation
                         name=fn.__name__,
                         metadata={
                             "client_id": client_id,

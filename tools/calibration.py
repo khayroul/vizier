@@ -183,7 +183,7 @@ def ingest_external_benchmark(image_data: bytes, metadata: dict[str, Any]) -> st
             INSERT INTO feedback (
                 job_id, feedback_status, benchmark_source, raw_text
             ) VALUES (
-                %s, 'awaiting_feedback', 'external', %s
+                %s, 'awaiting', 'external', %s
             )
             RETURNING id
             """,

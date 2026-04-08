@@ -58,8 +58,8 @@ class DesignSelectorHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(body).encode())
 
-    def log_message(self, fmt: str, *args: object) -> None:
-        logger.info(fmt, *args)
+    def log_message(self, format: str, *args: object) -> None:  # noqa: A002
+        logger.info(format, *args)
 
 
 def main() -> None:

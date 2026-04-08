@@ -15,8 +15,6 @@ from typing import Any
 
 import structlog
 
-from scripts.visual.calculate_delta import calculate_delta
-
 logger = structlog.get_logger(__name__)
 
 _TYPE_MAP = {
@@ -248,6 +246,9 @@ def validate_visual_qa(
     Returns:
         ValidationResult indicating pass/fail with error details.
     """
+    # Lazy import — module lives outside the main package tree
+    from scripts.visual.calculate_delta import calculate_delta  # type: ignore[import-not-found]
+
     delta = calculate_delta(target=target, rendered=rendered)
     if delta.composite_score >= threshold:
         return ValidationResult(passed=True, layer="visual_qa")

@@ -18,8 +18,6 @@ from typing import Any
 
 import yaml
 
-from contracts.artifact_spec import ArtifactFamily
-
 logger = logging.getLogger(__name__)
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -137,7 +135,10 @@ def validate_workflow_registry(data: dict[str, Any] | None = None) -> None:
         phase_config: dict[str, Any] = yaml.safe_load(fh)
     phase_names = set(phase_config.get("phases", {}).keys())
 
-    # Valid ArtifactFamily values
+    # Lazy import to avoid circular dependency:
+    # workflow_registry → contracts.artifact_spec → contracts/__init__ → contracts.routing → workflow_registry
+    from contracts.artifact_spec import ArtifactFamily
+
     valid_families = {member.value for member in ArtifactFamily}
 
     # 1. Every registry workflow has a manifest YAML
