@@ -67,31 +67,43 @@ def _classify_artifact(context: dict[str, Any]) -> dict[str, Any]:
 
 
 def _sanitize_visual_prompt(prompt: str) -> str:
-    """Remove text-content leakage from visual prompts (anti-drift #49).
+    """Rewrite visual prompt as a scene description, not an artifact.
 
-    FLUX hallucinates gibberish when the prompt contains quoted text,
-    headline instructions, or layout/UI language. Strip those patterns
-    so the model generates a clean background image.
+    FLUX renders gibberish text whenever the prompt describes a "poster",
+    "campaign", or any finished design artifact. The fix is aggressive:
+    strip ALL artifact/design language and ensure the prompt only
+    describes a visual scene suitable as a background.
     """
     import re
 
-    # Remove quoted strings (text content that FLUX would try to render)
+    # Remove quoted strings (text content FLUX would try to render)
     prompt = re.sub(r"['\"][^'\"]{3,}['\"]", "", prompt)
-    # Remove "headline: ...", "CTA: ...", "body: ..." lines
+
+    # Remove "headline: ...", "CTA: ...", etc. instruction patterns
     prompt = re.sub(
         r"(?i)(headline|subheadline|cta|body text|body copy|"
         r"caption|tagline|slogan|title|subtitle|footer|header"
-        r"|text reads|text says|include text|with text)\s*[:=][^\n.]*",
+        r"|text reads|text says|include text|with text"
+        r"|call to action|main message|supporting text"
+        r"|banner text|logo text)\s*[:=][^\n.]*",
         "",
         prompt,
     )
-    # Remove words that trigger layout/mockup generation
+
+    # Remove artifact/design words that make FLUX generate a
+    # "finished poster" instead of a background scene
     prompt = re.sub(
-        r"(?i)\b(website|mockup|ui |ux |wireframe|infographic"
-        r"|brochure layout|poster layout|flyer layout)\b",
+        r"(?i)\b(poster|flyer|banner|brochure|pamphlet|leaflet"
+        r"|advertisement|ad |campaign materials?|print design"
+        r"|website|mockup|ui |ux |wireframe|infographic"
+        r"|layout|typography|typographic|font|typeface"
+        r"|professionally done|professional design"
+        r"|government agency|gov agency|official poster"
+        r"|notice ?board|bulletin|announcement)\b",
         "",
         prompt,
     )
+
     # Collapse whitespace
     prompt = re.sub(r"\s{2,}", " ", prompt).strip()
     return prompt
@@ -115,18 +127,17 @@ def _image_generate(context: dict[str, Any]) -> dict[str, Any]:
     visual_prompt = expanded.get("composition", prompt)
 
     # Anti-drift #49: text is rendered by Typst, never baked into images.
-    # Strip any quoted text, headline/body instructions, and text-layout
-    # language that makes FLUX try to render words.
+    # Rewrite prompt as a scene description, stripping all artifact language.
     visual_prompt = _sanitize_visual_prompt(visual_prompt)
 
-    # Final reinforcement — FLUX still hallucinates text otherwise
-    _NO_TEXT = (
-        " Photographic background image only. Absolutely no text, "
-        "no letters, no words, no numbers, no logos, no watermarks, "
-        "no UI elements, no mockups, no website layouts. "
-        "Clean visual scene suitable as a background."
+    # Prepend scene framing + append hard no-text rule
+    visual_prompt = (
+        "Illustration of a visual scene: "
+        + visual_prompt.rstrip(".")
+        + ". The image contains NO text whatsoever — no letters, "
+        "no words, no numbers, no logos, no signs with writing, "
+        "no watermarks. Pure visual imagery only."
     )
-    visual_prompt = visual_prompt.rstrip(".") + "." + _NO_TEXT
 
     image_bytes = generate_image(prompt=visual_prompt, model=model)
 
