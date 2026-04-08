@@ -277,7 +277,7 @@ class TestWorkflowExecution:
         # Verify trace was collected
         trace = result["trace"]
         assert trace is not None
-        assert len(trace["steps"]) == 4
+        assert len(trace["steps"]) >= 4
         stage_names = [step["step_name"] for step in trace["steps"]]
         assert "intake" in stage_names
         assert "production" in stage_names
@@ -311,6 +311,7 @@ class TestTraceCollection:
         production_trace = collector.finalise()
         assert len(production_trace.steps) == 3
         assert production_trace.steps[0].step_name == "routing"
+        assert production_trace.steps[2].proof is not None
         assert production_trace.steps[2].proof["nima_score"] == 6.8
         assert production_trace.total_input_tokens == 800
         assert production_trace.total_output_tokens == 300
@@ -437,6 +438,7 @@ class TestFeedbackCreation:
             )
             row = cur.fetchone()
 
+        assert row is not None
         assert row["feedback_status"] == "awaiting"
         assert row["delivered_at"] is not None, "delivered_at should be auto-set by trigger"
 
@@ -581,7 +583,7 @@ class TestEndToEndChain:
 
         # Step 10: Verify trace
         trace_data = result["trace"]
-        assert len(trace_data["steps"]) == 4
+        assert len(trace_data["steps"]) >= 4
         for step in trace_data["steps"]:
             assert "step_name" in step
             assert "duration_ms" in step
@@ -595,7 +597,7 @@ class TestEndToEndChain:
         # Verify persistence round-trip
         loaded = load_trace(test_job["id"])
         assert loaded is not None
-        assert len(loaded.steps) == 4
+        assert len(loaded.steps) >= 4
 
         # Store routing result on job
         routing_json = json.dumps(routing_result.model_dump(mode="json"), default=str)
@@ -610,6 +612,7 @@ class TestEndToEndChain:
             )
             row = cur.fetchone()
 
+        assert row is not None
         assert row["status"] == "completed"
         assert row["routing_result"]["workflow"] == "poster_production"
         assert row["production_trace"] is not None

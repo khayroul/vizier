@@ -263,6 +263,11 @@ class TestReworkE2E:
             "raw_input": "perbaiki warna terlalu gelap",
             "routing": routing.model_dump(mode="json"),
             "original_job_id": "job-e2e-001",
+            "original_workflow": "poster_production",
+            "original_trace": {
+                "workflow": "poster_production",
+                "steps": [{"name": "production", "error": "warna terlalu gelap"}],
+            },
         })
 
         assert result["workflow"] == "rework"

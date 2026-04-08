@@ -12,7 +12,7 @@ from __future__ import annotations
 import time
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Generator
+from typing import Any, Generator
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -35,7 +35,7 @@ class StepTrace(BaseModel):
     cost_usd: float = Field(default=0.0, ge=0.0)
     duration_ms: float = Field(default=0.0, ge=0.0)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-    proof: dict[str, float | int | str | bool | None] | None = Field(
+    proof: dict[str, Any] | None = Field(
         default=None,
         description="Structured evidence of step success, JSONB-compatible",
     )
@@ -56,6 +56,14 @@ class ProductionTrace(BaseModel):
     steps: list[StepTrace] = Field(default_factory=list)
     started_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: datetime | None = None
+    steps_executed: list[str] = Field(default_factory=list)
+    knowledge_cards_used: list[str] = Field(default_factory=list)
+    revision_count: int = Field(default=0, ge=0)
+    template_used: str | None = None
+    design_system: str | None = None
+    runtime_controls: dict[str, object] | None = None
+    quality_summary: dict[str, object] | None = None
+    artifact_summary: dict[str, object] | None = None
 
     @property
     def total_cost_usd(self) -> float:

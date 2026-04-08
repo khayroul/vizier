@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import subprocess
 from pathlib import Path
+from typing import Generator
 
 import httpx
 import pytest
@@ -20,8 +21,19 @@ DASHBOARD_DIR = Path(__file__).parent.parent / "dashboard"
 
 
 @pytest.fixture(scope="module")
-def client() -> httpx.Client:
+def client() -> Generator[httpx.Client, None, None]:
     with httpx.Client(base_url=POSTGREST_URL, timeout=10) as c:
+        try:
+            probe = c.get("/jobs", params={"limit": 1})
+        except httpx.HTTPError as exc:
+            pytest.skip(f"PostgREST not reachable at {POSTGREST_URL}: {exc}")
+
+        content_type = probe.headers.get("content-type", "")
+        if probe.status_code != 200 or "application/json" not in content_type:
+            pytest.skip(
+                f"PostgREST not available at {POSTGREST_URL} "
+                f"(status={probe.status_code}, content_type={content_type!r})"
+            )
         yield c
 
 

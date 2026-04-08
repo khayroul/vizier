@@ -8,6 +8,7 @@ All scoring on GPT-5.4-mini (anti-drift #22, #54).
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from contracts.trace import TraceCollector
@@ -21,6 +22,80 @@ from tools.visual_scoring import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def evaluate_visual_artifact(
+    *,
+    image_path: str,
+    client_id: str,
+    brief: dict[str, Any],
+    artifact_family: str = "poster",
+    copy_text: str = "",
+    copy_register: str = "neutral",
+    brand_config: dict[str, Any] | None = None,
+    language: str = "en",
+    critique_max_tokens: int = 300,
+    allow_parallel_guardrails: bool = True,
+    qa_threshold: float = 3.2,
+    precomputed_nima_score: float | None = None,
+) -> dict[str, Any]:
+    """Evaluate a rendered visual artifact using the stronger scoring stack."""
+    image_bytes = Path(image_path).read_bytes()
+    score = (
+        float(precomputed_nima_score)
+        if precomputed_nima_score is not None
+        else nima_score(image_bytes)
+    )
+    prescreen = nima_prescreen(score)
+
+    image_description = (
+        f"Rendered {artifact_family} artifact. "
+        f"Composition: {brief.get('composition', brief.get('raw_brief', 'N/A'))}. "
+        f"Style: {brief.get('style', brief.get('design_system', 'N/A'))}. "
+        f"Copy present: {'yes' if bool(copy_text.strip()) else 'no'}."
+    )
+    exemplar_result = score_with_exemplars(
+        image_bytes=image_bytes,
+        client_id=client_id,
+        brief={str(k): str(v) for k, v in brief.items() if v is not None},
+        image_description=image_description,
+        max_tokens=critique_max_tokens,
+    )
+
+    guardrail_flags: list[dict[str, Any]] = []
+    if allow_parallel_guardrails and copy_text.strip():
+        try:
+            guardrail_flags = run_parallel_guardrails(
+                copy=copy_text,
+                copy_register=copy_register,
+                brand_config=brand_config,
+                language=language,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Visual guardrails failed during evaluation; continuing without flags: %s",
+                exc,
+            )
+            guardrail_flags = []
+
+    passed = (
+        prescreen["action"] != "regenerate"
+        and float(exemplar_result["weighted_score"]) >= qa_threshold
+    )
+
+    return {
+        "nima_score": score,
+        "nima_action": prescreen["action"],
+        "weighted_score": exemplar_result["weighted_score"],
+        "critique": exemplar_result["critique"],
+        "exemplar_result": exemplar_result,
+        "guardrail_flags": guardrail_flags,
+        "passed": passed,
+        "qa_threshold": qa_threshold,
+        "input_tokens": exemplar_result.get("input_tokens", 0),
+        "output_tokens": exemplar_result.get("output_tokens", 0),
+        "cost_usd": exemplar_result.get("cost_usd", 0.0),
+    }
 
 
 def run_visual_pipeline(
@@ -116,23 +191,35 @@ def run_visual_pipeline(
             score, attempt + 1, max_regenerations,
         )
 
-    # Step 5+6: Critique + exemplar scoring
-    with collector.step("critique_and_exemplar_scoring") as trace:
-        image_description = (
-            f"Generated {artifact_family} using model {model}. "
-            f"Brief composition: {expanded.get('composition', 'N/A')}. "
-            f"Style: {expanded.get('style', 'N/A')}."
-        )
+    # Persist to a temporary local file so both runtime paths score the same artifact.
+    temp_dir = Path.home() / "vizier" / "data" / "generated_images"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    temp_path = temp_dir / f"{job_id}_visual_pipeline.png"
+    temp_path.write_bytes(image_bytes)
 
-        exemplar_result = score_with_exemplars(
-            image_bytes=image_bytes,
+    # Step 5+6+8: Shared visual quality evaluation
+    with collector.step("visual_quality_verdict") as trace:
+        quality = evaluate_visual_artifact(
+            image_path=str(temp_path),
             client_id=client_id,
             brief=expanded,
-            image_description=image_description,
+            artifact_family=artifact_family,
+            copy_text=str(expanded.get("text_content", "")),
+            copy_register=copy_register,
+            brand_config=brand_config,
+            language=language,
+            allow_parallel_guardrails=True,
+            qa_threshold=3.2,
+            precomputed_nima_score=score,
         )
+        trace.input_tokens = int(quality.get("input_tokens", 0) or 0)
+        trace.output_tokens = int(quality.get("output_tokens", 0) or 0)
+        trace.cost_usd = float(quality.get("cost_usd", 0.0) or 0.0)
         trace.proof = {
-            "weighted_score": exemplar_result["weighted_score"],
-            "exemplars_used": exemplar_result["exemplars_used"],
+            "weighted_score": quality["weighted_score"],
+            "nima_score": quality["nima_score"],
+            "flags_count": len(quality["guardrail_flags"]),
+            "passed": quality["passed"],
         }
 
     # Step 7: Visual lineage
@@ -145,18 +232,7 @@ def run_visual_pipeline(
     except Exception as exc:
         logger.warning("Failed to record visual lineage: %s", exc)
 
-    # Step 8: Run guardrails on any copy content
-    guardrail_flags: list[dict[str, Any]] = []
-    text_content = expanded.get("text_content", "")
-    if text_content:
-        with collector.step("parallel_guardrails") as trace:
-            guardrail_flags = run_parallel_guardrails(
-                copy=text_content,
-                copy_register=copy_register,
-                brand_config=brand_config,
-                language=language,
-            )
-            trace.proof = {"flags_count": len(guardrail_flags)}
+    guardrail_flags = quality["guardrail_flags"]
 
     # Step 9: Finalise trace
     production_trace = collector.finalise()
@@ -167,9 +243,11 @@ def run_visual_pipeline(
         "model_used": model,
         "nima_score": score,
         "nima_action": prescreen["action"],
-        "critique": exemplar_result["critique"],
-        "weighted_score": exemplar_result["weighted_score"],
-        "exemplar_result": exemplar_result,
+        "critique": quality["critique"],
+        "weighted_score": quality["weighted_score"],
+        "exemplar_result": quality["exemplar_result"],
         "guardrail_flags": guardrail_flags,
+        "qa_threshold": quality["qa_threshold"],
+        "passed": quality["passed"],
         "trace": production_trace.to_jsonb(),
     }

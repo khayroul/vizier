@@ -142,7 +142,23 @@ def critique_4dim(
     brief: dict[str, str],
     exemplar_descriptions: list[str] | None = None,
 ) -> dict[str, dict[str, Any]]:
-    """Score a design across 4 quality dimensions using GPT-5.4-mini.
+    """Backwards-compatible critique wrapper."""
+    return critique_4dim_with_metrics(
+        image_description=image_description,
+        brief=brief,
+        exemplar_descriptions=exemplar_descriptions,
+    )["dimensions"]
+
+
+def critique_4dim_with_metrics(
+    *,
+    image_description: str,
+    brief: dict[str, str],
+    exemplar_descriptions: list[str] | None = None,
+    temperature: float = 0.3,
+    max_tokens: int = 300,
+) -> dict[str, Any]:
+    """Score a design across 4 quality dimensions and return token metrics.
 
     Each dimension gets a separate LLM call for focused evaluation.
     All calls use GPT-5.4-mini (anti-drift #22, #54).
@@ -153,8 +169,9 @@ def critique_4dim(
         exemplar_descriptions: Optional descriptions of similar approved designs.
 
     Returns:
-        Dict keyed by dimension name, each with
-        'score' (float) and 'issues' (list[str]).
+        Dict with keys:
+          - dimensions: per-dimension scores/issues
+          - input_tokens / output_tokens / cost_usd: aggregate metrics
     """
     dims_config = _load_quality_dimensions()
     dimensions = dims_config["dimensions"]
@@ -168,6 +185,9 @@ def critique_4dim(
         )
 
     results: dict[str, dict[str, Any]] = {}
+    total_input_tokens = 0
+    total_output_tokens = 0
+    total_cost_usd = 0.0
 
     for dim_name, dim_config in dimensions.items():
         description = dim_config["description"]
@@ -188,10 +208,13 @@ def critique_4dim(
             stable_prefix=prefix,
             variable_suffix=[{"role": "user", "content": user_msg}],
             model="gpt-5.4-mini",
-            temperature=0.3,
-            max_tokens=300,
+            temperature=temperature,
+            max_tokens=max_tokens,
             response_format={"type": "json_object"},
         )
+        total_input_tokens += int(llm_result.get("input_tokens", 0) or 0)
+        total_output_tokens += int(llm_result.get("output_tokens", 0) or 0)
+        total_cost_usd += float(llm_result.get("cost_usd", 0.0) or 0.0)
 
         try:
             parsed = json.loads(llm_result["content"])
@@ -203,7 +226,12 @@ def critique_4dim(
             logger.warning("Failed to parse critique for %s", dim_name)
             results[dim_name] = {"score": 3.0, "issues": ["Parse error in critique"]}
 
-    return results
+    return {
+        "dimensions": results,
+        "input_tokens": total_input_tokens,
+        "output_tokens": total_output_tokens,
+        "cost_usd": total_cost_usd,
+    }
 
 
 def weighted_score(critique_results: dict[str, dict[str, Any]]) -> float:
@@ -238,6 +266,8 @@ def score_with_exemplars(
     client_id: str,
     brief: dict[str, str],
     image_description: str = "",
+    temperature: float = 0.3,
+    max_tokens: int = 300,
 ) -> dict[str, Any]:
     """Score a design against similar approved exemplars via CLIP.
 
@@ -266,6 +296,12 @@ def score_with_exemplars(
             "skipping exemplar scoring",
         )
         exemplars = []
+    except Exception as exc:
+        logger.warning(
+            "Exemplar retrieval failed; continuing without exemplars: %s",
+            exc,
+        )
+        exemplars = []
 
     exemplar_descriptions = [
         (
@@ -276,11 +312,14 @@ def score_with_exemplars(
         for ex in exemplars
     ]
 
-    critique = critique_4dim(
+    critique_result = critique_4dim_with_metrics(
         image_description=image_description,
         brief=brief,
         exemplar_descriptions=exemplar_descriptions if exemplar_descriptions else None,
+        temperature=temperature,
+        max_tokens=max_tokens,
     )
+    critique = critique_result["dimensions"]
 
     return {
         "exemplars_used": len(exemplars),
@@ -288,6 +327,9 @@ def score_with_exemplars(
         "exemplar_descriptions": exemplar_descriptions,
         "critique": critique,
         "weighted_score": weighted_score(critique),
+        "input_tokens": critique_result["input_tokens"],
+        "output_tokens": critique_result["output_tokens"],
+        "cost_usd": critique_result["cost_usd"],
     }
 
 

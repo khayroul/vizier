@@ -208,6 +208,39 @@ quality_posture:
     contract_strictness: reject
     critique_rounds: 3
 
+# Runtime budget profiles
+# Separate from quality posture:
+# - quality_posture controls strictness / active techniques
+# - budget_profile controls token/context/retry spending
+budget_profiles:
+  lean:
+    default_max_tokens: 768
+    critique_max_tokens: 256
+    revision_max_tokens: 1024
+    knowledge_card_cap: 2
+    max_tripwire_retries: 0
+    qa_threshold: 3.0
+    allow_parallel_guardrails: false
+    require_quality_pass: true
+  standard:
+    default_max_tokens: 1280
+    critique_max_tokens: 384
+    revision_max_tokens: 1536
+    knowledge_card_cap: 4
+    max_tripwire_retries: 1
+    qa_threshold: 3.2
+    allow_parallel_guardrails: true
+    require_quality_pass: true
+  critical:
+    default_max_tokens: 2048
+    critique_max_tokens: 512
+    revision_max_tokens: 2048
+    knowledge_card_cap: 6
+    max_tripwire_retries: 2
+    qa_threshold: 3.5
+    allow_parallel_guardrails: true
+    require_quality_pass: true
+
 # Model lock — Month 1-2, anti-drift #54
 model_lock:
   text_model: gpt-5.4-mini

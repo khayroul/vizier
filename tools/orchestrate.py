@@ -15,6 +15,7 @@ from contracts.policy import PolicyAction
 from contracts.readiness import ReadinessResult, evaluate_readiness
 from contracts.routing import RoutingResult, route
 from middleware.policy import PolicyEvaluator, PolicyRequest
+from middleware.runtime_controls import resolve_runtime_controls
 from tools.executor import ToolCallable, WorkflowExecutor
 from utils.workflow_registry import get_workflow_family
 
@@ -54,6 +55,9 @@ def run_governed(
     client_id: str,
     job_id: str,
     tool_registry: dict[str, ToolCallable] | None = None,
+    *,
+    quality_posture: str | None = None,
+    budget_profile: str | None = None,
 ) -> dict[str, Any]:
     """Run the full governed execution chain.
 
@@ -124,14 +128,23 @@ def run_governed(
     )
     decision = evaluator.evaluate(policy_request)
 
+    runtime_context = resolve_runtime_controls(
+        client_id,
+        quality_posture=quality_posture,
+        budget_profile=budget_profile,
+    )
+
     job_context: dict[str, Any] = {
         "job_id": job_id,
         "client_id": client_id,
         "raw_input": raw_input,
         "artifact_family": family.value,
         "language": spec.language,
+        "client_default_language": runtime_context["language"],
         "routing": routing_result.model_dump(mode="json"),
         "readiness": readiness.model_dump(mode="json"),
+        "design_system": routing_result.design_system,
+        **runtime_context,
     }
 
     if decision.action == PolicyAction.block:

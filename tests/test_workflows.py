@@ -24,6 +24,7 @@ import yaml
 from tools.executor import (
     StubWorkflowError,
     WorkflowExecutor,
+    WorkflowExecutionError,
     apply_quality_techniques,
     resolve_reminder,
     run_tripwire,
@@ -403,6 +404,8 @@ class TestExecutorRework:
         """Rework workflow executes all 4 stages."""
         tool_reg = {
             "trace_insight": _stub_tool,
+            "generate_poster": _stub_tool,
+            "image_generate": _stub_tool,
             "quality_gate": _stub_tool,
             "deliver": _stub_tool,
         }
@@ -412,11 +415,72 @@ class TestExecutorRework:
         )
         result = executor.run(job_context={
             "job_id": "rework-001",
-            "original_trace": {"steps": []},
+            "original_workflow": "poster_production",
+            "original_trace": {
+                "workflow": "poster_production",
+                "steps": [{"name": "production", "error": "cta too small"}],
+            },
             "feedback": "The CTA is too small",
         })
         assert result["workflow"] == "rework"
         assert len(result["stages"]) == 4
+
+    def test_rework_rerun_executes_original_stage_tools(self) -> None:
+        """Empty rerun stage hydrates and executes the original failing stage."""
+        called: list[str] = []
+
+        def trace_insight_tool(context: dict[str, Any]) -> dict[str, Any]:
+            called.append("trace_insight")
+            return {
+                "status": "ok",
+                "output": "diagnosed",
+                "original_workflow": "poster_production",
+                "failed_stage": "production",
+                "feedback": "CTA too small",
+            }
+
+        def generate_poster_tool(context: dict[str, Any]) -> dict[str, Any]:
+            called.append("generate_poster")
+            return {
+                "status": "ok",
+                "output": "poster_copy",
+                "poster_copy": "headline: test",
+            }
+
+        def image_generate_tool(context: dict[str, Any]) -> dict[str, Any]:
+            called.append("image_generate")
+            return {
+                "status": "ok",
+                "output": "image_done",
+                "image_path": "/tmp/rework.png",
+            }
+
+        executor = WorkflowExecutor(
+            workflow_path=WORKFLOWS_DIR / "rework.yaml",
+            tool_registry={
+                "trace_insight": trace_insight_tool,
+                "generate_poster": generate_poster_tool,
+                "image_generate": image_generate_tool,
+                "quality_gate": _stub_tool,
+                "deliver": _stub_tool,
+            },
+        )
+
+        result = executor.run(job_context={
+            "job_id": "rework-002",
+            "original_workflow": "poster_production",
+            "original_trace": {
+                "workflow": "poster_production",
+                "steps": [{"name": "production", "error": "cta too small"}],
+            },
+            "feedback": "CTA too small",
+        })
+
+        assert result["workflow"] == "rework"
+        assert called[:3] == ["trace_insight", "generate_poster", "image_generate"]
+        rerun_stage = next(stage for stage in result["stages"] if stage["stage"] == "rerun")
+        assert rerun_stage["rework_source_workflow"] == "poster_production"
+        assert rerun_stage["rework_source_stage"] == "production"
 
     def test_diagnose_accepts_trace_and_feedback(self) -> None:
         """Diagnose stage receives trace and feedback via job_context."""
@@ -430,18 +494,71 @@ class TestExecutorRework:
             workflow_path=WORKFLOWS_DIR / "rework.yaml",
             tool_registry={
                 "trace_insight": capture_tool,
+                "generate_poster": _stub_tool,
+                "image_generate": _stub_tool,
                 "quality_gate": _stub_tool,
                 "deliver": _stub_tool,
             },
         )
         executor.run(job_context={
-            "original_trace": {"steps": [{"name": "production"}]},
+            "original_workflow": "poster_production",
+            "original_trace": {
+                "workflow": "poster_production",
+                "steps": [{"name": "production"}],
+            },
             "feedback": "CTA is not visible",
         })
         # The tool should have received job_context
         assert len(captured) >= 1
         assert "original_trace" in captured[0]["job_context"]
         assert "feedback" in captured[0]["job_context"]
+
+
+class TestWorkflowTerminalStatus:
+    """Terminal tool statuses stop execution immediately."""
+
+    def test_error_status_stops_stage_and_workflow(self) -> None:
+        """A terminal status aborts the stage before later tools run."""
+        from tools.workflow_schema import (
+            QualityTechniquesConfig,
+            TripwireConfig,
+            WorkflowPack,
+        )
+
+        called: list[str] = []
+
+        def failing_tool(context: dict[str, Any]) -> dict[str, Any]:
+            called.append("failing")
+            return {"status": "error", "output": "boom"}
+
+        def later_tool(context: dict[str, Any]) -> dict[str, Any]:
+            called.append("later")
+            return {"status": "ok", "output": "should_not_run"}
+
+        executor = WorkflowExecutor.__new__(WorkflowExecutor)
+        executor.tool_registry = {
+            "failing": failing_tool,
+            "later": later_tool,
+        }
+        executor.scorer_fn = None
+        executor.reviser_fn = None
+        executor.rolling_context = None
+        executor.pack = WorkflowPack(
+            name="terminal_test",
+            stages=[StageDefinition(
+                name="production",
+                action="test",
+                tools=["failing", "later"],
+                role="production",
+            )],
+            tripwire=TripwireConfig(enabled=False),
+            quality_techniques=QualityTechniquesConfig(),
+        )
+
+        with pytest.raises(WorkflowExecutionError, match="terminal_test"):
+            executor.run(job_context={"job_id": "terminal-001"})
+
+        assert called == ["failing"]
 
 
 # ---------------------------------------------------------------------------
@@ -471,7 +588,16 @@ class TestTripwire:
             "issues": ["CTA is buried below fold"],
             "revision_instruction": "Move CTA to top-right with high contrast",
         }
-        scorer = _make_scorer(2.0, critique)
+
+        scores = iter([2.0, 4.0])
+
+        def scorer(context: dict[str, Any]) -> dict[str, Any]:
+            score = next(scores)
+            result: dict[str, Any] = {"score": score}
+            if score < pack.tripwire.threshold:
+                result["critique"] = critique
+            return result
+
         reviser = _make_reviser()
         output = {"output": "original bad poster"}
         result = run_tripwire(
@@ -483,7 +609,7 @@ class TestTripwire:
         assert "revised" in result["output"]
 
     def test_max_retries_escalates(self, pack: WorkflowPack) -> None:
-        """After max retries, escalates to operator."""
+        """After max retries, escalates and fails closed when quality is required."""
         critique = {"dimension": "cta_visibility", "issues": ["still bad"]}
         # Score always below threshold — reviser never fixes it
         scorer = _make_scorer(1.0, critique)
@@ -499,6 +625,7 @@ class TestTripwire:
         )
         assert result.get("_tripwire_escalated") is True
         assert "_tripwire_critique" in result
+        assert result["status"] == "error"
 
     def test_structured_critique_json(self, pack: WorkflowPack) -> None:
         """Critique must return structured JSON with specific dimensions."""

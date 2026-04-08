@@ -15,12 +15,108 @@ import time.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 # Type alias matching executor.ToolCallable protocol
 ToolFn = Any  # Callable[[dict[str, Any]], dict[str, Any]]
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_HTML_TEMPLATES_DIR = _REPO_ROOT / "templates" / "html"
+
+
+def _runtime_controls(context: dict[str, Any]) -> dict[str, Any]:
+    """Return shared runtime controls from job_context."""
+    job_ctx = context.get("job_context", {})
+    return dict(job_ctx.get("runtime_controls") or {})
+
+
+def _runtime_max_tokens(
+    context: dict[str, Any],
+    *,
+    purpose: str,
+    default: int,
+) -> int:
+    controls = _runtime_controls(context)
+    if purpose == "critique":
+        return int(controls.get("critique_max_tokens", default))
+    if purpose == "revision":
+        return int(controls.get("revision_max_tokens", default))
+    return int(controls.get("default_max_tokens", default))
+
+
+def _artifact_payload(context: dict[str, Any]) -> dict[str, Any]:
+    """Return the canonical artifact payload if present."""
+    payload = context.get("artifact_payload")
+    if isinstance(payload, dict):
+        return payload
+    previous = context.get("previous_output", {})
+    if isinstance(previous, dict):
+        previous_payload = previous.get("_artifact_payload")
+        if isinstance(previous_payload, dict):
+            return previous_payload
+    return {}
+
+
+def _quality_target_field(payload: dict[str, Any]) -> str:
+    """Pick which text field should be scored or revised."""
+    for key in (
+        "poster_copy",
+        "brochure_copy",
+        "document_content",
+        "section_content",
+        "page_text",
+    ):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return key
+    return "output"
+
+
+def _quality_target_text(payload: dict[str, Any], fallback: dict[str, Any]) -> str:
+    """Return the best textual artifact representation for scoring/revision."""
+    field = _quality_target_field(payload)
+    value = payload.get(field) if field != "output" else None
+    if isinstance(value, str) and value.strip():
+        return value
+    output = fallback.get("output", "")
+    return str(output)
+
+
+_TEMPLATE_ALIASES = {
+    "corporate_premium": "poster_default",
+    "premium_traditional": "poster_default",
+    "warm_heritage": "poster_default",
+    "road_safety": "poster_road_safety",
+}
+
+
+def _resolve_template_name(job_ctx: dict[str, Any], *, workflow: str) -> str:
+    """Resolve a concrete render template from job context."""
+    if workflow != "poster_production":
+        return "poster"
+
+    candidates: list[str] = []
+    explicit = job_ctx.get("template_name")
+    if explicit:
+        candidates.append(str(explicit))
+
+    design_system = job_ctx.get("design_system") or job_ctx.get("routing", {}).get("design_system")
+    if isinstance(design_system, str) and design_system:
+        ds_key = design_system.strip().lower().replace(" ", "_")
+        candidates.extend([design_system, ds_key])
+        if "road" in ds_key or "safety" in ds_key:
+            candidates.append("poster_road_safety")
+
+    candidates.append("poster_default")
+
+    for candidate in candidates:
+        resolved = _TEMPLATE_ALIASES.get(candidate, candidate)
+        if (_HTML_TEMPLATES_DIR / f"{resolved}.html").exists():
+            return resolved
+    return "poster_default"
 
 
 def _stub(name: str, reason: str) -> ToolFn:
@@ -180,24 +276,58 @@ def _image_generate(context: dict[str, Any]) -> dict[str, Any]:
 
 
 def _visual_qa(context: dict[str, Any]) -> dict[str, Any]:
-    """Run 4-dimension visual quality critique."""
-    from tools.visual_scoring import critique_4dim
+    """Run visual QA against the actual rendered artifact."""
+    from tools.visual_pipeline import evaluate_visual_artifact
 
-    output = context.get("previous_output", {})
-    brief = context.get("job_context", {})
-    results = critique_4dim(
-        image_description=str(output.get("output", "")),
+    job_ctx = context.get("job_context", {})
+    payload = _artifact_payload(context)
+    image_path = payload.get("image_path") or context.get("previous_output", {}).get("image_path")
+    if not image_path:
+        return {
+            "status": "error",
+            "output": "visual_qa_failed: no rendered image available",
+            "score": 0.0,
+            "cost_usd": 0.0,
+        }
+
+    controls = _runtime_controls(context)
+    brief = {
+        "raw_brief": str(job_ctx.get("raw_input", "")),
+        "design_system": str(job_ctx.get("design_system") or job_ctx.get("routing", {}).get("design_system") or ""),
+        "template_name": str(payload.get("template_name") or job_ctx.get("template_name") or ""),
+        "style": str(payload.get("design_system") or ""),
+        "composition": str(payload.get("text_content") or ""),
+    }
+    quality = evaluate_visual_artifact(
+        image_path=str(image_path),
+        client_id=str(job_ctx.get("client_id", "default")),
         brief=brief,
+        artifact_family=str(job_ctx.get("artifact_family", "poster")),
+        copy_text=str(payload.get("text_content", "")),
+        copy_register=str(job_ctx.get("copy_register", "neutral")),
+        brand_config=job_ctx.get("brand_config"),
+        language=str(job_ctx.get("language", "en")),
+        critique_max_tokens=int(controls.get("critique_max_tokens", 300)),
+        allow_parallel_guardrails=bool(controls.get("allow_parallel_guardrails", True)),
+        qa_threshold=float(controls.get("qa_threshold", 3.2)),
     )
-    avg_score = 0.0
-    if results:
-        avg_score = sum(d.get("score", 0.0) for d in results.values()) / len(results)
+
+    status = "ok" if quality["passed"] else "error"
     return {
-        "status": "ok",
-        "output": results,
-        "score": avg_score,
-        "input_tokens": 0,
-        "output_tokens": 0,
+        "status": status,
+        "output": quality["critique"],
+        "score": quality["weighted_score"],
+        "qa_threshold": quality["qa_threshold"],
+        "quality_summary": {
+            "nima_score": quality["nima_score"],
+            "nima_action": quality["nima_action"],
+            "weighted_score": quality["weighted_score"],
+            "flags_count": len(quality["guardrail_flags"]),
+        },
+        "guardrail_flags": quality["guardrail_flags"],
+        "input_tokens": quality["input_tokens"],
+        "output_tokens": quality["output_tokens"],
+        "cost_usd": quality["cost_usd"],
     }
 
 
@@ -220,7 +350,7 @@ def _generate_copy(context: dict[str, Any]) -> dict[str, Any]:
         variable_suffix=[{"role": "user", "content": prompt}],
         model="gpt-5.4-mini",
         temperature=0.7,
-        max_tokens=2048,
+        max_tokens=_runtime_max_tokens(context, purpose="generate", default=2048),
         operation_type="generate",
     )
     return {
@@ -234,12 +364,44 @@ def _generate_copy(context: dict[str, Any]) -> dict[str, Any]:
 
 def _knowledge_retrieve(context: dict[str, Any]) -> dict[str, Any]:
     """Retrieve relevant knowledge cards."""
-    from tools.knowledge import ingest_card  # noqa: F401 — validates import
+    from utils.embeddings import embed_text
+    from utils.knowledge import assemble_context
+
+    job_ctx = context.get("job_context", {})
+    controls = _runtime_controls(context)
+    client_id = str(job_ctx.get("client_id", "default"))
+    query = str(context.get("prompt") or job_ctx.get("raw_input") or "")
+    top_k = int(controls.get("knowledge_card_cap", 4))
+
+    try:
+        query_embedding = embed_text(query, job_id=job_ctx.get("job_id")) if query else None
+        assembled = assemble_context(
+            client_id=client_id,
+            query=query,
+            query_embedding=query_embedding,
+            include_knowledge=True,
+            top_k=top_k,
+        )
+        cards = assembled.get("knowledge_cards", [])
+    except Exception as exc:
+        logger.debug("knowledge_retrieve skipped: %s", exc)
+        cards = []
+
+    snippets: list[str] = []
+    if isinstance(cards, list):
+        for card in cards[:top_k]:
+            if not isinstance(card, dict):
+                continue
+            title = str(card.get("title") or "Untitled card")
+            content = str(card.get("content") or "").strip()
+            if content:
+                snippets.append(f"- {title}: {content[:240]}")
 
     return {
         "status": "ok",
         "output": "knowledge_retrieved",
-        "cards": [],
+        "cards": cards if isinstance(cards, list) else [],
+        "knowledge_context": "\n".join(snippets),
         "cost_usd": 0.0,
     }
 
@@ -247,6 +409,50 @@ def _knowledge_retrieve(context: dict[str, Any]) -> dict[str, Any]:
 def _knowledge_store(context: dict[str, Any]) -> dict[str, Any]:
     """Store a knowledge card."""
     return {"status": "ok", "output": "knowledge_stored", "cost_usd": 0.0}
+
+
+def _infer_failed_stage_from_trace(trace: dict[str, Any]) -> str | None:
+    """Infer a failing stage name from a prior workflow trace/result payload."""
+    stages = trace.get("stages", [])
+    if isinstance(stages, list):
+        for stage in stages:
+            if not isinstance(stage, dict):
+                continue
+            if stage.get("status") in {"error", "stub"} and stage.get("stage"):
+                return str(stage["stage"])
+
+    steps = trace.get("steps", [])
+    if isinstance(steps, list):
+        for step in steps:
+            if not isinstance(step, dict):
+                continue
+            if step.get("error"):
+                name = step.get("step_name") or step.get("name")
+                if name:
+                    return str(name)
+
+    if isinstance(stages, list):
+        candidates = [
+            str(stage["stage"])
+            for stage in stages
+            if isinstance(stage, dict)
+            and stage.get("stage")
+            and stage.get("stage") not in {"delivery", "qa", "diagnose"}
+        ]
+        if candidates:
+            return candidates[-1]
+
+    if isinstance(steps, list):
+        names = [
+            step.get("step_name") or step.get("name")
+            for step in steps
+            if isinstance(step, dict)
+        ]
+        names = [str(name) for name in names if name]
+        if names:
+            return names[-1]
+
+    return None
 
 
 def _parse_poster_copy(copy_text: str) -> dict[str, str]:
@@ -364,29 +570,44 @@ def _load_client_brand(client_id: str) -> dict[str, Any]:
 
 def _deliver(context: dict[str, Any]) -> dict[str, Any]:
     """Deliver the final artifact — composes poster PDF via Typst if applicable."""
-    from pathlib import Path
-
     job_ctx = context.get("job_context", {})
     workflow = job_ctx.get("routing", {}).get("workflow", "")
+    stage_results = context.get("stage_results", [])
+    payload = _artifact_payload(context)
+
+    effective_workflow = workflow
+    if workflow == "rework":
+        for stage_result in reversed(stage_results):
+            if not isinstance(stage_result, dict):
+                continue
+            source_workflow = (
+                stage_result.get("rework_source_workflow")
+                or stage_result.get("original_workflow")
+            )
+            if source_workflow:
+                effective_workflow = str(source_workflow)
+                break
+        if effective_workflow == "rework":
+            effective_workflow = str(job_ctx.get("original_workflow", "rework"))
 
     # Only poster delivery is fully wired — others return explicit stub
     # so callers can distinguish real delivery from unimplemented paths.
-    if workflow != "poster_production":
+    if effective_workflow != "poster_production":
         return {
             "status": "stub",
-            "output": f"delivery_not_implemented for workflow '{workflow}'",
+            "output": (
+                f"delivery_not_implemented for workflow '{effective_workflow}'"
+            ),
             "cost_usd": 0.0,
         }
 
-    stage_results = context.get("stage_results", [])
-
     # Walk prior stages to find deliverables
-    image_path = None
-    copy_text = ""
+    image_path = payload.get("image_path")
+    copy_text = str(payload.get("poster_copy", ""))
     for stage_result in stage_results:
-        if "image_path" in stage_result:
+        if not image_path and "image_path" in stage_result:
             image_path = stage_result["image_path"]
-        if "poster_copy" in stage_result:
+        if not copy_text and "poster_copy" in stage_result:
             copy_text = stage_result["poster_copy"]
 
     if not image_path:
@@ -398,9 +619,25 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
 
     parsed = _parse_poster_copy(copy_text)
     style = _load_client_style(job_ctx.get("client_id", "default"))
-
-    output_dir = Path.home() / "vizier" / "data" / "deliverables"
+    template_name = _resolve_template_name(job_ctx, workflow=effective_workflow)
+    output_root = Path.home() / "vizier" / "data" / "deliverables"
+    output_dir = output_root / str(job_ctx.get("job_id", "default"))
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    quality_verdict = payload.get("quality_verdict")
+    require_quality_pass = bool(
+        _runtime_controls(context).get("require_quality_pass", True),
+    )
+    if (
+        require_quality_pass
+        and isinstance(quality_verdict, dict)
+        and not bool(quality_verdict.get("passed", True))
+    ):
+        return {
+            "status": "error",
+            "output": "delivery_failed: quality gate not passed",
+            "cost_usd": 0.0,
+        }
 
     content = {
         "headline": parsed.get("headline", ""),
@@ -416,7 +653,7 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
         from tools.publish import assemble_poster_pdf
 
         pdf_path = assemble_poster_pdf(
-            template_name="poster_default",
+            template_name=template_name,
             content=content,
             colors=style.get("colors"),
             fonts=style.get("fonts"),
@@ -432,6 +669,7 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
             "pdf_path": str(pdf_path),
             "png_path": str(png_path) if png_path.exists() else None,
             "image_path": image_path,
+            "template_name": template_name,
             "copy": parsed,
             "cost_usd": 0.0,
         }
@@ -457,6 +695,7 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
             "output": "poster_delivered",
             "pdf_path": str(pdf_path),
             "image_path": image_path,
+            "template_name": template_name,
             "copy": parsed,
             "cost_usd": 0.0,
         }
@@ -474,11 +713,38 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
 def _readiness_check(context: dict[str, Any]) -> dict[str, Any]:
     """Evaluate spec readiness."""
     from contracts.readiness import (
-        evaluate_readiness,  # noqa: F401 — stub, will use when fleshed out
+        evaluate_readiness,
     )
+    from contracts.artifact_spec import ArtifactFamily, ProvisionalArtifactSpec
 
-    # In production this would receive a ProvisionalArtifactSpec from context
-    return {"status": "ok", "output": "readiness_checked", "cost_usd": 0.0}
+    job_ctx = context.get("job_context", {})
+    raw_brief = str(job_ctx.get("raw_input") or context.get("prompt") or "")
+    artifact_family_raw = str(job_ctx.get("artifact_family", "document"))
+    language = str(job_ctx.get("language", "en"))
+
+    try:
+        artifact_family = ArtifactFamily(artifact_family_raw)
+    except ValueError:
+        artifact_family = ArtifactFamily.document
+
+    spec = ProvisionalArtifactSpec(
+        client_id=str(job_ctx.get("client_id", "default")),
+        artifact_family=artifact_family,
+        language=language,
+        raw_brief=raw_brief,
+    )
+    result = evaluate_readiness(spec)
+
+    status = "ok" if result.status in {"ready", "shapeable"} else "error"
+    return {
+        "status": status,
+        "output": f"readiness_{result.status}",
+        "readiness_status": result.status,
+        "readiness_reason": result.reason,
+        "missing_critical": result.missing_critical,
+        "completeness": result.completeness,
+        "cost_usd": 0.0,
+    }
 
 
 def _refine_spec(context: dict[str, Any]) -> dict[str, Any]:
@@ -491,7 +757,7 @@ def _refine_spec(context: dict[str, Any]) -> dict[str, Any]:
         variable_suffix=[{"role": "user", "content": prompt}],
         model="gpt-5.4-mini",
         temperature=0.3,
-        max_tokens=512,
+        max_tokens=_runtime_max_tokens(context, purpose="critique", default=512),
         operation_type="classify",
     )
     return {
@@ -505,7 +771,24 @@ def _refine_spec(context: dict[str, Any]) -> dict[str, Any]:
 
 def _ask_operator(context: dict[str, Any]) -> dict[str, Any]:
     """Ask the operator for clarification."""
-    return {"status": "ok", "output": "operator_asked", "cost_usd": 0.0}
+    previous = context.get("previous_output", {})
+    missing = previous.get("missing_critical") or []
+    if not isinstance(missing, list):
+        missing = []
+
+    if missing:
+        questions = [f"Please clarify: {field}" for field in missing[:5]]
+    else:
+        questions = [
+            "Please clarify the objective, audience, and required format.",
+        ]
+
+    return {
+        "status": "ok",
+        "output": "operator_questions_prepared",
+        "questions": questions,
+        "cost_usd": 0.0,
+    }
 
 
 def _web_search(context: dict[str, Any]) -> dict[str, Any]:
@@ -538,7 +821,7 @@ def _summarise(context: dict[str, Any]) -> dict[str, Any]:
         variable_suffix=[{"role": "user", "content": prompt}],
         model="gpt-5.4-mini",
         temperature=0.3,
-        max_tokens=1024,
+        max_tokens=_runtime_max_tokens(context, purpose="generate", default=1024),
         operation_type="generate",
     )
     return {
@@ -559,7 +842,12 @@ def _tripwire_scorer(context: dict[str, Any]) -> dict[str, Any]:
     """
     from utils.call_llm import call_llm
 
-    output_text = str(context.get("output", {}).get("output", ""))
+    output_data = context.get("output", {})
+    artifact_payload = context.get("artifact_payload", {})
+    output_text = _quality_target_text(
+        artifact_payload if isinstance(artifact_payload, dict) else {},
+        output_data if isinstance(output_data, dict) else {},
+    )
     stage = context.get("stage", "unknown")
     threshold = context.get("threshold", 3.0)
 
@@ -578,7 +866,7 @@ def _tripwire_scorer(context: dict[str, Any]) -> dict[str, Any]:
         )}],
         model="gpt-5.4-mini",
         temperature=0.0,
-        max_tokens=512,
+        max_tokens=_runtime_max_tokens(context, purpose="critique", default=512),
     )
 
     import json as _json
@@ -605,7 +893,15 @@ def _tripwire_reviser(context: dict[str, Any]) -> dict[str, Any]:
     """
     from utils.call_llm import call_llm
 
-    original = str(context.get("original_output", {}).get("output", ""))
+    original_output = context.get("original_output", {})
+    artifact_payload = context.get("artifact_payload", {})
+    target_field = _quality_target_field(
+        artifact_payload if isinstance(artifact_payload, dict) else {},
+    )
+    original = _quality_target_text(
+        artifact_payload if isinstance(artifact_payload, dict) else {},
+        original_output if isinstance(original_output, dict) else {},
+    )
     critique = context.get("critique", {})
     issues = critique.get("issues", [])
     stage = context.get("stage", "unknown")
@@ -624,31 +920,145 @@ def _tripwire_reviser(context: dict[str, Any]) -> dict[str, Any]:
         )}],
         model="gpt-5.4-mini",
         temperature=0.3,
-        max_tokens=2048,
+        max_tokens=_runtime_max_tokens(context, purpose="revision", default=2048),
     )
 
-    return {
+    revised_text = result.get("content", original)
+    revised_result = {
         "status": "ok",
-        "output": result.get("content", original),
+        "output": revised_text,
         "input_tokens": result.get("input_tokens", 0),
         "output_tokens": result.get("output_tokens", 0),
         "cost_usd": result.get("cost_usd", 0.0),
     }
+    if target_field != "output":
+        revised_result[target_field] = revised_text
+    return revised_result
 
 
 def _trace_insight(context: dict[str, Any]) -> dict[str, Any]:
     """Analyse trace from a previous job for rework."""
-    return {"status": "ok", "output": "trace_analysed", "cost_usd": 0.0}
+    job_ctx = context.get("job_context", {})
+    original_trace = job_ctx.get("original_trace") or {}
+
+    original_workflow = (
+        job_ctx.get("original_workflow")
+        or (original_trace.get("workflow") if isinstance(original_trace, dict) else None)
+    )
+    if not original_workflow and isinstance(original_trace, dict):
+        routing = original_trace.get("routing", {})
+        if isinstance(routing, dict):
+            original_workflow = routing.get("workflow")
+
+    failed_stage = job_ctx.get("failed_stage")
+    if not failed_stage and isinstance(original_trace, dict):
+        failed_stage = _infer_failed_stage_from_trace(original_trace)
+
+    feedback = (
+        job_ctx.get("feedback")
+        or job_ctx.get("raw_input")
+        or context.get("prompt", "")
+    )
+
+    if not original_workflow:
+        return {
+            "status": "error",
+            "output": "trace_insight_failed: missing original workflow",
+            "cost_usd": 0.0,
+        }
+    if not failed_stage:
+        return {
+            "status": "error",
+            "output": "trace_insight_failed: missing failed stage",
+            "original_workflow": original_workflow,
+            "cost_usd": 0.0,
+        }
+
+    return {
+        "status": "ok",
+        "output": "trace_analysed",
+        "original_workflow": str(original_workflow),
+        "failed_stage": str(failed_stage),
+        "feedback": str(feedback),
+        "cost_usd": 0.0,
+    }
 
 
 def _quality_gate(context: dict[str, Any]) -> dict[str, Any]:
     """Run quality gate on rework output."""
-    return {"status": "ok", "output": "quality_passed", "score": 4.0, "cost_usd": 0.0}
+    from middleware.quality_gate import validate_content_quality
+
+    rerun_output = context.get("previous_output", {})
+    if not isinstance(rerun_output, dict):
+        rerun_output = {}
+    payload = _artifact_payload(context)
+
+    if rerun_output.get("status") in {"error", "stub"}:
+        return {
+            "status": "error",
+            "output": "quality_failed: rerun stage did not complete successfully",
+            "score": 0.0,
+            "cost_usd": 0.0,
+        }
+
+    candidate_text = _quality_target_text(payload, rerun_output)
+    image_path = payload.get("image_path") or rerun_output.get("image_path")
+    if not candidate_text and not image_path:
+        return {
+            "status": "error",
+            "output": "quality_failed: rerun produced no deliverable content",
+            "score": 0.0,
+            "cost_usd": 0.0,
+        }
+
+    if candidate_text:
+        expected_languages = [str(context.get("job_context", {}).get("language", "en"))]
+        validation = validate_content_quality(
+            content=str(candidate_text),
+            expected_languages=expected_languages,
+            expected_tone=context.get("job_context", {}).get("copy_register"),
+        )
+        if not validation.passed:
+            return {
+                "status": "error",
+                "output": "quality_failed: " + "; ".join(validation.errors),
+                "score": 2.0,
+                "errors": validation.errors,
+                "cost_usd": 0.0,
+            }
+
+    return {
+        "status": "ok",
+        "output": "quality_passed",
+        "score": 4.0,
+        "cost_usd": 0.0,
+    }
 
 
 def _brand_extract(context: dict[str, Any]) -> dict[str, Any]:
     """Extract brand patterns from client assets."""
-    return {"status": "ok", "output": "brand_extracted", "cost_usd": 0.0}
+    job_ctx = context.get("job_context", {})
+    client_id = str(job_ctx.get("client_id", "default"))
+    brand = _load_client_brand(client_id)
+    style = _load_client_style(client_id)
+
+    if not brand and not style:
+        return {
+            "status": "error",
+            "output": f"brand_extract_failed: no brand config for '{client_id}'",
+            "cost_usd": 0.0,
+        }
+
+    profile = {
+        "brand": brand,
+        "style": style,
+    }
+    return {
+        "status": "ok",
+        "output": "brand_extracted",
+        "brand_profile": profile,
+        "cost_usd": 0.0,
+    }
 
 
 def _swipe_index(context: dict[str, Any]) -> dict[str, Any]:
@@ -688,7 +1098,7 @@ def _generate_page_text(context: dict[str, Any]) -> dict[str, Any]:
         variable_suffix=[{"role": "user", "content": prompt}],
         model="gpt-5.4-mini",
         temperature=0.7,
-        max_tokens=512,
+        max_tokens=_runtime_max_tokens(context, purpose="generate", default=512),
         operation_type="generate",
     )
     return {
@@ -775,7 +1185,7 @@ def _generate_poster(context: dict[str, Any]) -> dict[str, Any]:
         variable_suffix=[{"role": "user", "content": prompt}],
         model="gpt-5.4-mini",
         temperature=0.7,
-        max_tokens=1024,
+        max_tokens=_runtime_max_tokens(context, purpose="generate", default=1024),
         operation_type="generate",
     )
     content = result.get("content", "")
@@ -799,7 +1209,7 @@ def _generate_brochure(context: dict[str, Any]) -> dict[str, Any]:
         variable_suffix=[{"role": "user", "content": prompt}],
         model="gpt-5.4-mini",
         temperature=0.7,
-        max_tokens=2048,
+        max_tokens=_runtime_max_tokens(context, purpose="generate", default=2048),
         operation_type="generate",
     )
     return {
@@ -821,7 +1231,7 @@ def _generate_document(context: dict[str, Any]) -> dict[str, Any]:
         variable_suffix=[{"role": "user", "content": prompt}],
         model="gpt-5.4-mini",
         temperature=0.5,
-        max_tokens=4096,
+        max_tokens=_runtime_max_tokens(context, purpose="generate", default=4096),
         operation_type="generate",
     )
     return {
@@ -843,7 +1253,7 @@ def _generate_section(context: dict[str, Any]) -> dict[str, Any]:
         variable_suffix=[{"role": "user", "content": prompt}],
         model="gpt-5.4-mini",
         temperature=0.7,
-        max_tokens=4096,
+        max_tokens=_runtime_max_tokens(context, purpose="generate", default=4096),
         operation_type="generate",
     )
     return {
@@ -923,7 +1333,7 @@ def _onboard_client(context: dict[str, Any]) -> dict[str, Any]:
 # Active workflows that depend on these should fail closed at runtime.
 _STUB_TOOL_NAMES: frozenset[str] = frozenset({
     "typst_render",          # S2 shell — no actual compile logic
-    "knowledge_retrieve",    # S12/S18 dependency
+    "knowledge_store",       # S12 ingestion path not wired in workflow runtime
     "story_workshop",        # S15 publishing
     "scaffold_build",        # S15 publishing
     "generate_episode",      # S21 serial fiction
@@ -934,6 +1344,9 @@ _STUB_TOOL_NAMES: frozenset[str] = frozenset({
     "generate_proposal",     # S16 extended
     "generate_profile",      # S16 extended
     "platform_check",        # S24 social
+    "web_search",            # no live search backend in workflow runtime
+    "competitor_scan",       # no live competitor backend in workflow runtime
+    "swipe_index",           # swipe ingestion not wired to workflow runtime
     "rolling_summary",       # executor-handled, not a real tool
     "section_tripwire",      # executor-handled, not a real tool
 })

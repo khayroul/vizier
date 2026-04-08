@@ -32,8 +32,7 @@ def _check_three_gates() -> dict[str, Any]:
     prayer_times = get_prayer_times(today)
 
     # Gate 1: After Subuh
-    subuh_dt = datetime.combine(today, prayer_times["subuh"])
-    gate1 = now >= subuh_dt
+    gate1 = now.time() >= prayer_times["subuh"]
 
     # Gate 3: Not already fired today
     with get_cursor() as cur:

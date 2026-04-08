@@ -90,6 +90,48 @@ class TestRunGovernedHappyPath:
         mock_executor_cls.return_value.run.assert_called_once()
         assert result["workflow"] == "poster_production"
 
+    @patch("tools.orchestrate.WorkflowExecutor")
+    @patch("tools.orchestrate.PolicyEvaluator")
+    @patch("tools.orchestrate.evaluate_readiness")
+    @patch("tools.orchestrate.route")
+    def test_job_context_contains_runtime_controls_and_client_context(
+        self,
+        mock_route: MagicMock,
+        mock_readiness: MagicMock,
+        mock_policy_cls: MagicMock,
+        mock_executor_cls: MagicMock,
+    ) -> None:
+        """Governed execution hydrates client/runtime control fields."""
+        mock_route.return_value = RoutingResult(
+            workflow="poster_production",
+            job_id="j1",
+            design_system="warm_heritage",
+        )
+        mock_readiness.return_value = ReadinessResult(status="ready", completeness=1.0)
+        mock_policy_cls.return_value.evaluate.return_value = _allow_decision()
+        mock_executor_cls.return_value.run.return_value = {
+            "workflow": "poster_production",
+            "stages": [],
+            "trace": {},
+        }
+
+        run_governed(
+            "hasilkan poster raya premium",
+            client_id="dmb",
+            job_id="j1",
+            tool_registry={"x": _stub_tool},
+            budget_profile="critical",
+        )
+
+        call_kwargs = mock_executor_cls.return_value.run.call_args.kwargs
+        job_ctx = call_kwargs["job_context"]
+        assert job_ctx["client_name"] == "Darul Makmur Berhad"
+        assert job_ctx["copy_register"] == "formal"
+        assert job_ctx["template_name"] == "corporate_premium"
+        assert job_ctx["design_system"] == "warm_heritage"
+        assert job_ctx["budget_profile"] == "critical"
+        assert job_ctx["runtime_controls"]["qa_threshold"] == 3.5
+
 
 # ---------------------------------------------------------------------------
 # 2. Blocked readiness
