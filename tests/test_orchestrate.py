@@ -292,9 +292,11 @@ class TestStubWorkflowMissingTools:
 
 
 class TestStubWorkflowWithToolsPasses:
-    """Test 9: Same workflow with all tools registered -> no error."""
+    """Test 9: Active workflow with stub tools -> Gate 3 blocks."""
 
-    def test_stub_workflow_with_tools_passes(self) -> None:
+    def test_stub_workflow_blocked_by_gate3(self) -> None:
+        """serial_fiction depends on stub tools (generate_episode etc.)
+        — Gate 3 should block even when all tools are registered."""
         pack = load_workflow(WORKFLOWS_DIR / "serial_fiction_production.yaml")
         all_tools: set[str] = set()
         for stage in pack.stages:
@@ -305,8 +307,8 @@ class TestStubWorkflowWithToolsPasses:
             workflow_path=WORKFLOWS_DIR / "serial_fiction_production.yaml",
             tool_registry=tool_reg,
         )
-        result = executor.run(job_context={"job_id": "test-sfp"})
-        assert result["workflow"] == "serial_fiction_production"
+        with pytest.raises(StubWorkflowError, match="stub tools"):
+            executor.run(job_context={"job_id": "test-sfp"})
 
 
 # ---------------------------------------------------------------------------

@@ -98,7 +98,13 @@ def _image_generate(context: dict[str, Any]) -> dict[str, Any]:
     # and provides a stable path for downstream stages (vision, delivery).
     local_dir = Path.home() / "vizier" / "data" / "generated_images"
     local_dir.mkdir(parents=True, exist_ok=True)
-    local_path = local_dir / f"{uuid4().hex}.png"
+    # Detect actual format from magic bytes — fal.ai often returns JPEG
+    ext = ".png"
+    if image_bytes[:2] == b"\xff\xd8":
+        ext = ".jpg"
+    elif image_bytes[:4] == b"RIFF" and image_bytes[8:12] == b"WEBP":
+        ext = ".webp"
+    local_path = local_dir / f"{uuid4().hex}{ext}"
     local_path.write_bytes(image_bytes)
     logger.info("Image saved: %s (%d bytes)", local_path, len(image_bytes))
 
@@ -285,8 +291,8 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
 
     if not image_path:
         return {
-            "status": "ok",
-            "output": "delivered (no image produced)",
+            "status": "error",
+            "output": "delivery_failed: no image produced by upstream stages",
             "cost_usd": 0.0,
         }
 
@@ -323,8 +329,8 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
     except Exception as exc:
         logger.error("Poster PDF composition failed: %s", exc)
         return {
-            "status": "ok",
-            "output": f"poster_delivered (PDF failed: {exc})",
+            "status": "error",
+            "output": f"delivery_failed: PDF composition error — {exc}",
             "image_path": image_path,
             "copy": parsed,
             "cost_usd": 0.0,
@@ -433,7 +439,8 @@ def _tripwire_scorer(context: dict[str, Any]) -> dict[str, Any]:
             "\"issues\": [\"specific issue 1\", ...]}}"
         )}],
         variable_suffix=[{"role": "user", "content": (
-            f"Stage: {stage}\nThreshold: {threshold}\n\nOutput to evaluate:\n{output_text[:2000]}"
+            f"Stage: {stage}\nThreshold: {threshold}\n\n"
+            f"Output to evaluate:\n{output_text[:2000]}"
         )}],
         model="gpt-5.4-mini",
         temperature=0.0,
@@ -747,6 +754,31 @@ def _onboard_client(context: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Registry builder
 # ---------------------------------------------------------------------------
+
+
+# Tools that are structurally registered but not yet backed by real logic.
+# Active workflows that depend on these should fail closed at runtime.
+_STUB_TOOL_NAMES: frozenset[str] = frozenset({
+    "typst_render",          # S2 shell — no actual compile logic
+    "knowledge_retrieve",    # S12/S18 dependency
+    "story_workshop",        # S15 publishing
+    "scaffold_build",        # S15 publishing
+    "generate_episode",      # S21 serial fiction
+    "generate_social_batch", # S24 social
+    "generate_caption",      # S24 social
+    "generate_calendar",     # S22 content calendar
+    "calendar_qa",           # S22 content calendar
+    "generate_proposal",     # S16 extended
+    "generate_profile",      # S16 extended
+    "platform_check",        # S24 social
+    "rolling_summary",       # executor-handled, not a real tool
+    "section_tripwire",      # executor-handled, not a real tool
+})
+
+
+def get_stub_tool_names() -> frozenset[str]:
+    """Return the set of tool names that are registered but not yet real."""
+    return _STUB_TOOL_NAMES
 
 
 def build_production_registry() -> dict[str, Any]:

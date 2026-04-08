@@ -203,6 +203,24 @@ def get_next(
         )
         candidates = [dict(row) for row in cur.fetchall()]
 
+    # Widen energy filter if auto-selected bucket returned no results,
+    # so valid active tasks aren't hidden by time-of-day heuristics.
+    if not candidates and energy is not None and energy != "high":
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, title, domain, context, energy_level,
+                       time_estimate_min, due_date, project_id, description
+                FROM steward_tasks
+                WHERE status = 'active'
+                  AND next_action = true
+                  AND (defer_until IS NULL OR defer_until <= %s)
+                ORDER BY created_at ASC
+                """,
+                (today,),
+            )
+            candidates = [dict(row) for row in cur.fetchall()]
+
     if not candidates:
         return None
 

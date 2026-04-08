@@ -223,6 +223,7 @@ class TestDeliver:
             "stage_results": [{"output": "classified"}],
         }
         result = _deliver(context)
+        assert result["status"] == "error"
         assert "no image" in result["output"]
 
     def test_poster_with_image_and_copy(self, tmp_image: Path, poster_copy_json: str) -> None:

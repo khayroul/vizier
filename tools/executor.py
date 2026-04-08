@@ -245,14 +245,21 @@ def run_tripwire(
             output["_tripwire_critique"] = critique
             return output
 
-        # Revise with critique as input
+        # Revise with critique as input — merge revision into original
+        # to preserve metadata (stage, image_path, poster_copy, etc.)
         if reviser_fn is not None:
-            output = reviser_fn({
+            revised = reviser_fn({
                 "original_output": output,
                 "critique": critique,
                 "stage": stage_name,
                 "attempt": attempt + 1,
             })
+            # Merge: revision fields override, but preserve keys the
+            # reviser didn't return (artifact handles, stage name, costs)
+            for key, value in revised.items():
+                output[key] = value
+            output["_tripwire_revised"] = True
+            output["_tripwire_attempt"] = attempt + 1
         else:
             return output
 
@@ -360,6 +367,19 @@ class WorkflowExecutor:
                 f"Workflow '{self.pack.name}' is in an active phase but "
                 f"tools {sorted(missing)} from {session} are not registered. "
                 f"Register tools before running this workflow."
+            )
+
+        # Gate 3: block active workflows that depend on stub (unimplemented) tools
+        from tools.registry import get_stub_tool_names
+
+        stub_names = get_stub_tool_names()
+        stub_deps = all_tool_names & stub_names
+        if stub_deps:
+            session = self.pack.requires_session or "a future session"
+            raise StubWorkflowError(
+                f"Workflow '{self.pack.name}' depends on stub tools "
+                f"{sorted(stub_deps)} that aren't implemented yet. "
+                f"Waiting for {session}."
             )
 
     def _resolve_tool(self, tool_name: str) -> ToolCallable:

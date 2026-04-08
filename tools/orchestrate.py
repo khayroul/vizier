@@ -23,6 +23,24 @@ logger = logging.getLogger(__name__)
 _WORKFLOWS_DIR = Path("manifests/workflows")
 
 
+_MALAY_MARKERS = {
+    "saya", "mahu", "untuk", "dengan", "dan", "yang", "ini", "itu",
+    "buat", "poster", "kempen", "tulis", "laporan", "sila", "tolong",
+    "hasilkan", "reka", "bentuk", "perbaiki", "cuba", "semula",
+}
+
+
+def _detect_brief_language(text: str) -> str:
+    """Lightweight Malay vs English detection from brief text.
+
+    Uses word overlap with common Malay function words. Falls back to 'en'.
+    ISO 639-1: 'ms' for Malay, 'en' for English.
+    """
+    words = set(text.lower().split())
+    malay_hits = len(words & _MALAY_MARKERS)
+    return "ms" if malay_hits >= 2 else "en"
+
+
 class ReadinessError(Exception):
     """Raised when the spec is blocked by the readiness gate."""
 
@@ -74,10 +92,11 @@ def run_governed(
         family = ArtifactFamily(get_workflow_family(workflow_name))
     except (KeyError, ValueError):
         family = ArtifactFamily.document
+    language = _detect_brief_language(raw_input)
     spec = ProvisionalArtifactSpec(
         client_id=client_id,
         artifact_family=family,
-        language="en",
+        language=language,
         raw_brief=raw_input,
     )
     readiness: ReadinessResult = evaluate_readiness(spec)
