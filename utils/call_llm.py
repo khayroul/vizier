@@ -30,6 +30,8 @@ logger = logging.getLogger(__name__)
 
 _PRICING: dict[str, dict[str, float]] = {
     "gpt-5.4-mini": {"input": 0.15, "output": 0.60, "cached_input": 0.075},
+    # Embedding model — input-only, no output tokens
+    "text-embedding-3-small": {"input": 0.02, "output": 0.0, "cached_input": 0.02},
     # Anthropic models inactive Month 1-2 but priced for future use
     "claude-sonnet-4-6": {"input": 3.00, "output": 15.00, "cached_input": 0.30},
     "claude-haiku-4-5": {"input": 0.80, "output": 4.00, "cached_input": 0.08},

@@ -67,6 +67,24 @@ def init_db(db_path: Path | None = None) -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS gateway_turns (
+                turn_id       TEXT PRIMARY KEY,
+                session_id    TEXT NOT NULL,
+                turn_number   INTEGER NOT NULL,
+                model         TEXT NOT NULL,
+                input_tokens  INTEGER NOT NULL,
+                output_tokens INTEGER NOT NULL,
+                delta_input   INTEGER NOT NULL,
+                delta_output  INTEGER NOT NULL,
+                cost_usd      REAL NOT NULL,
+                api_calls     INTEGER NOT NULL DEFAULT 0,
+                user_message  TEXT,
+                timestamp     TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
         conn.commit()
     finally:
         conn.close()
@@ -107,6 +125,42 @@ def record_span(
                 duration_ms,
                 job_id,
                 step_type,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def record_gateway_turn(
+    *,
+    turn_id: str,
+    session_id: str,
+    turn_number: int,
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    delta_input: int,
+    delta_output: int,
+    cost_usd: float,
+    api_calls: int = 0,
+    user_message: str | None = None,
+) -> None:
+    """Insert a per-turn gateway usage row for session-level analysis."""
+    conn = _get_connection()
+    try:
+        conn.execute(
+            """
+            INSERT INTO gateway_turns
+                (turn_id, session_id, turn_number, model,
+                 input_tokens, output_tokens, delta_input, delta_output,
+                 cost_usd, api_calls, user_message)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                turn_id, session_id, turn_number, model,
+                input_tokens, output_tokens, delta_input, delta_output,
+                cost_usd, api_calls, user_message,
             ),
         )
         conn.commit()
