@@ -62,6 +62,7 @@ class ProductionTrace(BaseModel):
     template_used: str | None = None
     design_system: str | None = None
     runtime_controls: dict[str, object] | None = None
+    context_layer_summary: dict[str, object] | None = None
     quality_summary: dict[str, object] | None = None
     artifact_summary: dict[str, object] | None = None
 

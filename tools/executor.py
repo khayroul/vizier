@@ -872,17 +872,25 @@ class WorkflowExecutor:
         self,
         stage: StageDefinition,
         context: dict[str, Any],
-    ) -> tuple[str, list[dict[str, Any]]]:
+    ) -> tuple[str, list[dict[str, Any]], dict[str, Any]]:
         """Best-effort retrieval for declarative stage knowledge."""
         if not stage.knowledge:
-            return "", []
+            return "", [], {}
 
         job_context = dict(context.get("job_context") or {})
         client_id = str(job_context.get("client_id", "default"))
         runtime_controls = job_context.get("runtime_controls", {})
-        top_k = int(runtime_controls.get("knowledge_card_cap", 0) or 0)
-        if top_k <= 0:
-            return "", []
+        workflow_cap = int(
+            runtime_controls.get(
+                "workflow_context_cap",
+                runtime_controls.get("knowledge_card_cap", 0),
+            ) or 0,
+        )
+        essential_cap = int(runtime_controls.get("essential_context_cap", 0) or 0)
+        identity_cap = int(runtime_controls.get("identity_context_cap", 0) or 0)
+        allow_deep_search = bool(runtime_controls.get("allow_deep_search", False))
+        if workflow_cap <= 0 and essential_cap <= 0 and identity_cap <= 0:
+            return "", [], {}
 
         query = str(job_context.get("raw_input") or context.get("prompt") or stage.action)
 
@@ -899,11 +907,14 @@ class WorkflowExecutor:
                 query=query,
                 query_embedding=query_embedding,
                 include_knowledge=True,
-                top_k=top_k,
+                top_k=max(workflow_cap, essential_cap),
+                essential_top_k=essential_cap,
+                workflow_top_k=workflow_cap,
+                deep_search_invoked=allow_deep_search,
             )
         except Exception as exc:
             logger.debug("Stage knowledge injection skipped for %s: %s", stage.name, exc)
-            return "", []
+            return "", [], {}
 
         snippets: list[str] = []
         client_config = assembled.get("client_config", {})
@@ -920,26 +931,56 @@ class WorkflowExecutor:
             if brand.get("primary_color"):
                 summary_parts.append(f"Primary colour: {brand['primary_color']}")
             if summary_parts:
-                snippets.append("Client context:\n- " + "\n- ".join(summary_parts))
+                snippets.append(
+                    "Identity context:\n- " + "\n- ".join(summary_parts[:identity_cap]),
+                )
 
-        knowledge_cards = assembled.get("knowledge_cards", [])
+        seasonal = assembled.get("seasonal", {})
+        if isinstance(seasonal, dict) and essential_cap > 0:
+            seasonal_parts: list[str] = []
+            if seasonal.get("label"):
+                seasonal_parts.append(f"Season: {seasonal['label']}")
+            if seasonal.get("mood"):
+                seasonal_parts.append(f"Mood: {seasonal['mood']}")
+            if seasonal_parts:
+                snippets.append("Essential context:\n- " + "\n- ".join(seasonal_parts))
+
+        essential_cards = assembled.get("essential_cards", [])
+        workflow_cards = assembled.get("workflow_cards", [])
         selected_cards: list[dict[str, Any]] = []
-        if isinstance(knowledge_cards, list):
-            for card in knowledge_cards[:top_k]:
+        if isinstance(essential_cards, list):
+            for card in essential_cards[:essential_cap]:
                 if not isinstance(card, dict):
                     continue
                 title = str(card.get("title") or "Untitled card")
                 content = str(card.get("content") or "").strip()
-                selected_cards.append(card)
+                layered_card = {**card, "context_layer": "essential"}
+                selected_cards.append(layered_card)
                 if content:
                     snippets.append(
-                        f"Knowledge card — {title}:\n{content[:400]}"
+                        f"Essential knowledge — {title}:\n{content[:280]}"
+                    )
+        if isinstance(workflow_cards, list):
+            for card in workflow_cards[:workflow_cap]:
+                if not isinstance(card, dict):
+                    continue
+                title = str(card.get("title") or "Untitled card")
+                content = str(card.get("content") or "").strip()
+                layered_card = {**card, "context_layer": "workflow"}
+                selected_cards.append(layered_card)
+                if content:
+                    snippets.append(
+                        f"Workflow knowledge — {title}:\n{content[:400]}"
                     )
 
         if not snippets:
-            return "", selected_cards
+            return "", selected_cards, dict(assembled.get("context_layers", {}))
 
-        return "\n\n".join(snippets), selected_cards
+        return (
+            "\n\n".join(snippets),
+            selected_cards,
+            dict(assembled.get("context_layers", {})),
+        )
 
     def _resolve_tool(self, tool_name: str) -> ToolCallable:
         """Look up a tool from the registry; raise if missing."""
@@ -973,7 +1014,10 @@ class WorkflowExecutor:
             else:
                 prompt = base_prompt
 
-            knowledge_context, selected_cards = self._resolve_stage_knowledge(stage, context)
+            knowledge_context, selected_cards, context_layers = self._resolve_stage_knowledge(
+                stage,
+                context,
+            )
             if knowledge_context:
                 prompt = f"{prompt}\n\nKnowledge context:\n{knowledge_context}"
                 artifact_payload = _merge_artifact_payload(
@@ -1018,6 +1062,8 @@ class WorkflowExecutor:
                 stage_output["knowledge_cards_used"] = artifact_payload.get(
                     "knowledge_cards_used", [],
                 )
+            if context_layers:
+                stage_output["context_layers"] = context_layers
 
             stage_input_tokens = 0
             stage_output_tokens = 0
@@ -1103,6 +1149,7 @@ class WorkflowExecutor:
                 "knowledge_cards_used": list(
                     artifact_payload.get("knowledge_cards_used", []),
                 ),
+                "context_layers": dict(context_layers),
                 "template_name": artifact_payload.get("template_name"),
                 "design_system": artifact_payload.get("design_system"),
                 "quality_posture": artifact_payload.get("quality_posture"),
@@ -1226,12 +1273,43 @@ class WorkflowExecutor:
         production_trace.steps_executed = [stage["stage"] for stage in stage_results]
         artifact_payload = dict(context.get("artifact_payload") or {})
         knowledge_cards_used = list(artifact_payload.get("knowledge_cards_used", []))
+        context_layer_summary: dict[str, Any] = {
+            "identity_loaded": False,
+            "seasonal_loaded": False,
+            "essential_cards_count": 0,
+            "workflow_cards_count": 0,
+            "deep_search_invoked": False,
+            "query_labels": [],
+        }
         for stage_result in stage_results:
             stage_cards = stage_result.get("knowledge_cards_used", [])
             if isinstance(stage_cards, list):
                 for card in stage_cards:
                     if card not in knowledge_cards_used:
                         knowledge_cards_used.append(card)
+            stage_layers = stage_result.get("context_layers", {})
+            if isinstance(stage_layers, dict):
+                context_layer_summary["identity_loaded"] = (
+                    context_layer_summary["identity_loaded"]
+                    or bool(stage_layers.get("identity_loaded"))
+                )
+                context_layer_summary["seasonal_loaded"] = (
+                    context_layer_summary["seasonal_loaded"]
+                    or bool(stage_layers.get("seasonal_loaded"))
+                )
+                context_layer_summary["essential_cards_count"] += int(
+                    stage_layers.get("essential_cards_count", 0) or 0,
+                )
+                context_layer_summary["workflow_cards_count"] += int(
+                    stage_layers.get("workflow_cards_count", 0) or 0,
+                )
+                context_layer_summary["deep_search_invoked"] = (
+                    context_layer_summary["deep_search_invoked"]
+                    or bool(stage_layers.get("deep_search_invoked"))
+                )
+                for label in stage_layers.get("query_labels", []):
+                    if label not in context_layer_summary["query_labels"]:
+                        context_layer_summary["query_labels"].append(label)
             stage_payload = stage_result.get("_artifact_payload", {})
             if isinstance(stage_payload, dict):
                 for card in stage_payload.get("knowledge_cards_used", []):
@@ -1250,6 +1328,7 @@ class WorkflowExecutor:
             else None
         )
         production_trace.runtime_controls = dict(job_context.get("runtime_controls") or {})
+        production_trace.context_layer_summary = context_layer_summary
         production_trace.quality_summary = (
             artifact_payload.get("quality_verdict")
             if isinstance(artifact_payload.get("quality_verdict"), dict)

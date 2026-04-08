@@ -11,6 +11,7 @@ from typing import Any
 
 from utils.database import get_cursor
 from utils.embeddings import embed_text, format_embedding
+from utils.memory_labels import classify_memory_labels
 from utils.retrieval import contextualise_card
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,7 @@ def ingest_card(
     domain: str,
     client_id: str | None = None,
     prefix: str | None = None,
+    memory_labels: list[str] | None = None,
 ) -> str:
     """Ingest a knowledge card with contextualised embedding.
 
@@ -81,6 +83,13 @@ def ingest_card(
     # Step 2: Embed contextualised text
     contextualised_text = f"{prefix} {content}"
     embedding = format_embedding(embed_text(contextualised_text))
+    labels = memory_labels or classify_memory_labels(
+        content=content,
+        title=title,
+        card_type=card_type,
+        domain=domain,
+        tags=tags,
+    )
 
     # Step 3: Store
     with get_cursor() as cur:
@@ -88,20 +97,23 @@ def ingest_card(
             """
             INSERT INTO knowledge_cards
                 (source_id, client_id, card_type, title, content, tags,
-                 domain, embedding, context_prefix, confidence, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0.8, 'active')
+                 domain, embedding, context_prefix, memory_labels,
+                 confidence, status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 0.8, 'active')
             RETURNING id
             """,
-            (source_id, client_id, card_type, title, content, tags,
-             domain, embedding, prefix),
+            (
+                source_id, client_id, card_type, title, content, tags,
+                domain, embedding, prefix, labels,
+            ),
         )
         card_row = cur.fetchone()
         assert card_row is not None
 
     card_id = str(card_row["id"])
     logger.info(
-        "Ingested card %s (type=%s, prefix=%d chars)",
-        card_id, card_type, len(prefix),
+        "Ingested card %s (type=%s, prefix=%d chars, labels=%s)",
+        card_id, card_type, len(prefix), labels,
     )
     return card_id
 

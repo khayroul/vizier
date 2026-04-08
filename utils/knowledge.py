@@ -25,6 +25,7 @@ import yaml
 
 from utils.call_llm import call_llm
 from utils.database import get_cursor
+from utils.memory_labels import classify_query_labels
 
 logger = logging.getLogger(__name__)
 
@@ -169,6 +170,7 @@ def retrieve_knowledge(
     rrf_w = config.get("rrf_weights", {"dense": 1.0, "sparse": 0.25})
     n_candidates = config.get("reranker_candidates", 20)
     n_top = config.get("reranker_top_k", top_k)
+    query_labels = classify_query_labels(query) if query else []
 
     # Semantic search (embedding-based, same for all variants)
     semantic = _retrieve_by_embedding_raw(
@@ -211,6 +213,25 @@ def retrieve_knowledge(
     query_text = variants[0] if variants else query
     reranked = _rerank_with_llm(query_text, deduped[:n_candidates], n_top)
 
+    if query_labels:
+        for item in reranked:
+            labels = item.get("memory_labels") or []
+            overlap = len(set(query_labels) & set(labels))
+            item["query_labels"] = list(query_labels)
+            item["label_overlap_count"] = overlap
+            item["relevance_score"] = float(item.get("relevance_score", 0.0)) + (
+                overlap * 0.05
+            )
+        reranked = sorted(
+            reranked,
+            key=lambda item: (
+                int(item.get("label_overlap_count", 0)),
+                float(item.get("relevance_score", 0.0)),
+                float(item.get("rrf_score", 0.0)),
+            ),
+            reverse=True,
+        )
+
     # Lost-in-middle
     return lost_in_middle_reorder(reranked[:top_k])
 
@@ -232,7 +253,7 @@ def _retrieve_by_embedding_raw(
     if document_set_id:
         query = """
             SELECT kc.id, kc.title, kc.content, kc.card_type, kc.tags,
-                   kc.domain, kc.confidence, kc.context_prefix,
+                   kc.domain, kc.confidence, kc.context_prefix, kc.memory_labels,
                    1 - (kc.embedding <=> %s::vector) AS similarity
             FROM knowledge_cards kc
             JOIN document_set_members dsm ON dsm.knowledge_card_id = kc.id
@@ -250,7 +271,7 @@ def _retrieve_by_embedding_raw(
     else:
         query = """
             SELECT kc.id, kc.title, kc.content, kc.card_type, kc.tags,
-                   kc.domain, kc.confidence, kc.context_prefix,
+                   kc.domain, kc.confidence, kc.context_prefix, kc.memory_labels,
                    1 - (kc.embedding <=> %s::vector) AS similarity
             FROM knowledge_cards kc
             WHERE kc.client_id = %s
@@ -277,7 +298,7 @@ def _retrieve_by_recency(
     if document_set_id:
         query = """
             SELECT kc.id, kc.title, kc.content, kc.card_type, kc.tags,
-                   kc.domain, kc.confidence
+                   kc.domain, kc.confidence, kc.context_prefix, kc.memory_labels
             FROM knowledge_cards kc
             JOIN document_set_members dsm ON dsm.knowledge_card_id = kc.id
             WHERE kc.client_id = %s
@@ -290,7 +311,7 @@ def _retrieve_by_recency(
     else:
         query = """
             SELECT kc.id, kc.title, kc.content, kc.card_type, kc.tags,
-                   kc.domain, kc.confidence
+                   kc.domain, kc.confidence, kc.context_prefix, kc.memory_labels
             FROM knowledge_cards kc
             WHERE kc.client_id = %s
               AND kc.status = 'active'
@@ -325,7 +346,7 @@ def _search_fts(
     if document_set_id:
         sql = """
             SELECT kc.id, kc.title, kc.content, kc.card_type, kc.tags,
-                   kc.domain, kc.confidence, kc.context_prefix,
+                   kc.domain, kc.confidence, kc.context_prefix, kc.memory_labels,
                    ts_rank(kc.search_vector, plainto_tsquery('simple', %s)) AS rank
             FROM knowledge_cards kc
             JOIN document_set_members dsm ON dsm.knowledge_card_id = kc.id
@@ -340,7 +361,7 @@ def _search_fts(
     else:
         sql = """
             SELECT kc.id, kc.title, kc.content, kc.card_type, kc.tags,
-                   kc.domain, kc.confidence, kc.context_prefix,
+                   kc.domain, kc.confidence, kc.context_prefix, kc.memory_labels,
                    ts_rank(kc.search_vector, plainto_tsquery('simple', %s)) AS rank
             FROM knowledge_cards kc
             WHERE kc.client_id = %s
@@ -550,6 +571,9 @@ def assemble_context(
     document_set_id: str | None = None,
     include_knowledge: bool = True,
     top_k: int = 5,
+    essential_top_k: int = 0,
+    workflow_top_k: int | None = None,
+    deep_search_invoked: bool = False,
 ) -> dict[str, Any]:
     """Assemble production context for a job.
 
@@ -560,19 +584,39 @@ def assemble_context(
     """
     client_config = _load_client_config(client_id)
     seasonal = _load_seasonal_context()
+    query_labels = classify_query_labels(query) if query else []
 
     knowledge_cards: list[dict[str, Any]] = []
     if include_knowledge:
+        resolved_workflow_top_k = workflow_top_k if workflow_top_k is not None else top_k
+        total_top_k = max(top_k, essential_top_k + resolved_workflow_top_k)
         knowledge_cards = retrieve_knowledge(
             client_id=client_id,
             query=query,
             query_embedding=query_embedding,
             document_set_id=document_set_id,
-            top_k=top_k,
+            top_k=total_top_k,
         )
+
+    resolved_workflow_top_k = workflow_top_k if workflow_top_k is not None else top_k
+    essential_cards = knowledge_cards[:essential_top_k]
+    workflow_cards = knowledge_cards[
+        essential_top_k: essential_top_k + resolved_workflow_top_k
+    ]
 
     return {
         "client_config": client_config,
         "seasonal": seasonal,
         "knowledge_cards": knowledge_cards,
+        "essential_cards": essential_cards,
+        "workflow_cards": workflow_cards,
+        "query_labels": query_labels,
+        "context_layers": {
+            "identity_loaded": bool(client_config),
+            "seasonal_loaded": bool(seasonal),
+            "essential_cards_count": len(essential_cards),
+            "workflow_cards_count": len(workflow_cards),
+            "deep_search_invoked": deep_search_invoked,
+            "query_labels": query_labels,
+        },
     }

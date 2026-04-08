@@ -219,28 +219,28 @@ Use the following mapping:
 
 ### Steps
 
-- [ ] Add explicit passive-context fields to runtime controls.
+- [x] Add explicit passive-context fields to runtime controls.
   Suggested fields:
   - `identity_context_cap`
   - `essential_context_cap`
   - `workflow_context_cap`
   - `allow_deep_search`
 
-- [ ] Keep those fields under the existing `budget_profiles` structure in
+- [x] Keep those fields under the existing `budget_profiles` structure in
   `config/phase.yaml`, not in a new standalone context config file.
 
-- [ ] Update runtime-control resolution so these caps are carried into
+- [x] Update runtime-control resolution so these caps are carried into
   `job_context`.
 
-- [ ] Update `tools/executor.py` stage knowledge resolution so passive loading
+- [x] Update `tools/executor.py` stage knowledge resolution so passive loading
   honors those caps.
 
-- [ ] Update `utils/knowledge.py` context assembly helpers so they can:
+- [x] Update `utils/knowledge.py` context assembly helpers so they can:
   - distinguish passive vs explicit retrieval
   - cap snippets by budget tier
   - return enough metadata to show which layer produced what
 
-- [ ] Update trace/reporting so runtime evidence can answer:
+- [x] Update trace/reporting so runtime evidence can answer:
   - how many cards were passively loaded
   - how many were stage/workflow specific
   - whether deep search was invoked
@@ -255,6 +255,17 @@ Use the following mapping:
 
 - context layering is real runtime behavior
 - budget profiles now govern context richness, not just token caps
+
+### Progress note — 2026-04-09
+
+The first implementation slice is complete:
+
+- runtime controls now expose explicit L0/L1/L2 context caps
+- stage knowledge assembly distinguishes essential vs workflow cards
+- executor trace now records context-layer usage
+
+What remains in this chunk is deeper retrieval-profile integration and any
+follow-on tuning of passive-vs-deep retrieval behavior.
 
 ---
 
@@ -287,29 +298,36 @@ the current runtime work.
 
 ### Steps
 
-- [ ] Build `utils/memory_classifier.py` from the upstream MemPalace extractor,
+- [x] Build a lightweight deterministic classifier helper.
+  Current implementation uses `utils/memory_labels.py`.
+  Remaining possible upgrade: preserve more of the upstream extractor's
+  segmentation/disambiguation behavior.
+
+- [x] Add a minimal persistence field to `knowledge_cards`.
+
+- [x] Classify cards during ingestion in `tools/knowledge.py`.
+
+- [x] Expose label-aware retrieval in `utils/knowledge.py`.
+  Current implementation:
+  - persists `memory_labels`
+  - exposes `query_labels`
+  - lightly boosts retrieval by query/card label overlap
+
+- [x] Surface labels in traces or retrieval debug data so quality/runtime
+  reports can show whether the classifier is actually being used.
+
+- [ ] Expand the classifier toward the upstream MemPalace extractor,
   preserving:
   - segmentation
   - code/prose filtering
   - marker-based scoring
   - disambiguation for resolved problems vs milestones
 
-- [ ] Add a minimal persistence field to `knowledge_cards`.
+- [x] Classify seeded cards in `tools/seeding.py`.
+  Covered indirectly because seeding delegates to canonical `ingest_card()`.
 
-- [ ] Classify cards during ingestion in `tools/knowledge.py`.
-
-- [ ] Classify seeded cards in `tools/seeding.py`.
-
-- [ ] Classify research-ingested cards in `tools/research.py`.
-
-- [ ] Expose label-aware retrieval in `utils/knowledge.py`.
-  Suggested behavior:
-  - optional `memory_type` or `memory_labels` filter
-  - ability to up-rank decision/problem/milestone cards when the query implies
-    those intents
-
-- [ ] Surface labels in traces or retrieval debug data so quality/runtime
-  reports can show whether the classifier is actually being used.
+- [x] Classify research-ingested cards in `tools/research.py`.
+  Covered indirectly because research delegates to canonical `ingest_card()`.
 
 ### Verification
 
@@ -323,6 +341,19 @@ the current runtime work.
 - newly ingested cards carry classifier output
 - retrieval can use that output
 - runtime/debug traces can show the labels involved
+
+### Progress note — 2026-04-09
+
+The first implementation slice is complete:
+
+- `knowledge_cards` now have a `memory_labels` column
+- deterministic classification lives in `utils/memory_labels.py`
+- canonical ingestion persists labels
+- retrieval exposes query labels and lightly boosts query/card overlap
+- layered runtime traces can now surface those query labels
+
+What remains in this chunk is broader ingestion coverage and a richer
+classifier if we want more of the original MemPalace segmentation behavior.
 
 ---
 

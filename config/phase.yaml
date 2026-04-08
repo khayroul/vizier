@@ -217,7 +217,11 @@ budget_profiles:
     default_max_tokens: 768
     critique_max_tokens: 256
     revision_max_tokens: 1024
+    identity_context_cap: 4
+    essential_context_cap: 1
+    workflow_context_cap: 2
     knowledge_card_cap: 2
+    allow_deep_search: false
     max_tripwire_retries: 0
     qa_threshold: 3.0
     allow_parallel_guardrails: false
@@ -226,7 +230,11 @@ budget_profiles:
     default_max_tokens: 1280
     critique_max_tokens: 384
     revision_max_tokens: 1536
+    identity_context_cap: 6
+    essential_context_cap: 2
+    workflow_context_cap: 4
     knowledge_card_cap: 4
+    allow_deep_search: false
     max_tripwire_retries: 1
     qa_threshold: 3.2
     allow_parallel_guardrails: true
@@ -235,7 +243,11 @@ budget_profiles:
     default_max_tokens: 2048
     critique_max_tokens: 512
     revision_max_tokens: 2048
+    identity_context_cap: 8
+    essential_context_cap: 3
+    workflow_context_cap: 6
     knowledge_card_cap: 6
+    allow_deep_search: true
     max_tripwire_retries: 2
     qa_threshold: 3.5
     allow_parallel_guardrails: true

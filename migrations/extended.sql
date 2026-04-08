@@ -224,6 +224,9 @@ CREATE TABLE IF NOT EXISTS dataset_items (
 ALTER TABLE knowledge_cards
   ADD COLUMN IF NOT EXISTS context_prefix text;
 
+ALTER TABLE knowledge_cards
+  ADD COLUMN IF NOT EXISTS memory_labels text[];
+
 -- S18: FTS support via generated tsvector column.
 -- Uses 'simple' dictionary (not 'english') for mixed BM/EN content.
 ALTER TABLE knowledge_cards
@@ -234,6 +237,9 @@ ALTER TABLE knowledge_cards
 
 CREATE INDEX IF NOT EXISTS idx_knowledge_cards_fts
   ON knowledge_cards USING gin(search_vector);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_cards_memory_labels
+  ON knowledge_cards USING gin(memory_labels);
 
 -- ============================================================================
 -- S19: SELF-IMPROVEMENT + CALIBRATION (2 tables)

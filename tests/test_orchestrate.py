@@ -131,6 +131,9 @@ class TestRunGovernedHappyPath:
         assert job_ctx["design_system"] == "warm_heritage"
         assert job_ctx["budget_profile"] == "critical"
         assert job_ctx["runtime_controls"]["qa_threshold"] == 3.5
+        assert job_ctx["runtime_controls"]["essential_context_cap"] == 3
+        assert job_ctx["runtime_controls"]["workflow_context_cap"] == 6
+        assert job_ctx["runtime_controls"]["allow_deep_search"] is True
 
 
 # ---------------------------------------------------------------------------

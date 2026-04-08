@@ -2,7 +2,7 @@
 
 Date: 2026-04-08
 Repo: `/Users/Executor/vizier`
-Status: Baseline assessment complete, implementation pending
+Status: Layered context loading implemented; heuristic labels started; KG/pre-compact save pending
 
 ## Purpose
 
@@ -81,6 +81,49 @@ budget controls, and artifact-state governance real.
 This should not become a separate "memory feature branch" with its own
 concepts, context budgets, and persistence model. It should reinforce the
 runtime path that is already being unified.
+
+## Implementation Progress — 2026-04-09
+
+The first MemPalace-aligned runtime chunk is now in place.
+
+Implemented so far:
+
+- `budget_profiles` in [`config/phase.yaml`](/Users/Executor/vizier/config/phase.yaml)
+  now carry explicit layer controls:
+  - `identity_context_cap`
+  - `essential_context_cap`
+  - `workflow_context_cap`
+  - `allow_deep_search`
+- [`middleware/runtime_controls.py`](/Users/Executor/vizier/middleware/runtime_controls.py)
+  now resolves those fields into the shared `runtime_controls` object
+- [`utils/knowledge.py`](/Users/Executor/vizier/utils/knowledge.py) now returns
+  layered context metadata instead of a flat "cards only" shape:
+  - `essential_cards`
+  - `workflow_cards`
+  - `context_layers`
+- [`tools/executor.py`](/Users/Executor/vizier/tools/executor.py) now records
+  layered context use into stage output and final trace
+- [`utils/memory_labels.py`](/Users/Executor/vizier/utils/memory_labels.py)
+  now provides a deterministic heuristic classifier for cards and queries
+- [`tools/knowledge.py`](/Users/Executor/vizier/tools/knowledge.py) now
+  persists `memory_labels` on ingested cards
+- [`utils/knowledge.py`](/Users/Executor/vizier/utils/knowledge.py) now
+  returns label-aware retrieval results and query-label metadata
+
+Operational effect:
+
+- runtime controls now govern more than token caps
+- stage knowledge injection can distinguish passive essentials from
+  workflow-specific knowledge
+- final traces can answer how much passive vs workflow context was loaded
+- knowledge cards now carry cheap first-pass semantic labels
+- retrieval can expose and lightly bias on query/card label overlap
+
+Still pending from the MemPalace adoption plan:
+
+- temporal knowledge graph
+- Hermes pre-compaction save decision/implementation
+- broader runtime write-points beyond canonical card ingestion
 
 ## Source Material Reviewed
 
@@ -208,6 +251,14 @@ Recommended adaptation:
 - treat L3 as explicit search/tool-triggered deep retrieval
 - make the executor and stage-knowledge path honor those budgets
 
+Progress update:
+
+- This pattern is now partially implemented.
+- Vizier runtime controls and executor traces now carry explicit L0/L1/L2
+  context ceilings and usage metadata.
+- What remains is deeper retrieval-profile integration and explicit L3
+  deep-search routing behavior.
+
 ### Pattern 3: Pre-Overflow Thread Memory Save
 
 Assessment: Good idea, wrong layer for most of the work.
@@ -256,6 +307,15 @@ Recommended adaptation:
   `knowledge_cards`
 - classify at ingestion time, reflection time, and any runtime save step
 - use labels to bias retrieval and improve operator/debug queries
+
+Progress update:
+
+- This pattern is now partially implemented.
+- `knowledge_cards` now carry `memory_labels`.
+- canonical card ingestion classifies labels without LLM cost.
+- retrieval now exposes label overlap metadata and can lightly bias results
+  using query/card label overlap.
+- reflection/runtime-save classification is still pending.
 
 ## Adoption Decisions
 

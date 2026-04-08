@@ -25,7 +25,11 @@ class BudgetProfileConfig:
     default_max_tokens: int
     critique_max_tokens: int
     revision_max_tokens: int
+    identity_context_cap: int
+    essential_context_cap: int
+    workflow_context_cap: int
     knowledge_card_cap: int
+    allow_deep_search: bool
     max_tripwire_retries: int
     qa_threshold: float
     allow_parallel_guardrails: bool
@@ -65,7 +69,15 @@ def get_budget_profile(
         default_max_tokens=int(raw.get("default_max_tokens", 1024)),
         critique_max_tokens=int(raw.get("critique_max_tokens", 384)),
         revision_max_tokens=int(raw.get("revision_max_tokens", 1536)),
-        knowledge_card_cap=int(raw.get("knowledge_card_cap", 4)),
+        identity_context_cap=int(raw.get("identity_context_cap", 6)),
+        essential_context_cap=int(raw.get("essential_context_cap", 2)),
+        workflow_context_cap=int(
+            raw.get("workflow_context_cap", raw.get("knowledge_card_cap", 4)),
+        ),
+        knowledge_card_cap=int(
+            raw.get("knowledge_card_cap", raw.get("workflow_context_cap", 4)),
+        ),
+        allow_deep_search=bool(raw.get("allow_deep_search", False)),
         max_tripwire_retries=int(raw.get("max_tripwire_retries", 1)),
         qa_threshold=float(raw.get("qa_threshold", 3.2)),
         allow_parallel_guardrails=bool(raw.get("allow_parallel_guardrails", True)),
@@ -128,7 +140,11 @@ def resolve_runtime_controls(
             "default_max_tokens": budget.default_max_tokens,
             "critique_max_tokens": budget.critique_max_tokens,
             "revision_max_tokens": budget.revision_max_tokens,
+            "identity_context_cap": budget.identity_context_cap,
+            "essential_context_cap": budget.essential_context_cap,
+            "workflow_context_cap": budget.workflow_context_cap,
             "knowledge_card_cap": budget.knowledge_card_cap,
+            "allow_deep_search": budget.allow_deep_search,
             "max_tripwire_retries": budget.max_tripwire_retries,
             "qa_threshold": budget.qa_threshold,
             "allow_parallel_guardrails": budget.allow_parallel_guardrails,

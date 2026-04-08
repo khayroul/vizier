@@ -234,6 +234,9 @@ class TestArtifactFamilyPropagation:
         assert job_ctx["client_name"] == "Darul Makmur Berhad"
         assert job_ctx["template_name"] == "corporate_premium"
         assert job_ctx["runtime_controls"]["knowledge_card_cap"] == 6
+        assert job_ctx["runtime_controls"]["essential_context_cap"] == 3
+        assert job_ctx["runtime_controls"]["workflow_context_cap"] == 6
+        assert job_ctx["runtime_controls"]["allow_deep_search"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -484,19 +487,44 @@ class TestGenericExecutorSemantics:
                 "knowledge_cards": [
                     {"id": "card-1", "title": "Brand CTA", "content": "CTA must be visible."},
                 ],
+                "essential_cards": [
+                    {"id": "card-0", "title": "Seasonal Mood", "content": "Warm festive season."},
+                ],
+                "workflow_cards": [
+                    {"id": "card-1", "title": "Brand CTA", "content": "CTA must be visible."},
+                ],
+                "context_layers": {
+                    "identity_loaded": True,
+                    "seasonal_loaded": True,
+                    "essential_cards_count": 1,
+                    "workflow_cards_count": 1,
+                    "deep_search_invoked": False,
+                },
             },
         ):
             result = executor.run(job_context={
                 "job_id": "knowledge-001",
                 "client_id": "demo",
-                "runtime_controls": {"knowledge_card_cap": 2},
+                "runtime_controls": {
+                    "identity_context_cap": 4,
+                    "essential_context_cap": 1,
+                    "workflow_context_cap": 2,
+                    "knowledge_card_cap": 2,
+                },
             })
 
         assert "Knowledge context" in captured_prompts[0]
         assert "CTA must be visible" in captured_prompts[0]
+        assert "Essential knowledge" in captured_prompts[0]
+        assert "Identity context" in captured_prompts[0]
         stage = result["stages"][0]
-        assert stage["knowledge_cards_used"] == ["card-1"]
-        assert result["trace"]["knowledge_cards_used"] == ["card-1"]
+        assert stage["knowledge_cards_used"] == ["card-0", "card-1"]
+        assert stage["context_layers"]["essential_cards_count"] == 1
+        assert stage["context_layers"]["workflow_cards_count"] == 1
+        assert result["trace"]["knowledge_cards_used"] == ["card-0", "card-1"]
+        assert result["trace"]["context_layer_summary"]["identity_loaded"] is True
+        assert result["trace"]["context_layer_summary"]["essential_cards_count"] == 1
+        assert result["trace"]["context_layer_summary"]["workflow_cards_count"] == 1
 
     def test_visual_qa_blocks_low_quality_artifacts(self) -> None:
         """Registry visual QA fails closed when the real artifact does not pass."""

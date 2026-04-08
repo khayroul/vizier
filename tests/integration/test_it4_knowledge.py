@@ -817,7 +817,7 @@ class TestIngestCardFunction:
         knowledge_source: dict[str, str],
         test_client: dict[str, str],
     ) -> None:
-        """ingest_card creates a card with embedding, context_prefix, and search_vector."""
+        """ingest_card creates a card with embedding, context_prefix, labels, and search_vector."""
         from tools.knowledge import ingest_card
 
         card_id = ingest_card(
@@ -834,7 +834,7 @@ class TestIngestCardFunction:
 
         with get_cursor() as cur:
             cur.execute(
-                "SELECT embedding, context_prefix, search_vector, content FROM knowledge_cards WHERE id = %s",
+                "SELECT embedding, context_prefix, memory_labels, search_vector, content FROM knowledge_cards WHERE id = %s",
                 (card_id,),
             )
             row = cur.fetchone()
@@ -842,5 +842,6 @@ class TestIngestCardFunction:
         assert row is not None
         assert row["embedding"] is not None, "Embedding must be populated"
         assert row["context_prefix"] == "Test context prefix for DMB Raya campaign."
+        assert "campaign" in (row["memory_labels"] or [])
         assert row["search_vector"] is not None, "search_vector (tsvector) must be populated"
         assert row["content"] == "DMB batik Raya 2025 promotional material for middle-class families."

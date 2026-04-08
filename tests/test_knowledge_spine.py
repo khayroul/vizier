@@ -467,13 +467,17 @@ def test_ingest_card_with_contextualised_embedding(
 
     assert card_id is not None
 
-    # Verify the card was stored with context_prefix
+    # Verify the card was stored with context_prefix + memory labels
     with get_cursor() as cur:
-        cur.execute("SELECT content, context_prefix FROM knowledge_cards WHERE id = %s", (card_id,))
+        cur.execute(
+            "SELECT content, context_prefix, memory_labels FROM knowledge_cards WHERE id = %s",
+            (card_id,),
+        )
         row = cur.fetchone()
         assert row is not None
         assert row["content"] == "Diskaun 30% untuk semua produk batik."
         assert row["context_prefix"] == mock_prefix
+        assert "campaign" in (row["memory_labels"] or [])
 
 
 def test_ingest_card_with_provided_prefix(
@@ -514,12 +518,34 @@ def test_ingest_card_with_provided_prefix(
     # contextualise_card should NOT have been called
     mock_ctx.assert_not_called()
 
-    # Verify the provided prefix was stored
+    # Verify the provided prefix was stored and labels were still classified
     with get_cursor() as cur:
-        cur.execute("SELECT context_prefix FROM knowledge_cards WHERE id = %s", (card_id,))
+        cur.execute(
+            "SELECT context_prefix, memory_labels FROM knowledge_cards WHERE id = %s",
+            (card_id,),
+        )
         row = cur.fetchone()
         assert row is not None
         assert row["context_prefix"] == existing_prefix
+        assert "fact" in (row["memory_labels"] or [])
+
+
+def test_classify_memory_labels_assigns_useful_categories() -> None:
+    """Heuristic classifier adds cheap structure without LLM calls."""
+    from utils.memory_labels import classify_memory_labels
+
+    labels = classify_memory_labels(
+        title="DMB Raya launch defaults",
+        content="Always keep the CTA visible for the festive campaign audience.",
+        card_type="client",
+        domain="marketing",
+        tags=["brand", "promotion"],
+    )
+
+    assert "identity" in labels
+    assert "campaign" in labels
+    assert "constraint" in labels
+    assert "audience" in labels
 
 
 def test_contextualise_card_importable() -> None:
