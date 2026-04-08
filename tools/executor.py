@@ -129,14 +129,62 @@ def resolve_reminder(template: str, job_context: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _get_exemplar_context(job_context: dict[str, Any]) -> str | None:
+    """Try to retrieve exemplar style tags for prompt injection.
+
+    Queries the exemplars table for active exemplars matching this client
+    and artifact family. Returns a style reference string, or None if no
+    exemplars exist or the database is unavailable.
+
+    Graceful: never raises — DB absence or empty table just skips injection.
+    """
+    client_id = job_context.get("client_id")
+    artifact_family = job_context.get("artifact_family", "poster")
+    if not client_id:
+        return None
+    try:
+        from utils.database import get_cursor
+
+        with get_cursor() as cur:
+            cur.execute(
+                "SELECT style_tags, artifact_family "
+                "FROM exemplars "
+                "WHERE client_id = %s AND status = 'active' "
+                "AND artifact_family = %s "
+                "ORDER BY created_at DESC LIMIT 3",
+                (client_id, artifact_family),
+            )
+            rows = cur.fetchall()
+        if not rows:
+            return None
+        tags: list[str] = []
+        for row in rows:
+            row_tags = row.get("style_tags")
+            if row_tags:
+                tags.extend(row_tags if isinstance(row_tags, list) else [row_tags])
+        if not tags:
+            return None
+        unique_tags = list(dict.fromkeys(tags))  # preserve order, deduplicate
+        return (
+            f"[Exemplar style reference from past successful {artifact_family}s: "
+            f"{', '.join(unique_tags[:10])}. "
+            f"Match this proven style direction.]"
+        )
+    except Exception as exc:
+        logger.debug("Exemplar injection skipped: %s", exc)
+        return None
+
+
 def apply_quality_techniques(
     prompt: str,
     techniques: QualityTechniquesConfig,
     stage_role: str,
+    job_context: dict[str, Any] | None = None,
 ) -> str:
     """Modify prompt based on active quality techniques (§4.2).
 
-    Loads persona files, domain vocab, adds diversity instructions.
+    Loads persona files, domain vocab, exemplar references, adds diversity
+    instructions.
     """
     parts: list[str] = []
 
@@ -145,6 +193,12 @@ def apply_quality_techniques(
         persona_path = Path(techniques.persona)
         if persona_path.exists():
             parts.append(persona_path.read_text().strip())
+
+    # Exemplar injection (§4.2 technique 4)
+    if techniques.exemplar_injection and stage_role == "production" and job_context:
+        exemplar_ctx = _get_exemplar_context(job_context)
+        if exemplar_ctx:
+            parts.append(exemplar_ctx)
 
     # Domain vocabulary injection (§4.2 technique 8)
     if techniques.domain_vocab and stage_role == "production":
@@ -408,7 +462,8 @@ class WorkflowExecutor:
             else:
                 prompt = base_prompt
             prompt = apply_quality_techniques(
-                prompt, self.pack.quality_techniques, stage.role
+                prompt, self.pack.quality_techniques, stage.role,
+                job_context=context.get("job_context"),
             )
 
             # Inject reminder prompt on production stages

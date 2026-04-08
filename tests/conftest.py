@@ -41,7 +41,14 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
-        "requires_api: skip test unless real external APIs are available (run with --run-api)",
+        "acceptance: user-POV acceptance tests for final deliverables",
+    )
+    config.addinivalue_line(
+        "markers",
+        (
+            "requires_api: skip test unless real external APIs are available "
+            "(run with --run-api)"
+        ),
     )
 
 
@@ -66,7 +73,9 @@ def pytest_collection_modifyitems(
 
     # Auto-skip API tests unless --run-api is passed
     if not config.getoption("--run-api"):
-        skip_api = pytest.mark.skip(reason="Real API tests skipped (pass --run-api to run)")
+        skip_api = pytest.mark.skip(
+            reason="Real API tests skipped (pass --run-api to run)"
+        )
         for item in items:
             if item.get_closest_marker("requires_api"):
                 item.add_marker(skip_api)

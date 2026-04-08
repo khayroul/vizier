@@ -746,3 +746,216 @@ def check_visual_consistency(
         "PASS" if passed else "FAIL",
     )
     return {"passed": passed, "similarity": similarity}
+
+
+# ---------------------------------------------------------------------------
+# HTML poster rendering via Playwright
+# ---------------------------------------------------------------------------
+
+_HTML_TEMPLATES_DIR = _REPO_ROOT / "templates" / "html"
+
+# A4 portrait at 96 DPI
+_POSTER_WIDTH = 794
+_POSTER_HEIGHT = 1123
+
+# Default brand palette / fonts — overridden by caller
+_DEFAULT_COLORS: dict[str, str] = {
+    "primary": "#1A365D",
+    "accent": "#ED8936",
+}
+_DEFAULT_FONTS: dict[str, str] = {
+    "headline": "Plus Jakarta Sans",
+    "body": "Inter",
+}
+
+
+def _parse_body_items(body_text: str) -> list[str]:
+    """Split newline-separated body text into a list of strings."""
+    return [
+        line.strip().lstrip("•-").strip()
+        for line in body_text.splitlines()
+        if line.strip()
+    ]
+
+
+def _render_jinja2_template(
+    template_path: Path,
+    context: dict[str, Any],
+) -> str:
+    """Render a Jinja2 HTML template with the given context."""
+    from jinja2 import Environment, FileSystemLoader
+
+    env = Environment(
+        loader=FileSystemLoader(str(template_path.parent)),
+        autoescape=False,
+    )
+    template = env.get_template(template_path.name)
+    return template.render(**context)
+
+
+async def render_poster_html(
+    *,
+    template_name: str,
+    content: dict[str, str],
+    colors: dict[str, str] | None = None,
+    fonts: dict[str, str] | None = None,
+    output_dir: Path,
+) -> Path:
+    """Render a Jinja2 HTML poster to PDF + PNG via Playwright.
+
+    Flow: Jinja2 template -> render(data) -> page.set_content() -> PDF + PNG
+
+    Args:
+        template_name: Template filename without extension.
+        content: Text content (headline, subheadline, cta, body_text,
+            background_image, logo_url).
+        colors: Colour overrides (primary, accent).
+        fonts: Font overrides (headline, body).
+        output_dir: Directory for output files.
+
+    Returns:
+        Path to the generated PDF.
+    """
+    from playwright.async_api import async_playwright
+
+    resolved_colors = {**_DEFAULT_COLORS, **(colors or {})}
+    resolved_fonts = {**_DEFAULT_FONTS, **(fonts or {})}
+
+    template_path = _HTML_TEMPLATES_DIR / f"{template_name}.html"
+    if not template_path.exists():
+        raise FileNotFoundError(
+            f"HTML poster template not found: {template_path}"
+        )
+
+    # Convert local image paths to base64 data URIs so
+    # page.set_content() can render them without file:// access.
+    bg_image = content.get("background_image", "")
+    if bg_image and not bg_image.startswith(("http", "data:")):
+        bg_path = Path(bg_image)
+        if bg_path.exists():
+            import base64
+            import mimetypes
+
+            mime = mimetypes.guess_type(str(bg_path))[0] or "image/jpeg"
+            b64 = base64.b64encode(bg_path.read_bytes()).decode()
+            bg_image = f"data:{mime};base64,{b64}"
+
+    logo = content.get("logo_url", "")
+    if logo and not logo.startswith(("http", "data:")):
+        logo_path = Path(logo)
+        if logo_path.exists():
+            import base64
+            import mimetypes
+
+            mime = mimetypes.guess_type(str(logo_path))[0] or "image/png"
+            b64 = base64.b64encode(logo_path.read_bytes()).decode()
+            logo = f"data:{mime};base64,{b64}"
+
+    # Build Jinja2 context — template uses conditionals and loops
+    jinja_ctx: dict[str, Any] = {
+        "headline": content.get("headline", ""),
+        "subheadline": content.get("subheadline", ""),
+        "cta": content.get("cta", ""),
+        "background_image": bg_image,
+        "logo_url": logo,
+        "body_items": _parse_body_items(content.get("body_text", "")),
+        "primary": resolved_colors.get(
+            "primary", _DEFAULT_COLORS["primary"]
+        ),
+        "accent": resolved_colors.get(
+            "accent", _DEFAULT_COLORS["accent"]
+        ),
+        "font_headline": resolved_fonts.get(
+            "headline", _DEFAULT_FONTS["headline"]
+        ),
+        "font_body": resolved_fonts.get(
+            "body", _DEFAULT_FONTS["body"]
+        ),
+    }
+
+    filled_html = _render_jinja2_template(template_path, jinja_ctx)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    slug = template_name.replace(" ", "_")
+    pdf_path = output_dir / f"{slug}.pdf"
+    png_path = output_dir / f"{slug}.png"
+
+    try:
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch(headless=True)
+            page = await browser.new_page(
+                viewport={
+                    "width": _POSTER_WIDTH,
+                    "height": _POSTER_HEIGHT,
+                },
+            )
+            # set_content — no temp file, no file:// protocol
+            await page.set_content(
+                filled_html, wait_until="networkidle",
+            )
+            await page.wait_for_timeout(1500)  # Google Fonts
+
+            await page.pdf(
+                path=str(pdf_path),
+                width=f"{_POSTER_WIDTH}px",
+                height=f"{_POSTER_HEIGHT}px",
+                print_background=True,
+                margin={
+                    "top": "0px", "right": "0px",
+                    "bottom": "0px", "left": "0px",
+                },
+            )
+            await page.screenshot(
+                path=str(png_path),
+                full_page=False,
+                type="png",
+            )
+            await browser.close()
+    except Exception as exc:
+        logger.error("Playwright poster rendering failed: %s", exc)
+        raise RuntimeError(
+            f"Playwright poster rendering failed: {exc}"
+        ) from exc
+
+    logger.info(
+        "Poster rendered: pdf=%s, png=%s", pdf_path, png_path
+    )
+    return pdf_path
+
+
+def assemble_poster_pdf(
+    *,
+    template_name: str = "poster_default",
+    content: dict[str, str],
+    colors: dict[str, str] | None = None,
+    fonts: dict[str, str] | None = None,
+    output_dir: Path,
+) -> Path:
+    """Synchronous wrapper around :func:`render_poster_html`.
+
+    Intended for use in the synchronous delivery pipeline. Spins up
+    an asyncio event loop via ``asyncio.run()`` to execute the
+    async Playwright renderer.
+
+    Args:
+        template_name: Template filename without extension.
+        content: Text content dict (headline, subheadline, cta,
+            body_text, background_image).
+        colors: Optional colour overrides (primary, accent).
+        fonts: Optional font overrides (headline, body).
+        output_dir: Directory for output files.
+
+    Returns:
+        Path to the generated PDF.
+    """
+    import asyncio
+
+    return asyncio.run(
+        render_poster_html(
+            template_name=template_name,
+            content=content,
+            colors=colors,
+            fonts=fonts,
+            output_dir=output_dir,
+        )
+    )

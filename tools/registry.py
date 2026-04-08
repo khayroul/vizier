@@ -110,7 +110,11 @@ def _sanitize_visual_prompt(prompt: str) -> str:
 
 
 def _image_generate(context: dict[str, Any]) -> dict[str, Any]:
-    """Generate an image via fal.ai with brief expansion (anti-drift #25)."""
+    """Generate an image via fal.ai with brief expansion (anti-drift #25).
+
+    Passes client brand config and design system from routing into brief
+    expansion so the generated image reflects client identity.
+    """
     from pathlib import Path
     from uuid import uuid4
 
@@ -118,12 +122,23 @@ def _image_generate(context: dict[str, Any]) -> dict[str, Any]:
 
     job_ctx = context.get("job_context", {})
     prompt = context.get("prompt", "")
+    client_id = job_ctx.get("client_id", "default")
+
     model = select_image_model(
         language=job_ctx.get("language", "en"),
         artifact_family=job_ctx.get("artifact_family", "poster"),
     )
+
+    # Load client brand for brief expansion context
+    brand_config = _load_client_brand(client_id)
+
+    # Include design system from routing if available
+    design_system = job_ctx.get("routing", {}).get("design_system")
+    if design_system:
+        brand_config["design_system"] = design_system
+
     # Anti-drift #25: ALWAYS expand brief before generation
-    expanded = expand_brief(prompt)
+    expanded = expand_brief(prompt, brand_config=brand_config)
     visual_prompt = expanded.get("composition", prompt)
 
     # Anti-drift #49: text is rendered by Typst, never baked into images.
@@ -300,13 +315,51 @@ def _load_client_style(client_id: str) -> dict[str, Any]:
     try:
         with client_path.open() as fh:
             data = _yaml.safe_load(fh) or {}
+        brand = data.get("brand", {})
         overrides = data.get("workflow_overrides", {}).get("poster_production", {})
+        # Prefer brand section, fall back to workflow overrides, then defaults
         return {
-            "colors": overrides.get("colors", defaults["colors"]),
-            "fonts": overrides.get("fonts", defaults["fonts"]),
+            "colors": overrides.get("colors", {
+                "primary": brand.get("primary_color", defaults["colors"]["primary"]),
+                "secondary": brand.get("secondary_color", defaults["colors"]["secondary"]),
+                "accent": brand.get("accent_color", defaults["colors"]["accent"]),
+            }),
+            "fonts": overrides.get("fonts", {
+                "headline": brand.get("headline_font", defaults["fonts"]["headline"]),
+                "body": brand.get("body_font", defaults["fonts"]["body"]),
+            }),
         }
     except Exception:
         return defaults
+
+
+def _load_client_brand(client_id: str) -> dict[str, Any]:
+    """Load full brand context for brief expansion and copy generation.
+
+    Returns brand colors, mood, tone, style hints — everything the LLM needs
+    to generate on-brand content. Used by _generate_poster and _image_generate.
+    """
+    from pathlib import Path
+
+    import yaml as _yaml
+
+    _repo_root = Path(__file__).resolve().parent.parent
+    client_path = _repo_root / "config" / "clients" / f"{client_id}.yaml"
+    if not client_path.exists():
+        return {}
+    try:
+        with client_path.open() as fh:
+            data = _yaml.safe_load(fh) or {}
+        brand = dict(data.get("brand", {}))
+        defaults = data.get("defaults", {})
+        # Merge relevant defaults into brand context
+        for key in ("tone", "copy_register", "language", "style_hint", "image_mode"):
+            if key in defaults:
+                brand[key] = defaults[key]
+        brand["brand_mood"] = data.get("brand_mood", [])
+        return brand
+    except Exception:
+        return {}
 
 
 def _deliver(context: dict[str, Any]) -> dict[str, Any]:
@@ -346,21 +399,55 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
     parsed = _parse_poster_copy(copy_text)
     style = _load_client_style(job_ctx.get("client_id", "default"))
 
+    output_dir = Path.home() / "vizier" / "data" / "deliverables"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    content = {
+        "headline": parsed.get("headline", ""),
+        "subheadline": parsed.get("subheadline", ""),
+        "cta": parsed.get("cta", ""),
+        "body_text": parsed.get("body_text", ""),
+        "background_image": image_path,
+    }
+
+    # Primary: Playwright HTML renderer (Canva-quality CSS)
+    # Fallback: Typst (for environments without Playwright/Chromium)
+    try:
+        from tools.publish import assemble_poster_pdf
+
+        pdf_path = assemble_poster_pdf(
+            template_name="poster_default",
+            content=content,
+            colors=style.get("colors"),
+            fonts=style.get("fonts"),
+            output_dir=output_dir,
+        )
+        # PNG preview is generated alongside the PDF
+        png_path = pdf_path.with_suffix("").with_name(
+            pdf_path.stem + ".png"
+        )
+        return {
+            "status": "ok",
+            "output": "poster_delivered",
+            "pdf_path": str(pdf_path),
+            "png_path": str(png_path) if png_path.exists() else None,
+            "image_path": image_path,
+            "copy": parsed,
+            "cost_usd": 0.0,
+        }
+    except Exception as pw_exc:
+        logger.warning(
+            "Playwright render failed (%s), falling back to Typst",
+            pw_exc,
+        )
+
+    # Fallback: Typst renderer
     try:
         from tools.publish import assemble_document_pdf
 
-        output_dir = Path.home() / "vizier" / "data" / "deliverables"
-        output_dir.mkdir(parents=True, exist_ok=True)
-
         pdf_path = assemble_document_pdf(
             template_name="poster",
-            content={
-                "headline": parsed.get("headline", ""),
-                "subheadline": parsed.get("subheadline", ""),
-                "cta": parsed.get("cta", ""),
-                "body_text": parsed.get("body_text", ""),
-                "background_image": image_path,
-            },
+            content=content,
             colors=style.get("colors"),
             fonts=style.get("fonts"),
             output_dir=output_dir,
@@ -374,10 +461,10 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
             "cost_usd": 0.0,
         }
     except Exception as exc:
-        logger.error("Poster PDF composition failed: %s", exc)
+        logger.error("Both renderers failed: %s", exc)
         return {
             "status": "error",
-            "output": f"delivery_failed: PDF composition error — {exc}",
+            "output": f"delivery_failed: rendering error — {exc}",
             "image_path": image_path,
             "copy": parsed,
             "cost_usd": 0.0,
@@ -644,18 +731,47 @@ def _document_qa(context: dict[str, Any]) -> dict[str, Any]:
 
 
 def _generate_poster(context: dict[str, Any]) -> dict[str, Any]:
-    """Generate structured poster copy (headline, subheadline, cta, body_text)."""
+    """Generate structured poster copy (headline, subheadline, cta, body_text).
+
+    Injects client brand context (tone, mood, register) so copy aligns
+    with the client's identity rather than being generic.
+    """
     from utils.call_llm import call_llm
 
     prompt = context.get("prompt", "")
+    job_ctx = context.get("job_context", {})
+    client_id = job_ctx.get("client_id", "default")
+
+    # Build brand-aware system prompt
+    system_content = (
+        "Generate poster copy. Output ONLY a JSON object with these keys: "
+        "headline, subheadline, cta, body_text. "
+        "body_text is newline-separated bullet points. "
+        "All text should be in the language of the brief. "
+        "Do not include any text outside the JSON object."
+    )
+
+    brand = _load_client_brand(client_id)
+    if brand:
+        brand_lines: list[str] = []
+        if brand.get("primary_color"):
+            brand_lines.append(
+                f"Brand colors: {brand['primary_color']}"
+                + (f", accent {brand['accent_color']}" if brand.get("accent_color") else "")
+            )
+        if brand.get("tone"):
+            brand_lines.append(f"Tone: {brand['tone']}")
+        if brand.get("copy_register"):
+            brand_lines.append(f"Register: {brand['copy_register']}")
+        if brand.get("brand_mood"):
+            brand_lines.append(f"Brand mood: {', '.join(brand['brand_mood'])}")
+        if brand.get("language"):
+            brand_lines.append(f"Primary language: {brand['language']}")
+        if brand_lines:
+            system_content += "\n\nBrand guidelines:\n" + "\n".join(brand_lines)
+
     result = call_llm(
-        stable_prefix=[{"role": "system", "content": (
-            "Generate poster copy. Output ONLY a JSON object with these keys: "
-            "headline, subheadline, cta, body_text. "
-            "body_text is newline-separated bullet points. "
-            "All text should be in the language of the brief. "
-            "Do not include any text outside the JSON object."
-        )}],
+        stable_prefix=[{"role": "system", "content": system_content}],
         variable_suffix=[{"role": "user", "content": prompt}],
         model="gpt-5.4-mini",
         temperature=0.7,

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=794, initial-scale=1.0">
+  <meta name="reactor-width" content="794">
+  <meta name="reactor-height" content="1123">
+  <meta name="reactor-slots" content="headline,subheadline,body_text,cta,background_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: {{primary}};
+      --accent: {{accent}};
+      --font-headline: '{{font_headline}}', 'Plus Jakarta Sans', 'Helvetica Neue', Arial, sans-serif;
+      --font-body: '{{font_body}}', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 794px;
+      height: 1123px;
+      overflow: hidden;
+      position: relative;
+      font-family: var(--font-body);
+      background: #000;
+    }
+
+    /* ── Full-bleed background image ────────────────────────── */
+    .bg-image {
+      position: absolute;
+      inset: 0;
+      background-image: url('{{background_image}}');
+      background-size: cover;
+      background-position: center;
+    }
+
+    /* ── Dark gradient overlay for text readability ──────────── */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        180deg,
+        rgba(0, 0, 0, 0.35) 0%,
+        rgba(0, 0, 0, 0.10) 30%,
+        rgba(0, 0, 0, 0.15) 50%,
+        rgba(0, 0, 0, 0.55) 72%,
+        rgba(0, 0, 0, 0.82) 100%
+      );
+    }
+
+    /* ── Subtle vignette ────────────────────────────────────── */
+    .vignette {
+      position: absolute;
+      inset: 0;
+      box-shadow: inset 0 0 120px 30px rgba(0, 0, 0, 0.4);
+      pointer-events: none;
+    }
+
+    /* ── Top banner: headline area ──────────────────────────── */
+    .top-banner {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: 48px 48px 36px;
+      background: linear-gradient(
+        180deg,
+        rgba(0, 0, 0, 0.72) 0%,
+        rgba(0, 0, 0, 0.45) 65%,
+        transparent 100%
+      );
+      z-index: 2;
+    }
+
+    .headline {
+      font-family: var(--font-headline);
+      font-size: 52px;
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -1.5px;
+      color: #fff;
+      text-wrap: balance;
+      max-width: 650px;
+    }
+
+    .subheadline {
+      margin-top: 14px;
+      font-family: var(--font-headline);
+      font-size: 20px;
+      font-weight: 500;
+      line-height: 1.35;
+      letter-spacing: 0.2px;
+      color: rgba(255, 255, 255, 0.88);
+      max-width: 560px;
+    }
+
+    /* ── Accent divider line ────────────────────────────────── */
+    .accent-divider {
+      margin-top: 18px;
+      width: 64px;
+      height: 4px;
+      background: var(--accent);
+      border-radius: 2px;
+      box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 50%, transparent);
+    }
+
+    /* ── Lower content area ─────────────────────────────────── */
+    .lower-content {
+      position: absolute;
+      bottom: 80px;
+      left: 0;
+      right: 0;
+      padding: 0 48px;
+      z-index: 2;
+    }
+
+    /* ── Info card with glass effect ────────────────────────── */
+    .info-card {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      padding: 28px 32px;
+      max-width: 520px;
+    }
+
+    .info-card .card-title {
+      font-family: var(--font-headline);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 2.5px;
+      margin-bottom: 16px;
+    }
+
+    .info-card ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .info-card ul li {
+      position: relative;
+      font-family: var(--font-body);
+      font-size: 15px;
+      font-weight: 400;
+      line-height: 1.55;
+      color: rgba(255, 255, 255, 0.92);
+      padding-left: 20px;
+      margin-bottom: 10px;
+    }
+
+    .info-card ul li:last-child {
+      margin-bottom: 0;
+    }
+
+    .info-card ul li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 8px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 60%, transparent);
+    }
+
+    /* ── CTA bar at bottom ──────────────────────────────────── */
+    .cta-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 68px;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 3;
+    }
+
+    .cta-bar .cta-text {
+      font-family: var(--font-headline);
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+    }
+
+    /* ── Decorative corner accent ───────────────────────────── */
+    .corner-accent {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 120px;
+      height: 120px;
+      background: linear-gradient(
+        225deg,
+        color-mix(in srgb, var(--accent) 30%, transparent) 0%,
+        transparent 70%
+      );
+      z-index: 1;
+    }
+  </style>
+</head>
+<body>
+  <!-- Background image layer -->
+  <div class="bg-image"></div>
+
+  <!-- Dark overlay gradient -->
+  <div class="overlay"></div>
+
+  <!-- Vignette effect -->
+  <div class="vignette"></div>
+
+  <!-- Decorative corner -->
+  <div class="corner-accent"></div>
+
+  <!-- Top headline area -->
+  <div class="top-banner">
+    <div class="headline">{{headline}}</div>
+    <div class="subheadline">{{subheadline}}</div>
+    <div class="accent-divider"></div>
+  </div>
+
+  <!-- Lower content zone -->
+  <div class="lower-content">
+    <div class="info-card">
+      <div class="card-title">Key Facts</div>
+      <ul>
+        {{body_text_items}}
+      </ul>
+    </div>
+  </div>
+
+  <!-- CTA bar at bottom -->
+  <div class="cta-bar">
+    <div class="cta-text">{{cta}}</div>
+  </div>
+</body>
+</html>
