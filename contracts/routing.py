@@ -32,6 +32,11 @@ from contracts.artifact_spec import (
 from contracts.readiness import RefinementLimits, evaluate_readiness
 from utils.call_llm import call_llm
 from utils.spans import track_span
+from utils.workflow_registry import (
+    get_active_workflow_descriptions,
+    get_density_for_family,
+    get_workflow_family,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -105,21 +110,6 @@ def _is_phase_active(phase_gate: str) -> bool:
 # 1. Fast-Path Router (~50 lines)
 # ---------------------------------------------------------------------------
 
-# Density mapping for artifact types
-_ARTIFACT_DENSITY: dict[str, str] = {
-    "poster": "moderate",
-    "brochure": "moderate",
-    "document": "minimal",
-    "childrens_book": "dense",
-    "ebook": "minimal",
-    "social_post": "moderate",
-    "invoice": "minimal",
-    "proposal": "minimal",
-    "company_profile": "minimal",
-    "serial_fiction": "minimal",
-    "content_calendar": "moderate",
-}
-
 
 def fast_path_route(raw_input: str, client_id: str | None = None) -> RoutingResult | None:
     """Deterministic pattern match against config/fast_paths.yaml.
@@ -188,26 +178,14 @@ Rules:
 - If you cannot determine a workflow, use "refinement" with low confidence
 """
 
-_ACTIVE_WORKFLOWS = [
-    ("poster_production", "Visual posters, banners, flyers, graphics"),
-    ("document_production", "Reports, plans, proposals, written documents"),
-    ("brochure_production", "Brochures, pamphlets, bifold/trifold"),
-    ("childrens_book_production", "Children's picture books, illustrated stories"),
-    ("ebook_production", "Ebooks, guides, long-form content, novels"),
-    ("research", "Market research, competitor analysis, audits"),
-    ("refinement", "Vague requests needing clarification"),
-    ("onboarding", "New client setup"),
-    ("rework", "Corrections to previous deliverables"),
-]
-
-
 @track_span(step_type="routing")
 def llm_route(raw_input: str, client_id: str | None = None) -> RoutingResult:
     """LLM-based classification when fast-path misses.
 
     Calls GPT-5.4-mini to classify the request into a workflow.
     """
-    workflows_desc = "\n".join(f"- {name}: {desc}" for name, desc in _ACTIVE_WORKFLOWS)
+    active_workflows = get_active_workflow_descriptions()
+    workflows_desc = "\n".join(f"- {name}: {desc}" for name, desc in active_workflows)
     system_msg = _LLM_ROUTING_SYSTEM.format(workflows=workflows_desc)
 
     user_msg = f"User request: {raw_input}"
@@ -326,6 +304,7 @@ def refine_request(
         spec = ProvisionalArtifactSpec(
             client_id=client_id,
             artifact_family=ArtifactFamily.document,  # default, will be refined
+            family_resolved=False,  # placeholder until routing classifies
             language=client_config.get("defaults", {}).get("language", "en"),
             raw_brief=raw_input,
         )
@@ -383,6 +362,7 @@ def refine_request(
     if inferred.get("artifact_family"):
         try:
             updates["artifact_family"] = ArtifactFamily(inferred["artifact_family"])
+            updates["family_resolved"] = True
         except ValueError:
             pass
     if inferred.get("language"):
@@ -433,6 +413,7 @@ def _apply_answers(
     if parsed.get("artifact_family"):
         try:
             updates["artifact_family"] = ArtifactFamily(parsed["artifact_family"])
+            updates["family_resolved"] = True
         except ValueError:
             pass
     if parsed.get("language"):
@@ -467,14 +448,19 @@ def select_design_systems(
     client_id: str,
     artifact_family: str | None = None,
     top_k: int = 3,
+    family_resolved: bool = True,
 ) -> list[str]:
     """Score all design systems and return top-k by relevance.
 
     Scoring via set intersection (§38.1.1):
       - Industry overlap: +2
       - Mood overlap:     +1
-      - Density match:    +1
+      - Density match:    +1  (skipped when family_resolved=False)
       - Colour temp match: +1
+
+    When family_resolved=False, density scoring uses "moderate" default
+    to prevent wrong-family density from distorting selection on
+    unclassified specs.
 
     Returns list of design system names (e.g. ["petronas", "batik_air", "grab"]).
     """
@@ -486,8 +472,11 @@ def select_design_systems(
     client_mood = set(client_config.get("brand_mood", client_config.get("defaults", {}).get("brand_mood", ["warm", "professional"])))
     client_colour = client_config.get("defaults", {}).get("colour_temperature", "warm")
 
-    # Artifact density
-    target_density = _ARTIFACT_DENSITY.get(artifact_family or "", "moderate")
+    # Artifact density — use "moderate" default when family is unresolved
+    if family_resolved:
+        target_density = get_density_for_family(artifact_family or "")
+    else:
+        target_density = "moderate"
 
     scores: list[tuple[str, int]] = []
     for name, attrs in systems.items():
@@ -536,7 +525,11 @@ def route(
 
         # Attach design system if we have a client
         if client_id:
-            top_systems = select_design_systems(client_id, _workflow_to_family(result.workflow))
+            try:
+                family = get_workflow_family(result.workflow)
+            except KeyError:
+                family = None
+            top_systems = select_design_systems(client_id, family)
             result.design_system = top_systems[0] if top_systems else None
 
         logger.info("Fast-path routed: %s → %s", raw_input[:50], result.workflow)
@@ -548,23 +541,12 @@ def route(
 
     # Attach design system
     if client_id:
-        family = _workflow_to_family(result.workflow)
+        try:
+            family = get_workflow_family(result.workflow)
+        except KeyError:
+            family = None
         top_systems = select_design_systems(client_id, family)
         result.design_system = top_systems[0] if top_systems else None
 
     logger.info("LLM routed: %s → %s (confidence=%.2f)", raw_input[:50], result.workflow, result.confidence)
     return result
-
-
-def _workflow_to_family(workflow: str) -> str | None:
-    """Map workflow name to artifact family for design system selection."""
-    mapping: dict[str, str] = {
-        "poster_production": "poster",
-        "document_production": "document",
-        "brochure_production": "brochure",
-        "childrens_book_production": "childrens_book",
-        "ebook_production": "ebook",
-        "research": "document",
-        "onboarding": "document",
-    }
-    return mapping.get(workflow)

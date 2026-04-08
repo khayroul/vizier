@@ -9,17 +9,56 @@ All decisions are PolicyDecision instances for audit logging to policy_logs.
 
 from __future__ import annotations
 
+import json
 import logging
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import psycopg2
 import yaml
 
 from contracts.policy import PolicyAction, PolicyDecision
 
 logger = logging.getLogger(__name__)
+
+
+def persist_policy_decision(decision: PolicyDecision) -> None:
+    """Persist a policy decision to policy_logs. Non-fatal on DB failure.
+
+    Uses lazy import of get_cursor to avoid import-time failure when
+    DATABASE_URL is not configured (e.g. in tests, gateway-only mode).
+    """
+    try:
+        from utils.database import get_cursor  # lazy: DB may not be configured
+
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO policy_logs
+                    (decision_id, job_id, client_id, capability, action, gate, reason, constraints)
+                VALUES
+                    (%(decision_id)s, %(job_id)s, %(client_id)s, %(capability)s,
+                     %(action)s, %(gate)s, %(reason)s, %(constraints)s)
+                """,
+                {
+                    "decision_id": str(decision.decision_id),
+                    "job_id": decision.job_id,
+                    "client_id": decision.client_id,
+                    "capability": decision.capability,
+                    "action": decision.action.value,
+                    "gate": decision.gate,
+                    "reason": decision.reason,
+                    "constraints": json.dumps(decision.constraints) if decision.constraints else "{}",
+                },
+            )
+    except (psycopg2.Error, OSError, ImportError, RuntimeError):
+        # RuntimeError: DATABASE_URL not set (get_connection_string)
+        # psycopg2.Error: any database-level failure
+        # OSError: connection refused / network error
+        # ImportError: utils.database not available
+        logger.warning("Failed to persist policy decision", exc_info=True)
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _DEFAULT_CONFIG = _REPO_ROOT / "config" / "phase.yaml"
@@ -100,15 +139,19 @@ class PolicyEvaluator:
                         "job_id": request.job_id,
                     },
                 )
+                persist_policy_decision(decision)
                 return decision
 
-        return PolicyDecision(
+        decision = PolicyDecision(
             action=PolicyAction.allow,
             reason="All gates passed",
             gate="all",
             job_id=request.job_id,
             client_id=request.client_id,
+            capability=request.capability,
         )
+        persist_policy_decision(decision)
+        return decision
 
     # ------------------------------------------------------------------
     # Gate 1: Phase gate
@@ -128,6 +171,7 @@ class PolicyEvaluator:
                     gate="phase",
                     job_id=request.job_id,
                     client_id=request.client_id,
+                    capability=request.capability,
                 )
 
         # Find which phase would contain it (for the error message)
@@ -146,6 +190,7 @@ class PolicyEvaluator:
             gate="phase",
             job_id=request.job_id,
             client_id=request.client_id,
+            capability=request.capability,
         )
 
     # ------------------------------------------------------------------
@@ -161,6 +206,7 @@ class PolicyEvaluator:
                 gate="tool",
                 job_id=request.job_id,
                 client_id=request.client_id,
+                capability=request.capability,
             )
 
         approved_tools: dict[str, list[str]] = self._config.get("approved_tools", {})
@@ -180,6 +226,7 @@ class PolicyEvaluator:
                 gate="tool",
                 job_id=request.job_id,
                 client_id=request.client_id,
+                capability=request.capability,
             )
 
         return PolicyDecision(
@@ -188,6 +235,7 @@ class PolicyEvaluator:
             gate="tool",
             job_id=request.job_id,
             client_id=request.client_id,
+            capability=request.capability,
         )
 
     # ------------------------------------------------------------------
@@ -211,6 +259,7 @@ class PolicyEvaluator:
                 gate="budget",
                 job_id=request.job_id,
                 client_id=request.client_id,
+                capability=request.capability,
                 constraints={"daily_limit": daily_limit, "used": total_tokens},
             )
 
@@ -220,6 +269,7 @@ class PolicyEvaluator:
             gate="budget",
             job_id=request.job_id,
             client_id=request.client_id,
+            capability=request.capability,
         )
 
     def _get_daily_token_usage(self) -> int:
@@ -262,6 +312,7 @@ class PolicyEvaluator:
                 gate="cost",
                 job_id=request.job_id,
                 client_id=request.client_id,
+                capability=request.capability,
                 constraints={"ceiling_usd": ceiling, "current_usd": request.running_cost_usd},
             )
 
@@ -271,4 +322,5 @@ class PolicyEvaluator:
             gate="cost",
             job_id=request.job_id,
             client_id=request.client_id,
+            capability=request.capability,
         )

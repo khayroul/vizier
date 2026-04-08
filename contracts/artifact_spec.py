@@ -11,7 +11,7 @@ from enum import StrEnum
 from typing import Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 # ---------------------------------------------------------------------------
@@ -99,7 +99,10 @@ class ArtifactSpec(BaseModel):
     This is the production contract that an artifact must satisfy.
     Created after refinement is complete and readiness gate returns 'ready'.
     Immutable once created — rework corrects execution, not spec (§9.1).
+    Frozen: mutation raises ValidationError at runtime.
     """
+
+    model_config = ConfigDict(frozen=True)
 
     spec_id: UUID = Field(default_factory=uuid4)
     client_id: str = Field(min_length=1)
@@ -147,6 +150,10 @@ class ProvisionalArtifactSpec(BaseModel):
 
     # Partial structural — family and language required, rest optional
     artifact_family: ArtifactFamily
+    family_resolved: bool = Field(
+        default=False,
+        description="True once artifact_family has been classified, not just defaulted",
+    )
     language: str = Field(min_length=2, max_length=5)
     page_count: int | None = None
     dimensions: str | None = None

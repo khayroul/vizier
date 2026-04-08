@@ -106,11 +106,14 @@ CREATE TABLE IF NOT EXISTS deliveries (
 
 CREATE TABLE IF NOT EXISTS policy_logs (
     id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    decision_id     uuid,
     job_id          uuid REFERENCES jobs(id),
-    action          text,
-    outcome         text,
-    reason          text,
-    context         jsonb,
+    client_id       uuid REFERENCES clients(id),
+    capability      text,
+    action          text NOT NULL,
+    gate            text NOT NULL,
+    reason          text NOT NULL,
+    constraints     jsonb DEFAULT '{}'::jsonb,
     evaluated_at    timestamptz DEFAULT now()
 );
 
@@ -267,6 +270,8 @@ CREATE INDEX IF NOT EXISTS idx_artifacts_parent ON artifacts(parent_artifact_id)
 CREATE INDEX IF NOT EXISTS idx_assets_client_id ON assets(client_id);
 CREATE INDEX IF NOT EXISTS idx_deliveries_job_id ON deliveries(job_id);
 CREATE INDEX IF NOT EXISTS idx_policy_logs_job_id ON policy_logs(job_id);
+CREATE INDEX IF NOT EXISTS idx_policy_logs_client_id ON policy_logs(client_id);
+CREATE INDEX IF NOT EXISTS idx_policy_logs_gate ON policy_logs(gate);
 CREATE INDEX IF NOT EXISTS idx_feedback_job_id ON feedback(job_id);
 CREATE INDEX IF NOT EXISTS idx_feedback_client_id ON feedback(client_id);
 CREATE INDEX IF NOT EXISTS idx_feedback_status ON feedback(feedback_status);

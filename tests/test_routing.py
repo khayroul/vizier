@@ -24,7 +24,6 @@ from contracts.routing import (
     _load_client_config,
     _load_design_systems,
     _load_fast_paths,
-    _workflow_to_family,
     fast_path_route,
     llm_route,
     refine_request,
@@ -544,14 +543,3 @@ class TestCLIPEncoding:
         assert similarity < 1.0
 
 
-# ---------------------------------------------------------------------------
-# Workflow-to-family mapping
-# ---------------------------------------------------------------------------
-
-
-class TestWorkflowToFamily:
-    def test_poster_maps_to_poster(self) -> None:
-        assert _workflow_to_family("poster_production") == "poster"
-
-    def test_unknown_returns_none(self) -> None:
-        assert _workflow_to_family("unknown_workflow") is None

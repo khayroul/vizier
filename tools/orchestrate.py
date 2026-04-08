@@ -16,30 +16,11 @@ from contracts.readiness import ReadinessResult, evaluate_readiness
 from contracts.routing import RoutingResult, route
 from middleware.policy import PolicyEvaluator, PolicyRequest
 from tools.executor import ToolCallable, WorkflowExecutor
+from utils.workflow_registry import get_workflow_family
 
 logger = logging.getLogger(__name__)
 
 _WORKFLOWS_DIR = Path("manifests/workflows")
-
-_WORKFLOW_FAMILY_MAP: dict[str, ArtifactFamily] = {
-    "poster_production": ArtifactFamily.poster,
-    "document_production": ArtifactFamily.document,
-    "brochure_production": ArtifactFamily.brochure,
-    "childrens_book_production": ArtifactFamily.childrens_book,
-    "ebook_production": ArtifactFamily.ebook,
-    "serial_fiction_production": ArtifactFamily.serial_fiction,
-    "invoice": ArtifactFamily.invoice,
-    "proposal": ArtifactFamily.proposal,
-    "company_profile": ArtifactFamily.company_profile,
-    "social_batch": ArtifactFamily.social_post,
-    "social_caption": ArtifactFamily.social_post,
-    "content_calendar": ArtifactFamily.content_calendar,
-}
-
-
-def _workflow_to_family(workflow_name: str) -> ArtifactFamily:
-    """Map workflow name to artifact family. Falls back to document."""
-    return _WORKFLOW_FAMILY_MAP.get(workflow_name, ArtifactFamily.document)
 
 
 class ReadinessError(Exception):
@@ -89,9 +70,13 @@ def run_governed(
     )
 
     # Step 2: Readiness gate
+    try:
+        family = ArtifactFamily(get_workflow_family(workflow_name))
+    except (KeyError, ValueError):
+        family = ArtifactFamily.document
     spec = ProvisionalArtifactSpec(
         client_id=client_id,
-        artifact_family=_workflow_to_family(workflow_name),
+        artifact_family=family,
         language="en",
         raw_brief=raw_input,
     )

@@ -34,8 +34,12 @@ class PolicyDecision(BaseModel):
     gate: str = Field(min_length=1, description="Which gate produced this: budget, tool, phase, cost")
     job_id: str | None = None
     client_id: str | None = None
+    capability: str | None = Field(
+        default=None,
+        description="What was being evaluated, e.g. 'poster_production'",
+    )
     constraints: dict[str, str | int | float | bool] = Field(
         default_factory=dict,
-        description="Additional constraints imposed by the decision",
+        description="Audit-grade structured constraints imposed by this decision",
     )
     timestamp: datetime = Field(default_factory=datetime.utcnow)

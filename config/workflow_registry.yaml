@@ -1,0 +1,100 @@
+# Single source of truth for workflow metadata.
+# Routing, orchestration, and validation all read from here.
+# Adding a new workflow = adding an entry here + a YAML in manifests/workflows/.
+
+workflows:
+  poster_production:
+    description: "Visual posters, banners, flyers, graphics"
+    artifact_family: poster
+    phase_gate: core
+
+  document_production:
+    description: "Reports, plans, proposals, written documents"
+    artifact_family: document
+    phase_gate: core
+
+  brochure_production:
+    description: "Brochures, pamphlets, bifold/trifold"
+    artifact_family: brochure
+    phase_gate: core
+
+  childrens_book_production:
+    description: "Children's picture books, illustrated stories"
+    artifact_family: childrens_book
+    phase_gate: publishing
+
+  ebook_production:
+    description: "Ebooks, guides, long-form content, novels"
+    artifact_family: ebook
+    phase_gate: core
+
+  serial_fiction_production:
+    description: "Serialised fiction with recurring characters"
+    artifact_family: serial_fiction
+    phase_gate: publishing
+
+  research:
+    description: "Market research, competitor analysis, audits"
+    artifact_family: document
+    phase_gate: research
+
+  refinement:
+    description: "Vague requests needing clarification"
+    artifact_family: document
+    phase_gate: core
+
+  onboarding:
+    description: "New client setup and calibration"
+    artifact_family: document
+    phase_gate: core
+
+  rework:
+    description: "Corrections to previous deliverables"
+    artifact_family: document
+    phase_gate: core
+
+  invoice:
+    description: "Invoice PDF generation"
+    artifact_family: invoice
+    phase_gate: extended_ops
+
+  proposal:
+    description: "Business proposals"
+    artifact_family: proposal
+    phase_gate: extended_ops
+
+  company_profile:
+    description: "Company profile documents"
+    artifact_family: company_profile
+    phase_gate: extended_ops
+
+  social_batch:
+    description: "Batch social media post generation"
+    artifact_family: social_post
+    phase_gate: social
+
+  social_caption:
+    description: "Social media caption generation"
+    artifact_family: social_post
+    phase_gate: social
+
+  content_calendar:
+    description: "Content calendar planning"
+    artifact_family: content_calendar
+    phase_gate: social
+
+# Density is a property of the artifact FAMILY, not the workflow.
+# Multiple workflows can share a family (e.g. research + document_production -> document).
+# select_design_systems() receives an artifact_family, so density must be keyed by family.
+artifact_family_density:
+  poster: moderate
+  brochure: moderate
+  document: minimal
+  childrens_book: dense
+  ebook: minimal
+  social_post: moderate
+  invoice: minimal
+  proposal: minimal
+  company_profile: minimal
+  serial_fiction: dense
+  content_calendar: moderate

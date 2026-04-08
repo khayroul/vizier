@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import fal_client  # type: ignore[import-untyped]
+import httpx
 
 from utils.call_llm import call_llm
 from utils.spans import track_span
@@ -177,8 +178,6 @@ def generate_image(
     image_content_url = image_info.get("url", "")
 
     # Download the image bytes from the returned URL
-    import httpx
-
     resp = httpx.get(image_content_url, timeout=60.0)
     resp.raise_for_status()
 
