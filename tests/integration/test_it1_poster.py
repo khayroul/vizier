@@ -401,14 +401,14 @@ class TestVisualPipelineComponents:
 
         # BM text-heavy → nano-banana-pro
         assert "nano-banana" in select_image_model(language="ms", has_text=True)
-        # Photorealistic → flux-2-pro
-        assert "flux-2-pro" in select_image_model(style="photorealistic")
+        # Photorealistic → flux-pro
+        assert "flux-pro" in select_image_model(style="photorealistic")
         # Draft → nano-banana (free)
         assert "nano-banana" in select_image_model(style="draft")
         # Children's book → kontext
         assert "kontext" in select_image_model(artifact_family="childrens_book")
-        # Default → flux-2-dev
-        assert "flux-2-dev" in select_image_model()
+        # Default → flux/dev
+        assert "flux/dev" in select_image_model()
 
 
 class TestFeedbackCreation:
@@ -449,7 +449,7 @@ class TestVisualLineage:
         record_visual_lineage(
             job_id=test_job["id"],
             role="generated",
-            reason="Primary poster via flux-2-dev",
+            reason="Primary poster via flux/dev",
         )
 
         with get_cursor() as cur:
@@ -461,7 +461,7 @@ class TestVisualLineage:
 
         assert row is not None
         assert row["role"] == "generated"
-        assert "flux-2-dev" in row["selection_reason"]
+        assert "flux/dev" in row["selection_reason"]
 
 
 class TestObservabilityGap:

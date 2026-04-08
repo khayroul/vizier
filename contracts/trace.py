@@ -79,7 +79,13 @@ class ProductionTrace(BaseModel):
 
     def to_jsonb(self) -> dict[str, object]:
         """Serialise to a JSONB-compatible dict for Postgres storage."""
-        return self.model_dump(mode="json")
+        data = self.model_dump(mode="json")
+        # Include computed totals (properties aren't in model_dump)
+        data["total_cost_usd"] = self.total_cost_usd
+        data["total_duration_ms"] = self.total_duration_ms
+        data["total_input_tokens"] = self.total_input_tokens
+        data["total_output_tokens"] = self.total_output_tokens
+        return data
 
 
 class TraceCollector:

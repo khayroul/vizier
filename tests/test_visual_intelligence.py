@@ -57,7 +57,7 @@ class TestImageModelRouting:
         from tools.image import select_image_model
 
         result = select_image_model(language="en", has_text=False, style="photorealistic")
-        assert result == "fal-ai/flux-2-pro"
+        assert result == "fal-ai/flux-pro"
 
     def test_draft_routes_to_nano_banana(self) -> None:
         from tools.image import select_image_model
@@ -69,7 +69,7 @@ class TestImageModelRouting:
         from tools.image import select_image_model
 
         result = select_image_model(language="en", has_text=False, style="poster")
-        assert result == "fal-ai/flux-2-dev"
+        assert result == "fal-ai/flux/dev"
 
     def test_childrens_book_routes_to_kontext(self) -> None:
         from tools.image import select_image_model

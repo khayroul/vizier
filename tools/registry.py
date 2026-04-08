@@ -67,8 +67,8 @@ def _classify_artifact(context: dict[str, Any]) -> dict[str, Any]:
 
 
 def _image_generate(context: dict[str, Any]) -> dict[str, Any]:
-    """Generate an image via fal.ai with brief expansion."""
-    from tools.image import generate_image, select_image_model
+    """Generate an image via fal.ai with brief expansion (anti-drift #25)."""
+    from tools.image import expand_brief, generate_image, select_image_model
 
     job_ctx = context.get("job_context", {})
     prompt = context.get("prompt", "")
@@ -76,12 +76,17 @@ def _image_generate(context: dict[str, Any]) -> dict[str, Any]:
         language=job_ctx.get("language", "en"),
         artifact_family=job_ctx.get("artifact_family", "poster"),
     )
-    result = generate_image(prompt=prompt, model=model)
+    # Anti-drift #25: ALWAYS expand brief before generation
+    expanded = expand_brief(prompt)
+    visual_prompt = expanded.get("composition", prompt)
+
+    image_bytes = generate_image(prompt=visual_prompt, model=model)
     return {
         "status": "ok",
-        "output": result.get("image_url", ""),
-        "image_url": result.get("image_url"),
-        "cost_usd": result.get("cost_usd", 0.0),
+        "output": f"image_generated ({len(image_bytes)} bytes via {model})",
+        "image_bytes": image_bytes,
+        "image_model": model,
+        "cost_usd": 0.025,  # fal.ai flux/dev approximate cost
     }
 
 

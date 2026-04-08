@@ -25,10 +25,10 @@ logger = logging.getLogger(__name__)
 
 _IMAGE_MODELS: dict[str, str] = {
     "bm_text": "fal-ai/nano-banana-pro",       # BM text rendering
-    "photorealistic": "fal-ai/flux-2-pro",       # photorealistic product
+    "photorealistic": "fal-ai/flux-pro",         # photorealistic product
     "draft": "fal-ai/nano-banana",               # free draft preview
     "character_iterative": "fal-ai/flux-pro/kontext",  # character consistency
-    "generic": "fal-ai/flux-2-dev",              # default fallback
+    "generic": "fal-ai/flux/dev",                # default fallback
 }
 
 
@@ -138,7 +138,7 @@ def expand_brief(
 def generate_image(
     *,
     prompt: str,
-    model: str = "fal-ai/flux-2-dev",
+    model: str = "fal-ai/flux/dev",
     width: int = 1024,
     height: int = 1024,
     guidance_scale: float = 3.5,

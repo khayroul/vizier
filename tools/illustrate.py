@@ -247,7 +247,7 @@ class IllustrationPipeline:
         """Generate candidate reference images from CharacterBible.
 
         Operator selects best 2-3 as curated references. This method
-        generates the candidates. Uses fal-ai/flux-2-dev (not Kontext)
+        generates the candidates. Uses fal-ai/flux/dev (not Kontext)
         since no reference image exists yet.
 
         Args:
@@ -285,7 +285,7 @@ class IllustrationPipeline:
 
                 image_bytes = generate_image(
                     prompt=prompt,
-                    model="fal-ai/flux-2-dev",
+                    model="fal-ai/flux/dev",
                     guidance_scale=3.5,
                 )
 
@@ -299,7 +299,7 @@ class IllustrationPipeline:
                 upload_bytes(object_name, image_bytes, content_type="image/jpeg")
 
                 paths.append(local_path)
-                trace.model = "fal-ai/flux-2-dev"
+                trace.model = "fal-ai/flux/dev"
                 trace.cost_usd = _FLUX_DEV_COST_USD
                 trace.proof = {
                     "character": character_bible.character_id,
