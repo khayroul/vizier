@@ -1,0 +1,19 @@
+# adherence_dimensions.yaml
+# Loaded by visual_scoring.py for brief-adherence assessment at runtime.
+# Each dimension has a prompt template that gets filled with interpreted intent.
+
+dimensions:
+  occasion_match:
+    prompt: "Does this poster clearly reflect the occasion '{occasion}'? Consider visual elements, text, and overall mood. Score 1-5."
+    weight: 0.30
+    fallback_prompt: "Does this poster have a clear theme or occasion? Score 1-5."
+
+  content_completeness:
+    prompt: "Are these required elements present and clearly visible: {must_include}? Score 1-5."
+    weight: 0.35
+    fallback_prompt: "Does this poster contain relevant and complete information for its purpose? Score 1-5."
+
+  tone_alignment:
+    prompt: "Does the visual and textual tone match the requested mood '{mood}'? Consider typography, colors, imagery. Score 1-5."
+    weight: 0.35
+    fallback_prompt: "Does this poster have a consistent and appropriate visual tone? Score 1-5."

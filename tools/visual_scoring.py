@@ -334,6 +334,115 @@ def score_with_exemplars(
 
 
 # ---------------------------------------------------------------------------
+# Brief-adherence scoring (hardening 2.8)
+# ---------------------------------------------------------------------------
+
+
+def _load_adherence_dimensions() -> dict[str, Any]:
+    """Load adherence dimension prompts and weights from config."""
+    config_path = Path(__file__).resolve().parent.parent / "config" / "quality_frameworks" / "adherence_dimensions.yaml"
+    return yaml.safe_load(config_path.read_text())  # type: ignore[no-any-return]
+
+
+def score_adherence(
+    image_bytes: bytes,
+    interpreted_intent: dict[str, Any],
+    *,
+    model: str = "gpt-5.4-mini",
+) -> dict[str, Any]:
+    """Score poster adherence to interpreted intent (brief fidelity).
+
+    Uses GPT-5.4-mini to evaluate how well the output matches the brief's
+    occasion, must-include requirements, and requested mood/tone.
+
+    Returns dict with per-dimension scores, weighted total, and token metrics.
+    """
+    import base64
+
+    config = _load_adherence_dimensions()
+    dimensions = config["dimensions"]
+
+    image_b64 = base64.b64encode(image_bytes).decode()
+    results: dict[str, dict[str, Any]] = {}
+    total_input = 0
+    total_output = 0
+    total_cost = 0.0
+
+    for dim_name, dim_config in dimensions.items():
+        # Build dimension-specific prompt from intent
+        occasion = str(interpreted_intent.get("occasion", ""))
+        mood = str(interpreted_intent.get("mood", ""))
+        must_include = interpreted_intent.get("must_include", [])
+
+        if occasion or mood or must_include:
+            prompt_template = str(dim_config["prompt"])
+            prompt = prompt_template.format(
+                occasion=occasion or "general",
+                mood=mood or "neutral",
+                must_include=", ".join(must_include) if must_include else "none specified",
+            )
+        else:
+            prompt = str(dim_config.get("fallback_prompt", dim_config["prompt"]))
+
+        system_msg = (
+            "You are a poster quality reviewer. Evaluate the poster image against "
+            "the given criterion. Output ONLY a JSON object: "
+            '{"score": <1-5>, "issues": ["specific issue 1", ...]}'
+        )
+
+        result = call_llm(
+            stable_prefix=[{"role": "system", "content": system_msg}],
+            variable_suffix=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/png;base64,{image_b64}"},
+                        },
+                    ],
+                },
+            ],
+            model=model,
+            temperature=0.3,
+            max_tokens=200,
+            operation_type="evaluate",
+        )
+
+        try:
+            parsed = json.loads(result.get("content", "{}"))
+            dim_score = float(parsed.get("score", 3.0))
+            issues = list(parsed.get("issues", []))
+        except (json.JSONDecodeError, ValueError):
+            dim_score = 3.0
+            issues = ["failed to parse adherence response"]
+
+        results[dim_name] = {"score": dim_score, "issues": issues}
+        total_input += result.get("input_tokens", 0)
+        total_output += result.get("output_tokens", 0)
+        total_cost += result.get("cost_usd", 0.0)
+
+    # Weighted total
+    total_score = 0.0
+    total_weight = 0.0
+    for dim_name, dim_config in dimensions.items():
+        weight = float(dim_config.get("weight", 0.33))
+        total_score += weight * results.get(dim_name, {}).get("score", 3.0)
+        total_weight += weight
+
+    adherence_score = total_score / total_weight if total_weight > 0 else 3.0
+
+    return {
+        "adherence_score": adherence_score,
+        "dimensions": results,
+        "input_tokens": total_input,
+        "output_tokens": total_output,
+        "cost_usd": total_cost,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Visual lineage (section 30.3)
 # ---------------------------------------------------------------------------
 
