@@ -167,7 +167,11 @@ class TestParsePosterCopy:
         from tools.registry import _parse_poster_copy
 
         result = _parse_poster_copy("")
-        assert all(v == "" for v in result.values())
+        # String slots are empty, dict slots are None
+        assert result["headline"] == ""
+        assert result["body_text"] == ""
+        assert result["event_meta"] is None
+        assert result["offer_block"] is None
 
 
 # ---------------------------------------------------------------------------

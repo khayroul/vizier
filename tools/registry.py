@@ -628,16 +628,26 @@ def _infer_failed_stage_from_trace(trace: dict[str, Any]) -> str | None:
     return None
 
 
-def _parse_poster_copy(copy_text: str) -> dict[str, str]:
+def _parse_poster_copy(copy_text: str) -> dict[str, Any]:
     """Extract structured fields from generate_poster LLM output.
 
-    Expects JSON output. Falls back to heuristic extraction if JSON fails.
+    Expects JSON output with required fields (headline, subheadline, cta,
+    body_text) and optional extended slots (kicker, badge, event_meta,
+    offer_block, price, footer, disclaimer, secondary_cta).
+
+    Falls back to heuristic extraction if JSON fails.
     """
     import json as _json
 
-    result: dict[str, str] = {
-        "headline": "", "subheadline": "", "cta": "", "body_text": "",
-    }
+    _STRING_SLOTS = (
+        "headline", "subheadline", "cta", "body_text",
+        "kicker", "badge", "price", "footer", "disclaimer", "secondary_cta",
+    )
+    _DICT_SLOTS = ("event_meta", "offer_block")
+
+    result: dict[str, Any] = {k: "" for k in _STRING_SLOTS}
+    result.update({k: None for k in _DICT_SLOTS})
+
     if not copy_text:
         return result
 
@@ -652,9 +662,12 @@ def _parse_poster_copy(copy_text: str) -> dict[str, str]:
     try:
         parsed = _json.loads(stripped)
         if isinstance(parsed, dict):
-            for key in result:
+            for key in _STRING_SLOTS:
                 if key in parsed:
                     result[key] = str(parsed[key])
+            for key in _DICT_SLOTS:
+                if key in parsed and isinstance(parsed[key], dict):
+                    result[key] = parsed[key]
             return result
     except (ValueError, TypeError):
         pass
@@ -670,9 +683,15 @@ def _parse_poster_copy(copy_text: str) -> dict[str, str]:
             result["cta"] = line.split(":", 1)[1].strip()
         elif lower.startswith(("body:", "body text:", "body_text:")):
             result["body_text"] = line.split(":", 1)[1].strip()
+        elif lower.startswith("kicker:"):
+            result["kicker"] = line.split(":", 1)[1].strip()
+        elif lower.startswith("badge:"):
+            result["badge"] = line.split(":", 1)[1].strip()
+        elif lower.startswith("footer:"):
+            result["footer"] = line.split(":", 1)[1].strip()
 
     # If no structure found, use entire text as body
-    if not any(result.values()):
+    if not any(v for k, v in result.items() if k in _STRING_SLOTS and v):
         result["body_text"] = copy_text.strip()
     return result
 
@@ -1322,22 +1341,44 @@ def _document_qa(context: dict[str, Any]) -> dict[str, Any]:
 
 
 def _generate_poster(context: dict[str, Any]) -> dict[str, Any]:
-    """Generate structured poster copy (headline, subheadline, cta, body_text).
+    """Generate structured poster copy with intent-aware enrichment.
 
-    Injects client brand context (tone, mood, register) so copy aligns
-    with the client's identity rather than being generic.
+    Injects client brand context, interpreted intent (occasion, audience, mood,
+    must-include/avoid), and requests extended content slots when the brief
+    signals them (event_meta, offer_block, kicker, badge, footer).
     """
     from utils.call_llm import call_llm
 
     prompt = context.get("prompt", "")
     job_ctx = context.get("job_context", {})
     client_id = job_ctx.get("client_id", "default")
+    intent_data: dict[str, Any] = job_ctx.get("interpreted_intent", {})
 
-    # Build brand-aware system prompt
+    # Determine which content slots to request based on intent
+    base_slots = "headline, subheadline, cta, body_text"
+    extra_slots: list[str] = []
+    if intent_data:
+        occasion = str(intent_data.get("occasion", ""))
+        if occasion in ("sale", "promo"):
+            extra_slots.extend(["offer_block", "badge"])
+        if occasion in ("event", "hari_raya", "maulidur_rasul", "health"):
+            extra_slots.append("event_meta")
+        if str(intent_data.get("text_density", "")) == "dense":
+            extra_slots.append("footer")
+        if str(intent_data.get("text_density", "")) == "minimal":
+            extra_slots.append("kicker")
+
+    slot_list = base_slots
+    if extra_slots:
+        slot_list += ", " + ", ".join(extra_slots)
+
+    # Build brand-aware system prompt with intent enrichment
     system_content = (
-        "Generate poster copy. Output ONLY a JSON object with these keys: "
-        "headline, subheadline, cta, body_text. "
+        f"Generate poster copy. Output ONLY a JSON object with these keys: "
+        f"{slot_list}. "
         "body_text is newline-separated bullet points. "
+        "event_meta (if requested) is a JSON object with keys like date, time, venue, dress_code. "
+        "offer_block (if requested) is a JSON object with keys like discount, validity. "
         "All text should be in the language of the brief. "
         "Do not include any text outside the JSON object."
     )
@@ -1360,6 +1401,26 @@ def _generate_poster(context: dict[str, Any]) -> dict[str, Any]:
             brand_lines.append(f"Primary language: {brand['language']}")
         if brand_lines:
             system_content += "\n\nBrand guidelines:\n" + "\n".join(brand_lines)
+
+    # Inject interpreted intent for occasion-aware copy (hardening 2.7)
+    if intent_data:
+        intent_lines: list[str] = []
+        if intent_data.get("occasion"):
+            intent_lines.append(f"Occasion: {intent_data['occasion']}")
+        if intent_data.get("audience"):
+            intent_lines.append(f"Target audience: {intent_data['audience']}")
+        if intent_data.get("mood"):
+            intent_lines.append(f"Mood/tone: {intent_data['mood']}")
+        if intent_data.get("cultural_context"):
+            intent_lines.append(f"Cultural context: {intent_data['cultural_context']}")
+        must_include = intent_data.get("must_include", [])
+        if must_include:
+            intent_lines.append(f"MUST include: {', '.join(must_include)}")
+        must_avoid = intent_data.get("must_avoid", [])
+        if must_avoid:
+            intent_lines.append(f"MUST NOT include: {', '.join(must_avoid)}")
+        if intent_lines:
+            system_content += "\n\nBrief intent:\n" + "\n".join(intent_lines)
 
     result = call_llm(
         stable_prefix=[{"role": "system", "content": system_content}],
