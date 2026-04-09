@@ -420,9 +420,11 @@ def run_governed(
         )
 
     # Step 5c: Delivery support — fail early for non-deliverable workflows
+    # Only workflows with a fully wired delivery path.
+    # invoice/proposal/company_profile are S16 — still phase-blocked
+    # with placeholder generators.  Add them here when S16 ships.
     _DELIVERABLE_WORKFLOWS = frozenset({
         "poster_production", "document_production",
-        "invoice", "proposal", "company_profile",
     })
     has_delivery_stage = any(
         stage.role == "delivery" for stage in pack.stages

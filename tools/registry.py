@@ -1378,10 +1378,10 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
         if effective_workflow == "rework":
             effective_workflow = str(job_ctx.get("original_workflow", "rework"))
 
-    # Route delivery by workflow type
-    _DOCUMENT_WORKFLOWS = frozenset({
-        "document_production", "invoice", "proposal", "company_profile",
-    })
+    # Route delivery by workflow type.
+    # Only document_production is fully wired.  invoice/proposal/company_profile
+    # are S16 — still phase-blocked with placeholder generators.
+    _DOCUMENT_WORKFLOWS = frozenset({"document_production"})
     if effective_workflow in _DOCUMENT_WORKFLOWS:
         return _deliver_document(context, effective_workflow)
 
@@ -2620,7 +2620,7 @@ def _onboard_client(context: dict[str, Any]) -> dict[str, Any]:
 # Tools that are structurally registered but not yet backed by real logic.
 # Active workflows that depend on these should fail closed at runtime.
 _STUB_TOOL_NAMES: frozenset[str] = frozenset({
-    "typst_render",          # S2 shell — no actual compile logic
+    # typst_render removed — now has real compile logic (Track 2)
     "knowledge_store",       # S12 ingestion path not wired in workflow runtime
     "story_workshop",        # S15 publishing
     "scaffold_build",        # S15 publishing

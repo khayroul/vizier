@@ -1191,10 +1191,11 @@ class TestDocumentPipelineReal:
         pdf_path = render_result["pdf_path"]
 
         # Step 2: Real delivery with structural QA
+        # Use document_production — invoice is S16, not yet deliverable
         deliver_result = _deliver({
             "job_context": {
                 "job_id": "real-pipeline-001",
-                "routing": {"workflow": "invoice"},
+                "routing": {"workflow": "document_production"},
             },
             "artifact_payload": {"pdf_path": pdf_path},
             "stage_results": [render_result],
