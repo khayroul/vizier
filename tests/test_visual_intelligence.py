@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import io
 import json
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -721,3 +722,102 @@ class TestImports:
         from tools.visual_pipeline import run_visual_pipeline
 
         assert callable(run_visual_pipeline)
+
+    def test_evaluate_rendered_poster_importable(self) -> None:
+        from tools.visual_pipeline import evaluate_rendered_poster
+
+        assert callable(evaluate_rendered_poster)
+
+
+# ===========================================================================
+# Post-render QA
+# ===========================================================================
+
+
+class TestPostRenderQA:
+    """Test evaluate_rendered_poster for text-over-image composition."""
+
+    def test_missing_png_fails(self, tmp_path: Path) -> None:
+        """Non-existent PNG is a clear failure."""
+        from tools.visual_pipeline import evaluate_rendered_poster
+
+        result = evaluate_rendered_poster(
+            rendered_png_path=str(tmp_path / "missing.png"),
+        )
+        assert result["passed"] is False
+        assert "missing" in result["issues"][0].lower()
+
+    def test_empty_png_fails(self, tmp_path: Path) -> None:
+        """Zero-byte PNG is a clear failure."""
+        from tools.visual_pipeline import evaluate_rendered_poster
+
+        empty = tmp_path / "empty.png"
+        empty.write_bytes(b"")
+        result = evaluate_rendered_poster(
+            rendered_png_path=str(empty),
+        )
+        assert result["passed"] is False
+
+    def test_valid_poster_checks_nima_and_composition(
+        self, tmp_path: Path,
+    ) -> None:
+        """Valid poster runs NIMA + composition LLM check."""
+        from tools.visual_pipeline import evaluate_rendered_poster
+
+        img = Image.new("RGB", (200, 200), color=(100, 120, 140))
+        poster_path = tmp_path / "poster.png"
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        poster_path.write_bytes(buf.getvalue())
+
+        good_llm = _mock_llm_response(json.dumps({
+            "cta_visibility": 4.5,
+            "text_readability": 4.0,
+            "overlay_balance": 4.5,
+            "issues": [],
+        }))
+
+        with patch(
+            "tools.visual_pipeline.nima_score", return_value=4.2,
+        ), patch(
+            "utils.call_llm.call_llm", return_value=good_llm,
+        ):
+            result = evaluate_rendered_poster(
+                rendered_png_path=str(poster_path),
+            )
+
+        assert result["passed"] is True
+        assert result["nima_score"] == 4.2
+        assert result["composition_score"] > 3.0
+
+    def test_low_nima_fails_even_with_good_composition(
+        self, tmp_path: Path,
+    ) -> None:
+        """NIMA floor gate catches rendering degradation."""
+        from tools.visual_pipeline import evaluate_rendered_poster
+
+        img = Image.new("RGB", (64, 64), color=(50, 50, 50))
+        poster_path = tmp_path / "bad_nima.png"
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        poster_path.write_bytes(buf.getvalue())
+
+        good_llm = _mock_llm_response(json.dumps({
+            "cta_visibility": 5.0,
+            "text_readability": 5.0,
+            "overlay_balance": 5.0,
+            "issues": [],
+        }))
+
+        with patch(
+            "tools.visual_pipeline.nima_score", return_value=2.5,
+        ), patch(
+            "utils.call_llm.call_llm", return_value=good_llm,
+        ):
+            result = evaluate_rendered_poster(
+                rendered_png_path=str(poster_path),
+                nima_floor=3.5,
+            )
+
+        assert result["passed"] is False
+        assert any("nima" in i.lower() for i in result["issues"])

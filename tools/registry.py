@@ -444,13 +444,21 @@ def _image_generate(context: dict[str, Any]) -> dict[str, Any]:
 
 
 def _visual_qa(context: dict[str, Any]) -> dict[str, Any]:
-    """Run visual QA against the actual rendered artifact."""
+    """Run visual QA — critique-then-revise on failure (anti-drift #21, #38).
+
+    When the initial image fails QA, regenerates with the critique as
+    guidance and re-evaluates.  Max retries controlled by
+    ``runtime_controls.qa_max_retries`` (default 1).
+    """
     from tools.visual_pipeline import evaluate_visual_artifact
 
     job_ctx = context.get("job_context", {})
     previous_output = context.get("previous_output", {})
     payload = _artifact_payload(context)
-    image_path = payload.get("image_path") or context.get("previous_output", {}).get("image_path")
+    image_path = (
+        payload.get("image_path")
+        or context.get("previous_output", {}).get("image_path")
+    )
     if not image_path:
         return {
             "status": "error",
@@ -476,7 +484,11 @@ def _visual_qa(context: dict[str, Any]) -> dict[str, Any]:
             or expanded_brief.get("design_system")
             or ""
         ),
-        "template_name": str(payload.get("template_name") or job_ctx.get("template_name") or ""),
+        "template_name": str(
+            payload.get("template_name")
+            or job_ctx.get("template_name")
+            or ""
+        ),
         "style": str(
             expanded_brief.get("style")
             or payload.get("design_system")
@@ -494,31 +506,156 @@ def _visual_qa(context: dict[str, Any]) -> dict[str, Any]:
         else None
     )
     if isinstance(reference_visual_dna, dict):
-        brief["reference_layout"] = str(reference_visual_dna.get("layout_type", ""))
-        brief["reference_palette"] = ", ".join(
-            str(colour) for colour in (reference_visual_dna.get("dominant_colours") or [])[:4]
+        brief["reference_layout"] = str(
+            reference_visual_dna.get("layout_type", "")
         )
-    quality = evaluate_visual_artifact(
-        image_path=str(image_path),
-        client_id=str(job_ctx.get("client_id", "default")),
-        brief=brief,
-        artifact_family=str(job_ctx.get("artifact_family", "poster")),
-        copy_text=str(payload.get("text_content", "")),
-        copy_register=str(job_ctx.get("copy_register", "neutral")),
-        brand_config=job_ctx.get("brand_config"),
-        language=str(job_ctx.get("language", "en")),
-        critique_max_tokens=int(controls.get("critique_max_tokens", 300)),
-        allow_parallel_guardrails=bool(controls.get("allow_parallel_guardrails", True)),
-        qa_threshold=float(controls.get("qa_threshold", 3.2)),
-        # Pass interpreted intent so adherence gate can score brief fidelity (P1 fix)
-        interpreted_intent=job_ctx.get("interpreted_intent"),
-    )
+        brief["reference_palette"] = ", ".join(
+            str(c)
+            for c in (reference_visual_dna.get("dominant_colours") or [])[:4]
+        )
+
+    qa_kwargs: dict[str, Any] = {
+        "client_id": str(job_ctx.get("client_id", "default")),
+        "brief": brief,
+        "artifact_family": str(job_ctx.get("artifact_family", "poster")),
+        "copy_text": str(payload.get("text_content", "")),
+        "copy_register": str(job_ctx.get("copy_register", "neutral")),
+        "brand_config": job_ctx.get("brand_config"),
+        "language": str(job_ctx.get("language", "en")),
+        "critique_max_tokens": int(
+            controls.get("critique_max_tokens", 300)
+        ),
+        "allow_parallel_guardrails": bool(
+            controls.get("allow_parallel_guardrails", True)
+        ),
+        "qa_threshold": float(controls.get("qa_threshold", 3.2)),
+        "interpreted_intent": job_ctx.get("interpreted_intent"),
+    }
+
+    # --- Evaluate (with critique-then-revise retry) ---
+    max_retries = int(controls.get("qa_max_retries", 1))
+    total_cost = 0.0
+    total_input_tokens = 0
+    total_output_tokens = 0
+    current_image_path = str(image_path)
+
+    for attempt in range(max_retries + 1):
+        quality = evaluate_visual_artifact(
+            image_path=current_image_path, **qa_kwargs,
+        )
+        total_cost += float(quality.get("cost_usd", 0.0))
+        total_input_tokens += int(quality.get("input_tokens", 0))
+        total_output_tokens += int(quality.get("output_tokens", 0))
+
+        if quality["passed"]:
+            break
+
+        # Last attempt already — don't regenerate, just report
+        if attempt >= max_retries:
+            break
+
+        # --- Critique-then-revise: regenerate with specific issues ---
+        critique = quality.get("critique", {})
+        failing_dims = [
+            f"{dim}: {info.get('issues', [])}"
+            for dim, info in critique.items()
+            if isinstance(info, dict) and float(info.get("score", 5)) < 3.0
+        ]
+        if not failing_dims:
+            # No actionable critique → cannot revise (anti-drift #38)
+            logger.warning(
+                "QA failed (%.2f) but no actionable dimension critique "
+                "— cannot revise, attempt %d/%d",
+                quality["weighted_score"],
+                attempt + 1,
+                max_retries,
+            )
+            break
+
+        logger.info(
+            "QA failed (%.2f < %.2f), revising image — attempt %d/%d. "
+            "Failing dimensions: %s",
+            quality["weighted_score"],
+            qa_kwargs["qa_threshold"],
+            attempt + 1,
+            max_retries,
+            "; ".join(failing_dims),
+        )
+
+        try:
+            from tools.image import generate_image, select_image_model
+            from uuid import uuid4
+
+            critique_guidance = (
+                "REVISION — previous image failed QA. Fix these issues: "
+                + "; ".join(failing_dims)
+            )
+            visual_prompt = expanded_brief.get("visual_prompt", "")
+            if not visual_prompt:
+                visual_prompt = str(job_ctx.get("raw_input", ""))
+            revised_prompt = f"{visual_prompt}\n\n{critique_guidance}"
+
+            ref_url = (
+                previous_output.get("reference_image_url")
+                if isinstance(previous_output, dict)
+                else None
+            )
+            model = select_image_model(
+                language=str(job_ctx.get("language", "en")),
+                has_text=bool(qa_kwargs["copy_text"].strip()),
+                style=str(
+                    (job_ctx.get("brand_config") or {}).get(
+                        "image_mode", "poster"
+                    )
+                ),
+                artifact_family=qa_kwargs["artifact_family"],
+                image_mode=str(
+                    (job_ctx.get("brand_config") or {}).get(
+                        "image_mode", ""
+                    )
+                ),
+                reference_image_url=ref_url,
+            )
+            image_bytes = generate_image(
+                prompt=revised_prompt,
+                model=model,
+                image_url=ref_url,
+            )
+            total_cost += 0.025  # approx fal.ai cost
+
+            # Save revised image
+            local_dir = (
+                Path.home() / "vizier" / "data" / "generated_images"
+            )
+            local_dir.mkdir(parents=True, exist_ok=True)
+            ext = ".png"
+            if image_bytes[:2] == b"\xff\xd8":
+                ext = ".jpg"
+            elif (
+                image_bytes[:4] == b"RIFF"
+                and image_bytes[8:12] == b"WEBP"
+            ):
+                ext = ".webp"
+            revised_path = local_dir / f"{uuid4().hex}_revised{ext}"
+            revised_path.write_bytes(image_bytes)
+            current_image_path = str(revised_path)
+            logger.info(
+                "Revised image saved: %s (%d bytes)",
+                revised_path,
+                len(image_bytes),
+            )
+        except Exception as exc:
+            logger.warning(
+                "Image regeneration failed during QA revision: %s", exc,
+            )
+            break
 
     status = "ok" if quality["passed"] else "error"
     return {
         "status": status,
         "output": quality["critique"],
         "score": quality["weighted_score"],
+        "image_path": current_image_path,
         "qa_threshold": quality["qa_threshold"],
         "quality_summary": {
             "nima_score": quality["nima_score"],
@@ -527,9 +664,9 @@ def _visual_qa(context: dict[str, Any]) -> dict[str, Any]:
             "flags_count": len(quality["guardrail_flags"]),
         },
         "guardrail_flags": quality["guardrail_flags"],
-        "input_tokens": quality["input_tokens"],
-        "output_tokens": quality["output_tokens"],
-        "cost_usd": quality["cost_usd"],
+        "input_tokens": total_input_tokens,
+        "output_tokens": total_output_tokens,
+        "cost_usd": total_cost,
     }
 
 
@@ -918,15 +1055,60 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
         png_path = pdf_path.with_suffix("").with_name(
             pdf_path.stem + ".png"
         )
+
+        # Post-render QA: evaluate the RENDERED poster (with text overlays)
+        # to catch CTA visibility / text readability / overlay collisions
+        # that raw-image QA cannot detect.
+        post_render_result: dict[str, Any] = {}
+        if png_path.exists():
+            from tools.visual_pipeline import evaluate_rendered_poster
+
+            raw_nima = None
+            if isinstance(quality_verdict, dict):
+                raw_nima = quality_verdict.get("nima_score")
+            controls = _runtime_controls(context)
+            post_render_result = evaluate_rendered_poster(
+                rendered_png_path=str(png_path),
+                raw_image_nima=(
+                    float(raw_nima) if raw_nima is not None else None
+                ),
+                nima_floor=float(
+                    controls.get("render_nima_floor", 3.5)
+                ),
+                composition_threshold=float(
+                    controls.get("composition_threshold", 3.0)
+                ),
+            )
+            if not post_render_result.get("passed", True):
+                return {
+                    "status": "error",
+                    "output": (
+                        "delivery_failed: rendered poster did not pass "
+                        "post-render QA — "
+                        + "; ".join(post_render_result.get("issues", []))
+                    ),
+                    "post_render_qa": post_render_result,
+                    "pdf_path": str(pdf_path),
+                    "png_path": str(png_path),
+                    "image_path": image_path,
+                    "copy": parsed,
+                    "cost_usd": float(
+                        post_render_result.get("cost_usd", 0.0)
+                    ),
+                }
+
         return {
             "status": "ok",
             "output": "poster_delivered",
             "pdf_path": str(pdf_path),
             "png_path": str(png_path) if png_path.exists() else None,
+            "post_render_qa": post_render_result,
             "image_path": image_path,
             "template_name": template_name,
             "copy": parsed,
-            "cost_usd": 0.0,
+            "cost_usd": float(
+                post_render_result.get("cost_usd", 0.0)
+            ),
         }
     except Exception as pw_exc:
         logger.warning(

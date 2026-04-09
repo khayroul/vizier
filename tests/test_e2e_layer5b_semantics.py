@@ -551,7 +551,8 @@ class TestGenericExecutorSemantics:
                     "artifact_family": "poster",
                     "language": "ms",
                     "copy_register": "formal",
-                    "runtime_controls": {"qa_threshold": 3.2},
+                    # Disable retries so test stays focused on fail-closed behaviour.
+                    "runtime_controls": {"qa_threshold": 3.2, "qa_max_retries": 0},
                 },
                 "artifact_payload": {
                     "image_path": "/tmp/poster.png",
@@ -563,6 +564,81 @@ class TestGenericExecutorSemantics:
         assert result["status"] == "error"
         assert result["score"] == 2.8
         assert result["qa_threshold"] == 3.2
+
+    def test_visual_qa_critique_then_revise_regenerates(
+        self, tmp_path: Path,
+    ) -> None:
+        """QA revision loop regenerates image with critique and re-evaluates."""
+        from tools.registry import _visual_qa
+
+        fail_result = {
+            "passed": False,
+            "weighted_score": 2.5,
+            "qa_threshold": 3.2,
+            "nima_score": 3.5,
+            "nima_action": "accept",
+            "critique": {
+                "layout_balance": {
+                    "score": 2.0,
+                    "issues": ["Image is off-centre"],
+                },
+            },
+            "guardrail_flags": [],
+            "input_tokens": 40,
+            "output_tokens": 20,
+            "cost_usd": 0.01,
+        }
+        pass_result = {
+            **fail_result,
+            "passed": True,
+            "weighted_score": 3.8,
+        }
+        call_count = {"n": 0}
+
+        def _eval_side_effect(**kwargs: object) -> dict[str, object]:
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                return fail_result  # type: ignore[return-value]
+            return pass_result  # type: ignore[return-value]
+
+        revised_img = tmp_path / "revised.png"
+        revised_img.write_bytes(b"\x89PNG" + b"\x00" * 60)
+
+        with (
+            patch(
+                "tools.visual_pipeline.evaluate_visual_artifact",
+                side_effect=_eval_side_effect,
+            ),
+            patch(
+                "tools.image.generate_image",
+                return_value=b"\x89PNG" + b"\x00" * 60,
+            ),
+            patch(
+                "tools.image.select_image_model",
+                return_value="fal-ai/flux/dev",
+            ),
+        ):
+            result = _visual_qa({
+                "job_context": {
+                    "client_id": "dmb",
+                    "artifact_family": "poster",
+                    "language": "en",
+                    "copy_register": "neutral",
+                    "runtime_controls": {
+                        "qa_threshold": 3.2,
+                        "qa_max_retries": 1,
+                    },
+                },
+                "artifact_payload": {
+                    "image_path": "/tmp/poster.png",
+                    "poster_copy": "Headline",
+                    "template_name": "poster_default",
+                },
+            })
+
+        assert result["status"] == "ok"
+        assert result["score"] == 3.8
+        assert call_count["n"] == 2
 
     def test_delivery_uses_resolved_template_and_job_output_dir(self, tmp_path: Path) -> None:
         """Poster delivery resolves template aliases and isolates outputs by job."""

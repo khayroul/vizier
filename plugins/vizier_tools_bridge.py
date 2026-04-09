@@ -77,6 +77,12 @@ _ACTION_KEYWORDS = {
 _SESSION_STATE: dict[str, "BridgeSessionState"] = {}
 # Hermes passes session_id to pre_llm_call but task_id (a per-turn UUID) to
 # pre_tool_call.  These two mappings let pre_tool_call resolve the right session.
+#
+# CONCURRENCY NOTE: _ACTIVE_SESSION_ID is process-global.  This is safe for
+# a single active Telegram operator (Hermes is single-threaded per session).
+# True multi-user concurrency (interleaved sessions in one process) would need
+# per-thread or per-coroutine session tracking.  Acceptable for Month 1-2
+# single-operator deployment; revisit if concurrent sessions are needed.
 _ACTIVE_SESSION_ID: str = ""
 _TASK_TO_SESSION: dict[str, str] = {}
 
@@ -486,8 +492,9 @@ def _pre_llm_call(
 
     if not is_production:
         return None
-    if not is_first_turn and not has_reference:
-        return None
+    # Inject guidance on EVERY production turn — not just first turn or
+    # reference turns.  Follow-up edits like "same design, change the date"
+    # need the bridge contract as much as the initial request.
 
     state.guidance_injections += 1
     guidance = _build_guidance(state.platform or platform, has_reference=has_reference)

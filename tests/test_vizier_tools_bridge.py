@@ -110,6 +110,33 @@ def test_pre_llm_call_reinforces_reference_turns_after_first_turn(
     )
 
 
+def test_pre_llm_call_injects_guidance_on_iterative_production_turn() -> None:
+    """Follow-up production edits (no reference, not first turn) get guidance."""
+    # First turn sets up the session
+    bridge._pre_llm_call(
+        session_id="sess-iter",
+        user_message="Create a Raya poster for DMB",
+        is_first_turn=True,
+        model="gpt-5.4-mini",
+        platform="telegram",
+    )
+    # Follow-up: iterative edit, no reference image, not first turn.
+    # Must contain artifact + action keywords to pass production heuristic.
+    result = bridge._pre_llm_call(
+        session_id="sess-iter",
+        user_message="Create the same poster design but change the date",
+        is_first_turn=False,
+        model="gpt-5.4-mini",
+        platform="telegram",
+    )
+
+    assert result is not None
+    assert "run_pipeline" in result["context"]
+    state = bridge._SESSION_STATE["sess-iter"]
+    assert state.guidance_injections == 2
+    assert state.production_turns == 2
+
+
 def test_pre_llm_call_prefers_structured_gateway_media_env(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

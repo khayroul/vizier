@@ -142,6 +142,141 @@ def evaluate_visual_artifact(
     return result
 
 
+def evaluate_rendered_poster(
+    *,
+    rendered_png_path: str,
+    raw_image_nima: float | None = None,
+    nima_floor: float = 3.5,
+    composition_threshold: float = 3.0,
+) -> dict[str, Any]:
+    """Lightweight QA on the final rendered poster (with text overlays).
+
+    Catches CTA visibility, text-image collisions, and overlay readability
+    problems that cannot be detected on the raw AI image alone.
+
+    Runs two checks:
+      1. NIMA on rendered PNG — catches gross rendering degradation.
+      2. Single GPT-5.4-mini vision call — scores text composition quality.
+
+    Returns a dict with ``passed``, ``nima_score``, ``composition_score``,
+    and ``issues`` (list of specific problems found).
+    """
+    from utils.call_llm import call_llm
+
+    rendered_path = Path(rendered_png_path)
+    if not rendered_path.exists() or rendered_path.stat().st_size == 0:
+        return {
+            "passed": False,
+            "nima_score": 0.0,
+            "composition_score": 0.0,
+            "issues": ["Rendered PNG missing or empty"],
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0,
+        }
+
+    rendered_bytes = rendered_path.read_bytes()
+
+    # 1. NIMA sanity check on rendered poster
+    rendered_nima = nima_score(rendered_bytes)
+    nima_ok = rendered_nima >= nima_floor
+    issues: list[str] = []
+    if not nima_ok:
+        issues.append(
+            f"Rendered poster NIMA {rendered_nima:.2f} below floor {nima_floor}"
+        )
+
+    # 2. Focused composition check via GPT-5.4-mini vision
+    import base64
+
+    b64_image = base64.b64encode(rendered_bytes).decode()
+    user_content: list[dict[str, Any]] = [
+        {
+            "type": "text",
+            "text": (
+                "Evaluate this RENDERED poster (with text overlays) on "
+                "three criteria. Score each 1-5:\n"
+                "1. cta_visibility: Is the call-to-action text clearly "
+                "visible and not lost against the background?\n"
+                "2. text_readability: Can all headline, subheadline, "
+                "and body text be read easily?\n"
+                "3. overlay_balance: Does the text placement avoid "
+                "colliding with key image elements?\n\n"
+                "Return JSON: {\"cta_visibility\": <1-5>, "
+                "\"text_readability\": <1-5>, "
+                "\"overlay_balance\": <1-5>, "
+                "\"issues\": [\"specific issue 1\", ...]}"
+            ),
+        },
+        {
+            "type": "image_url",
+            "image_url": {
+                "url": f"data:image/png;base64,{b64_image}",
+            },
+        },
+    ]
+
+    input_tokens = 0
+    output_tokens = 0
+    cost_usd = 0.0
+    composition_score = 3.0
+
+    try:
+        llm_result = call_llm(
+            stable_prefix=[{
+                "role": "system",
+                "content": (
+                    "You are a design QA reviewer. Evaluate the rendered "
+                    "poster image for text-over-image composition quality. "
+                    "Be strict about readability and CTA visibility."
+                ),
+            }],
+            variable_suffix=[{"role": "user", "content": user_content}],
+            model="gpt-5.4-mini",
+            temperature=0.2,
+            max_tokens=200,
+            response_format={"type": "json_object"},
+        )
+        input_tokens = int(llm_result.get("input_tokens", 0) or 0)
+        output_tokens = int(llm_result.get("output_tokens", 0) or 0)
+        cost_usd = float(llm_result.get("cost_usd", 0.0) or 0.0)
+
+        import json as _json
+
+        parsed = _json.loads(llm_result["content"])
+        scores = [
+            float(parsed.get("cta_visibility", 3.0)),
+            float(parsed.get("text_readability", 3.0)),
+            float(parsed.get("overlay_balance", 3.0)),
+        ]
+        composition_score = sum(scores) / len(scores)
+        llm_issues = parsed.get("issues", [])
+        if isinstance(llm_issues, list):
+            issues.extend(str(issue) for issue in llm_issues)
+    except Exception as exc:
+        logger.warning(
+            "Post-render composition check failed; "
+            "passing on NIMA alone: %s",
+            exc,
+        )
+
+    composition_ok = composition_score >= composition_threshold
+    passed = nima_ok and composition_ok
+
+    return {
+        "passed": passed,
+        "nima_score": rendered_nima,
+        "raw_image_nima": raw_image_nima,
+        "composition_score": composition_score,
+        "composition_threshold": composition_threshold,
+        "nima_floor": nima_floor,
+        "issues": issues,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "cost_usd": cost_usd,
+    }
+
+
 def run_visual_pipeline(
     *,
     raw_brief: str,
