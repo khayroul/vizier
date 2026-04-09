@@ -660,11 +660,20 @@ def _run_pipeline_handler(args: dict[str, Any], **kwargs: Any) -> str:
     )
     reference_notes = args.get("reference_notes")
 
+    # Thread Hermes session_id into governed execution (hardening 1.6)
+    hermes_session_id: str | None = None
+    if _SESSION_STATE:
+        # Use the most recent session (there's typically only one active)
+        latest_state = next(iter(_SESSION_STATE.values()))
+        hermes_session_id = latest_state.session_id
+
     run_kwargs: dict[str, Any] = {
         "raw_input": request,
         "client_id": client_id,
         "job_id": job_id,
     }
+    if hermes_session_id:
+        run_kwargs["hermes_session_id"] = hermes_session_id
     if platform:
         run_kwargs["platform"] = platform
     if reference_image_path:

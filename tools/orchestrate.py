@@ -50,6 +50,57 @@ class PolicyDenied(Exception):
     """Raised when the policy evaluator blocks the request."""
 
 
+def _ensure_job_row(
+    job_id: str,
+    client_id: str,
+    raw_input: str,
+    hermes_session_id: str | None,
+) -> None:
+    """Create or update the jobs row so downstream persistence has a real FK target.
+
+    Uses INSERT ... ON CONFLICT to be idempotent. Sets status='running'.
+    """
+    try:
+        from utils.database import get_cursor
+
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO jobs (id, client_id, raw_input, hermes_session_id, status)
+                VALUES (%(job_id)s, %(client_id)s, %(raw_input)s,
+                        %(hermes_session_id)s, 'running')
+                ON CONFLICT (id) DO UPDATE SET
+                    status = 'running',
+                    hermes_session_id = COALESCE(
+                        EXCLUDED.hermes_session_id, jobs.hermes_session_id
+                    ),
+                    updated_at = now()
+                """,
+                {
+                    "job_id": job_id,
+                    "client_id": client_id,
+                    "raw_input": raw_input[:2000] if raw_input else "",
+                    "hermes_session_id": hermes_session_id,
+                },
+            )
+    except Exception:
+        logger.warning("Failed to ensure job row for %s", job_id, exc_info=True)
+
+
+def _update_job_status(job_id: str, status: str) -> None:
+    """Update job status to 'completed' or 'failed'."""
+    try:
+        from utils.database import get_cursor
+
+        with get_cursor() as cur:
+            cur.execute(
+                "UPDATE jobs SET status = %s, updated_at = now() WHERE id = %s",
+                (status, job_id),
+            )
+    except Exception:
+        logger.warning("Failed to update job %s status to %s", job_id, status, exc_info=True)
+
+
 def run_governed(
     raw_input: str,
     client_id: str,
@@ -62,6 +113,7 @@ def run_governed(
     reference_image_path: str | None = None,
     reference_image_url: str | None = None,
     reference_notes: str | None = None,
+    hermes_session_id: str | None = None,
 ) -> dict[str, Any]:
     """Run the full governed execution chain.
 
@@ -85,6 +137,9 @@ def run_governed(
         ReadinessError: If spec is blocked.
         PolicyDenied: If policy evaluator blocks the request.
     """
+    # Step 0: Ensure job row exists (hardening 1.2)
+    _ensure_job_row(job_id, client_id, raw_input, hermes_session_id)
+
     # Step 1: Route
     routing_result: RoutingResult = route(raw_input, client_id=client_id, job_id=job_id)
     workflow_name = routing_result.workflow
@@ -150,6 +205,8 @@ def run_governed(
         "design_system": routing_result.design_system,
         **runtime_context,
     }
+    if hermes_session_id:
+        job_context["hermes_session_id"] = hermes_session_id
     if platform:
         job_context["platform"] = platform
     if reference_image_path:
@@ -207,7 +264,13 @@ def run_governed(
         scorer_fn=scorer_fn,
         reviser_fn=reviser_fn,
     )
-    result = executor.run(job_context=job_context)
+    try:
+        result = executor.run(job_context=job_context)
+    except Exception:
+        _update_job_status(job_id, "failed")
+        raise
+
+    _update_job_status(job_id, "completed")
 
     # Attach governance metadata
     result["routing"] = routing_result.model_dump(mode="json")
