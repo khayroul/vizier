@@ -109,6 +109,35 @@ callers.
 This does not by itself wire Telegram attachments into Vizier, but it creates
 the correct governed landing point for that integration.
 
+### 1b. Live Telegram bridge now forwards cached reference images
+
+`~/.hermes/plugins/vizier_tools/__init__.py`
+
+After the governed seam was added, the remaining gap was outside the repo:
+the Hermes `run_pipeline` plugin still only forwarded `request`, `client_id`,
+and `job_id`.
+
+That live plugin bridge has now been updated to:
+
+- accept optional `platform`
+- accept optional `reference_image_path`
+- accept optional `reference_image_url`
+- accept optional `reference_notes`
+- auto-extract a cached local image path from gateway-enriched request text
+  when the model does not pass `reference_image_path` explicitly
+
+This matters because Hermes gateway already injects image hints like:
+
+- `vision_analyze using image_url: /absolute/local/cache/path.png`
+
+With the bridge update in place, a Telegram user can now send a sample poster
+and have that cached path reach `run_governed(...)` as a real
+`reference_image_path` input instead of remaining inert conversational text.
+
+This change lives in the Hermes plugin layer rather than the Vizier repo, so it
+is documented here even though it is not represented as a Git commit in this
+repository.
+
 ### 2. Image model selection is now poster-aware and reference-aware
 
 `tools/image.py`
@@ -263,6 +292,14 @@ Targeted verification completed successfully:
   - `28 passed`
 - `pyright tools/image.py tools/orchestrate.py tools/registry.py tests/test_poster_reference_runtime.py`
   - `0 errors`
+
+Live Telegram bridge verification also completed:
+
+- the Hermes plugin loads successfully after the bridge update
+- a smoke test with gateway-style text containing
+  `vision_analyze with image_url: /tmp/...png`
+  showed the plugin-generated subprocess script now includes
+  `reference_image_path=<that cached path>`
 
 ## Residual Gaps
 
