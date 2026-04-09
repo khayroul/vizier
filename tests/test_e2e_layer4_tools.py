@@ -186,22 +186,38 @@ class TestKnowledgeRetrieval:
 class TestInvoiceRendering:
     """Invoice tool generates a PDF from line items via Typst."""
 
-    def test_typst_render_with_source(self) -> None:
-        """typst_render tool returns ok for non-empty source."""
+    def test_typst_render_with_source(self, tmp_path: Path) -> None:
+        """typst_render tool compiles Typst source to PDF."""
+        from tools.registry import _typst_render
+
+        pdf_path = tmp_path / "document.pdf"
+        pdf_path.write_text("fake-pdf")
+
+        with patch(
+            "tools.publish._compile_typst",
+            return_value=pdf_path,
+        ):
+            result = _typst_render({
+                "job_context": {"job_id": "inv-src"},
+                "typst_source": '#set page(width: 100pt)\n"Invoice"',
+                "artifact_payload": {},
+                "stage_results": [],
+            })
+        assert result["status"] == "ok"
+        assert result.get("pdf_path") is not None
+
+    def test_typst_render_empty_source(self) -> None:
+        """typst_render returns error for empty context (no source, no content)."""
         from tools.registry import _typst_render
 
         result = _typst_render({
-            "typst_source": '#set page(width: 100pt)\n"Invoice"',
+            "job_context": {"job_id": "inv-empty"},
+            "typst_source": "",
+            "artifact_payload": {},
+            "stage_results": [],
         })
-        assert result["status"] == "ok"
-
-    def test_typst_render_empty_source(self) -> None:
-        """typst_render returns graceful message for empty source."""
-        from tools.registry import _typst_render
-
-        result = _typst_render({"typst_source": ""})
-        assert result["status"] == "ok"
-        assert "No Typst source" in result["output"]
+        assert result["status"] == "error"
+        assert "no content" in result["output"]
 
     def test_real_typst_produces_pdf(self, tmp_path: Path) -> None:
         """End-to-end: write Typst source, compile, verify PDF header."""

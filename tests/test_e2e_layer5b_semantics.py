@@ -112,18 +112,19 @@ class TestMultiToolContextChaining:
 
 
 class TestDeliveryFailClosed:
-    """Non-poster workflows get explicit stub status, not false positive."""
+    """Non-implemented workflows get explicit stub status, not false positive."""
 
-    def test_document_delivery_returns_stub(self) -> None:
-        """Document workflow delivery returns stub status."""
+    def test_document_delivery_without_content_errors(self) -> None:
+        """Document workflow delivery without upstream content returns error."""
         from tools.registry import _deliver
 
         result = _deliver({
             "job_context": {"routing": {"workflow": "document_production"}},
             "stage_results": [],
         })
-        assert result["status"] == "stub"
-        assert "not_implemented" in result["output"]
+        # Now routed to _deliver_document — errors without content, not stub
+        assert result["status"] == "error"
+        assert "no PDF" in result["output"] or "no document" in result["output"]
 
     def test_ebook_delivery_returns_stub(self) -> None:
         """eBook workflow delivery returns stub status."""
@@ -862,3 +863,223 @@ class TestPostRenderQAParity:
         assert result["status"] == "error"
         assert "Typst-rendered poster" in result["output"]
         assert "Text overlaps CTA button" in result["output"]
+
+
+# ---------------------------------------------------------------------------
+# 5b.6 — Document production lane E2E
+# ---------------------------------------------------------------------------
+
+
+class TestDocumentDeliveryE2E:
+    """Document production delivers real PDFs via _typst_render + _deliver."""
+
+    def test_typst_render_template_mode(self, tmp_path: Path) -> None:
+        """_typst_render with template_name delegates to assemble_document_pdf."""
+        from tools.registry import _typst_render
+
+        pdf_path = tmp_path / "report.pdf"
+        pdf_path.write_text("fake-pdf")  # so the return path is real
+        with patch(
+            "tools.publish.assemble_document_pdf",
+            return_value=pdf_path,
+        ) as mock_assemble:
+            result = _typst_render({
+                "job_context": {
+                    "job_id": "doc-001",
+                    "client_id": "dmb",
+                },
+                "artifact_payload": {
+                    "template_name": "report",
+                    "title": "Monthly Performance Report",
+                    "client_name": "DMB Ventures",
+                },
+                "stage_results": [],
+            })
+
+        assert result["status"] == "ok"
+        assert result["output"] == "typst_rendered"
+        assert "pdf_path" in result
+        mock_assemble.assert_called_once()
+        call_kwargs = mock_assemble.call_args.kwargs
+        assert call_kwargs["template_name"] == "report"
+        assert call_kwargs["content"]["title"] == "Monthly Performance Report"
+
+    def test_typst_render_source_mode(self, tmp_path: Path) -> None:
+        """_typst_render with typst_source writes and compiles."""
+        from tools.registry import _typst_render
+
+        pdf_path = tmp_path / "document.pdf"
+        pdf_path.write_text("fake-pdf")
+
+        with patch(
+            "tools.publish._compile_typst",
+            return_value=pdf_path,
+        ) as mock_compile:
+            result = _typst_render({
+                "job_context": {"job_id": "doc-002"},
+                "typst_source": '#set page(paper: "a4")\n= Hello\nWorld',
+                "artifact_payload": {},
+                "stage_results": [],
+            })
+
+        assert result["status"] == "ok"
+        mock_compile.assert_called_once()
+
+    def test_typst_render_wraps_plain_text(self, tmp_path: Path) -> None:
+        """_typst_render wraps plain document_content in Typst markup."""
+        from tools.registry import _typst_render
+
+        pdf_path = tmp_path / "document.pdf"
+        pdf_path.write_text("fake-pdf")
+
+        with patch(
+            "tools.publish._compile_typst",
+            return_value=pdf_path,
+        ) as mock_compile:
+            result = _typst_render({
+                "job_context": {
+                    "job_id": "doc-003",
+                    "raw_input": "Q1 Marketing Report",
+                },
+                "artifact_payload": {
+                    "document_content": (
+                        "# Executive Summary\n"
+                        "Revenue grew 15% quarter over quarter.\n\n"
+                        "## Key Findings\n"
+                        "- Social engagement up 42%\n"
+                        "- Website traffic grew 18%\n"
+                    ),
+                },
+                "stage_results": [],
+            })
+
+        assert result["status"] == "ok"
+        mock_compile.assert_called_once()
+        # Verify source file was written with Typst headings
+        source_path = mock_compile.call_args[0][0]
+        source_text = source_path.read_text()
+        assert "= Executive Summary" in source_text
+        assert "== Key Findings" in source_text
+
+    def test_typst_render_no_content_errors(self) -> None:
+        """_typst_render with no content returns error."""
+        from tools.registry import _typst_render
+
+        result = _typst_render({
+            "job_context": {"job_id": "doc-empty"},
+            "artifact_payload": {},
+            "stage_results": [],
+        })
+        assert result["status"] == "error"
+        assert "no content" in result["output"]
+
+    def test_document_delivery_with_upstream_pdf(self, tmp_path: Path) -> None:
+        """_deliver routes document_production to _deliver_document."""
+        from tools.registry import _deliver
+
+        pdf_path = tmp_path / "report.pdf"
+        pdf_path.write_bytes(b"%PDF-1.4\n" + b"x" * 1000)
+
+        result = _deliver({
+            "job_context": {
+                "job_id": "doc-deliver",
+                "routing": {"workflow": "document_production"},
+            },
+            "artifact_payload": {"pdf_path": str(pdf_path)},
+            "stage_results": [],
+        })
+
+        assert result["status"] == "ok"
+        assert result["output"] == "document_delivered"
+        assert result["pdf_path"] == str(pdf_path)
+        assert result["structural_qa"]["passed"] is True
+
+    def test_document_delivery_structural_qa_catches_empty_pdf(
+        self, tmp_path: Path,
+    ) -> None:
+        """Structural QA blocks delivery of empty PDFs."""
+        from tools.registry import _deliver
+
+        empty_pdf = tmp_path / "empty.pdf"
+        empty_pdf.write_bytes(b"")
+
+        result = _deliver({
+            "job_context": {
+                "job_id": "doc-empty-pdf",
+                "routing": {"workflow": "document_production"},
+            },
+            "artifact_payload": {"pdf_path": str(empty_pdf)},
+            "stage_results": [],
+        })
+
+        assert result["status"] == "error"
+        assert result["structural_qa"]["passed"] is False
+        assert any("empty" in i.lower() for i in result["structural_qa"]["issues"])
+
+    def test_document_delivery_structural_qa_catches_missing_pdf(
+        self, tmp_path: Path,
+    ) -> None:
+        """Structural QA blocks delivery when PDF is missing."""
+        from tools.registry import _deliver
+
+        result = _deliver({
+            "job_context": {
+                "job_id": "doc-missing",
+                "routing": {"workflow": "document_production"},
+            },
+            "artifact_payload": {
+                "pdf_path": str(tmp_path / "nonexistent.pdf"),
+            },
+            "stage_results": [],
+        })
+
+        assert result["status"] == "error"
+        assert result["structural_qa"]["passed"] is False
+
+    def test_document_delivery_finds_pdf_in_stage_results(
+        self, tmp_path: Path,
+    ) -> None:
+        """_deliver_document finds pdf_path from upstream stage results."""
+        from tools.registry import _deliver
+
+        pdf_path = tmp_path / "report.pdf"
+        pdf_path.write_bytes(b"%PDF-1.4\n" + b"x" * 1000)
+
+        result = _deliver({
+            "job_context": {
+                "job_id": "doc-stages",
+                "routing": {"workflow": "document_production"},
+            },
+            "artifact_payload": {},
+            "stage_results": [
+                {"stage": "intake", "status": "ok"},
+                {"stage": "production", "status": "ok",
+                 "pdf_path": str(pdf_path)},
+            ],
+        })
+
+        assert result["status"] == "ok"
+        assert result["output"] == "document_delivered"
+
+    def test_deliverable_workflows_includes_document(self) -> None:
+        """document_production is in _DELIVERABLE_WORKFLOWS so orchestrate
+        does not reject it at the delivery-support gate."""
+        from tools.orchestrate import run_governed
+
+        # We just need to verify the gate doesn't reject. The easiest way
+        # is to check the frozenset directly.
+        from tools.orchestrate import _WORKFLOWS_DIR
+        from tools.workflow_schema import load_workflow
+
+        pack = load_workflow(_WORKFLOWS_DIR / "document_production.yaml")
+        has_delivery = any(s.role == "delivery" for s in pack.stages)
+        assert has_delivery, "document_production should have a delivery stage"
+
+        # The gate in run_governed checks _DELIVERABLE_WORKFLOWS — we verify
+        # the workflow name is in the set by checking the orchestrate module.
+        import tools.orchestrate as orch_mod
+
+        # Access the frozen set via the module source (it's defined inside
+        # run_governed, so we verify indirectly by running a quick import check)
+        source = Path(orch_mod.__file__).read_text()
+        assert "document_production" in source

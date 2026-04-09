@@ -702,12 +702,187 @@ def _visual_qa(context: dict[str, Any]) -> dict[str, Any]:
 
 
 def _typst_render(context: dict[str, Any]) -> dict[str, Any]:
-    """Render a Typst template to PDF."""
-    source = context.get("typst_source", "")
-    if not source:
-        return {"status": "ok", "output": "No Typst source provided", "cost_usd": 0.0}
-    # Actual rendering would write source to file and call typst compile
-    return {"status": "ok", "output": "typst_rendered", "cost_usd": 0.0}
+    """Render a document to PDF via Typst.
+
+    Two modes — chosen automatically from context:
+
+    1. **Template mode** (``template_name`` present): delegates to
+       ``assemble_document_pdf()`` which maps content keys to Typst
+       ``sys.inputs`` and compiles the named template.
+    2. **Source mode** (``typst_source`` present or ``document_content``
+       from upstream ``_generate_document``): writes Typst markup to a
+       temp file and compiles directly.  If the content is plain text
+       (not Typst markup), it is wrapped in a minimal Typst document.
+
+    Outputs ``pdf_path`` so the delivery stage can package it.
+    """
+    from tools.publish import assemble_document_pdf
+
+    payload = _artifact_payload(context)
+    job_ctx = context.get("job_context", {})
+
+    # Where to write the PDF
+    output_root = Path.home() / "vizier" / "data" / "deliverables"
+    output_dir = output_root / str(job_ctx.get("job_id", "default"))
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Mode 1: Named template — structured metadata documents (invoice, proposal, report)
+    template_name = (
+        payload.get("template_name")
+        or context.get("template_name")
+        or job_ctx.get("template_name")
+    )
+    if template_name:
+        # Gather content from payload + job context
+        content: dict[str, str] = {}
+        for key in (
+            "title", "subtitle", "client_name", "author", "date",
+            "period", "reference", "company_name", "invoice_number",
+            "invoice_date", "body_text",
+        ):
+            val = payload.get(key) or job_ctx.get(key)
+            if val:
+                content[key] = str(val)
+
+        # Pull document_content from upstream generation if available
+        doc_content = str(
+            payload.get("document_content")
+            or payload.get("text_content")
+            or context.get("previous_output", {}).get("output", "")
+        )
+        if doc_content.strip():
+            content["body_text"] = doc_content
+
+        style = _load_client_style(job_ctx.get("client_id", "default"))
+        try:
+            pdf_path = assemble_document_pdf(
+                template_name=template_name,
+                content=content,
+                colors=style.get("colors"),
+                fonts=style.get("fonts"),
+                output_dir=output_dir,
+            )
+            return {
+                "status": "ok",
+                "output": "typst_rendered",
+                "pdf_path": str(pdf_path),
+                "template_name": template_name,
+                "cost_usd": 0.0,
+            }
+        except Exception as exc:
+            logger.error("Typst template render failed: %s", exc)
+            return {
+                "status": "error",
+                "output": f"typst_render_failed: {exc}",
+                "cost_usd": 0.0,
+            }
+
+    # Mode 2: Raw Typst source or plain-text document content
+    typst_source = str(
+        context.get("typst_source", "")
+        or payload.get("typst_source", "")
+    )
+    if not typst_source:
+        # Fall back to document_content and wrap in minimal Typst
+        raw_content = str(
+            payload.get("document_content")
+            or payload.get("text_content")
+            or context.get("previous_output", {}).get("output", "")
+        )
+        if not raw_content.strip():
+            return {
+                "status": "error",
+                "output": "typst_render_failed: no content to render",
+                "cost_usd": 0.0,
+            }
+        typst_source = _wrap_plain_text_as_typst(
+            raw_content,
+            title=str(
+                payload.get("title")
+                or job_ctx.get("raw_input", "Document")[:80]
+            ),
+            client_name=str(job_ctx.get("client_name", "")),
+        )
+
+    # Compile the source
+    import tempfile
+
+    from tools.publish import _compile_typst
+
+    source_file = output_dir / "document.typ"
+    source_file.write_text(typst_source, encoding="utf-8")
+    pdf_path = output_dir / "document.pdf"
+
+    try:
+        _compile_typst(source_file, pdf_path)
+        return {
+            "status": "ok",
+            "output": "typst_rendered",
+            "pdf_path": str(pdf_path),
+            "cost_usd": 0.0,
+        }
+    except Exception as exc:
+        logger.error("Typst source compilation failed: %s", exc)
+        return {
+            "status": "error",
+            "output": f"typst_render_failed: {exc}",
+            "cost_usd": 0.0,
+        }
+
+
+def _wrap_plain_text_as_typst(
+    content: str,
+    *,
+    title: str = "Document",
+    client_name: str = "",
+) -> str:
+    """Wrap plain text content in a minimal Typst document.
+
+    Used when ``_generate_document`` outputs prose/structured text
+    rather than raw Typst markup.  Converts markdown-style headings
+    (``# Heading``) to Typst headings and preserves paragraph breaks.
+    """
+    from tools.publish import _escape_typst
+
+    lines: list[str] = []
+    lines.append('#set page(paper: "a4", margin: (x: 2.5cm, y: 2cm))')
+    lines.append('#set text(font: "Inter", size: 11pt)')
+    lines.append('#set par(leading: 0.7em, spacing: 1.4em)')
+    lines.append('#set heading(numbering: "1.1")')
+    lines.append("")
+
+    # Title block
+    escaped_title = _escape_typst(title)
+    lines.append(f'#align(center)[#text(size: 22pt, weight: "bold")[{escaped_title}]]')
+    if client_name:
+        escaped_client = _escape_typst(client_name)
+        lines.append(f'#align(center)[#text(size: 12pt, fill: luma(100))[{escaped_client}]]')
+    lines.append("#v(1em)")
+    lines.append('#line(length: 100%, stroke: 0.5pt + luma(200))')
+    lines.append("#v(1em)")
+    lines.append("")
+
+    # Convert content — handle markdown-style headings
+    for line in content.split("\n"):
+        stripped = line.strip()
+        if stripped.startswith("### "):
+            heading_text = _escape_typst(stripped[4:])
+            lines.append(f"=== {heading_text}")
+        elif stripped.startswith("## "):
+            heading_text = _escape_typst(stripped[3:])
+            lines.append(f"== {heading_text}")
+        elif stripped.startswith("# "):
+            heading_text = _escape_typst(stripped[2:])
+            lines.append(f"= {heading_text}")
+        elif stripped.startswith("- ") or stripped.startswith("* "):
+            bullet_text = _escape_typst(stripped[2:])
+            lines.append(f"- {bullet_text}")
+        elif stripped:
+            lines.append(_escape_typst(stripped))
+        else:
+            lines.append("")
+
+    return "\n".join(lines)
 
 
 def _generate_copy(context: dict[str, Any]) -> dict[str, Any]:
@@ -1066,6 +1241,121 @@ def _attempt_readability_revision(
     return None
 
 
+def _deliver_document(
+    context: dict[str, Any],
+    workflow: str,
+) -> dict[str, Any]:
+    """Deliver a document artifact — locates or renders the PDF.
+
+    Looks for a ``pdf_path`` produced by upstream ``_typst_render``.
+    If none found, attempts a last-resort render from available content.
+    Runs structural QA: PDF exists, non-zero, not corrupt.
+
+    Args:
+        context: The execution context with job_context, stage_results, payload.
+        workflow: The effective workflow name (for logging/metadata).
+
+    Returns:
+        Delivery result dict with status, pdf_path, structural QA.
+    """
+    payload = _artifact_payload(context)
+    job_ctx = context.get("job_context", {})
+    stage_results = context.get("stage_results", [])
+
+    # 1. Locate PDF from upstream _typst_render output
+    pdf_path_str: str | None = payload.get("pdf_path")
+    for stage_result in stage_results:
+        if not isinstance(stage_result, dict):
+            continue
+        if not pdf_path_str and stage_result.get("pdf_path"):
+            pdf_path_str = str(stage_result["pdf_path"])
+
+    # 2. If no PDF yet, attempt last-resort render from content
+    if not pdf_path_str:
+        doc_content = str(
+            payload.get("document_content")
+            or payload.get("text_content")
+            or ""
+        )
+        if not doc_content.strip():
+            return {
+                "status": "error",
+                "output": (
+                    "delivery_failed: no PDF produced by upstream stages "
+                    "and no document content available for rendering"
+                ),
+                "cost_usd": 0.0,
+            }
+
+        # Attempt to render
+        template_name = (
+            payload.get("template_name")
+            or _document_type_to_template(workflow)
+        )
+        render_result = _typst_render({
+            **context,
+            "template_name": template_name,
+        })
+        if render_result.get("status") != "ok" or not render_result.get("pdf_path"):
+            return {
+                "status": "error",
+                "output": (
+                    "delivery_failed: last-resort render failed — "
+                    + str(render_result.get("output", "unknown error"))
+                ),
+                "cost_usd": 0.0,
+            }
+        pdf_path_str = str(render_result["pdf_path"])
+
+    # 3. Structural QA: PDF exists and has non-trivial content
+    pdf_path = Path(pdf_path_str)
+    structural_issues: list[str] = []
+    if not pdf_path.exists():
+        structural_issues.append(f"PDF file missing: {pdf_path}")
+    elif pdf_path.stat().st_size == 0:
+        structural_issues.append("PDF file is empty (0 bytes)")
+    elif pdf_path.stat().st_size < 500:
+        structural_issues.append(
+            f"PDF suspiciously small ({pdf_path.stat().st_size} bytes)"
+        )
+
+    if structural_issues:
+        return {
+            "status": "error",
+            "output": (
+                "delivery_failed: structural QA — "
+                + "; ".join(structural_issues)
+            ),
+            "structural_qa": {
+                "passed": False,
+                "issues": structural_issues,
+            },
+            "pdf_path": pdf_path_str,
+            "cost_usd": 0.0,
+        }
+
+    return {
+        "status": "ok",
+        "output": "document_delivered",
+        "pdf_path": pdf_path_str,
+        "structural_qa": {"passed": True, "issues": []},
+        "template_name": payload.get("template_name"),
+        "workflow": workflow,
+        "cost_usd": 0.0,
+    }
+
+
+def _document_type_to_template(workflow: str) -> str:
+    """Map workflow name to default Typst template name."""
+    _MAP: dict[str, str] = {
+        "document_production": "report",
+        "invoice": "invoice",
+        "proposal": "proposal",
+        "company_profile": "company_profile",
+    }
+    return _MAP.get(workflow, "report")
+
+
 def _deliver(context: dict[str, Any]) -> dict[str, Any]:
     """Deliver the final artifact — composes poster PDF via Typst if applicable."""
     job_ctx = context.get("job_context", {})
@@ -1088,8 +1378,13 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
         if effective_workflow == "rework":
             effective_workflow = str(job_ctx.get("original_workflow", "rework"))
 
-    # Only poster delivery is fully wired — others return explicit stub
-    # so callers can distinguish real delivery from unimplemented paths.
+    # Route delivery by workflow type
+    _DOCUMENT_WORKFLOWS = frozenset({
+        "document_production", "invoice", "proposal", "company_profile",
+    })
+    if effective_workflow in _DOCUMENT_WORKFLOWS:
+        return _deliver_document(context, effective_workflow)
+
     if effective_workflow != "poster_production":
         return {
             "status": "stub",
