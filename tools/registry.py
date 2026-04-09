@@ -1668,17 +1668,33 @@ def _readiness_check(context: dict[str, Any]) -> dict[str, Any]:
 
     job_ctx = context.get("job_context", {})
     raw_brief = str(job_ctx.get("raw_input") or context.get("prompt") or "")
-    artifact_family_raw = str(job_ctx.get("artifact_family", "document"))
+    artifact_family_raw = job_ctx.get("artifact_family")
     language = str(job_ctx.get("language", "en"))
 
-    try:
-        artifact_family = ArtifactFamily(artifact_family_raw)
-    except ValueError:
+    family_resolved = True
+    if artifact_family_raw is None:
+        logger.warning(
+            "readiness_check: artifact_family missing from job_context — "
+            "defaulting to 'document' with family_resolved=False"
+        )
         artifact_family = ArtifactFamily.document
+        family_resolved = False
+    else:
+        try:
+            artifact_family = ArtifactFamily(str(artifact_family_raw))
+        except ValueError:
+            logger.warning(
+                "readiness_check: unrecognised artifact_family %r — "
+                "defaulting to 'document' with family_resolved=False",
+                artifact_family_raw,
+            )
+            artifact_family = ArtifactFamily.document
+            family_resolved = False
 
     spec = ProvisionalArtifactSpec(
         client_id=str(job_ctx.get("client_id", "default")),
         artifact_family=artifact_family,
+        family_resolved=family_resolved,
         language=language,
         raw_brief=raw_brief,
     )

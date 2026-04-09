@@ -283,10 +283,9 @@ def run_governed(
         logger.warning("Brief interpretation failed for job %s", job_id, exc_info=True)
 
     # Step 2: Readiness gate
-    try:
-        family = ArtifactFamily(get_workflow_family(workflow_name))
-    except (KeyError, ValueError):
-        family = ArtifactFamily.document
+    # Workflow was already routed + validated — family lookup must succeed.
+    # If it fails, it's a config corruption bug worth surfacing, not hiding.
+    family = ArtifactFamily(get_workflow_family(workflow_name))
     language = _detect_brief_language(raw_input)
     spec = ProvisionalArtifactSpec(
         client_id=client_id,
