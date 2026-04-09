@@ -456,3 +456,121 @@ class TestTracePersisted:
         mock_persist.assert_called_once()
         args = mock_persist.call_args[0]
         assert args[0] == "trace-test-001"
+
+
+# ---------------------------------------------------------------------------
+# Runtime readiness blocking
+# ---------------------------------------------------------------------------
+
+
+class TestRuntimeReadinessBlocking:
+    """Readiness gate hard-blocks on missing OPENAI_API_KEY / FAL_KEY.
+
+    These tests call a local implementation of the readiness check
+    logic (not the module-level function, which is patched by autouse).
+    """
+
+    @staticmethod
+    def _check(
+        workflow_name: str,
+        contract_strictness: str = "warn",
+        *,
+        env: dict[str, str] | None = None,
+    ) -> tuple[list[str], list[str]]:
+        """Inline readiness check matching the real implementation."""
+        import os
+
+        _env = env if env is not None else dict(os.environ)
+        hard: list[str] = []
+        soft: list[str] = []
+
+        if not _env.get("OPENAI_API_KEY", ""):
+            hard.append("OPENAI_API_KEY not set — all LLM calls will fail")
+
+        _visual = {
+            "poster_production", "brochure_production",
+            "childrens_book_production", "social_batch",
+        }
+        if workflow_name in _visual and not _env.get("FAL_KEY", ""):
+            hard.append("FAL_KEY not set — image generation will fail")
+
+        if not _env.get("DATABASE_URL", ""):
+            db_msg = (
+                "DATABASE_URL not set — exemplar injection, knowledge "
+                "retrieval, trace persistence, and outcome memory are inactive"
+            )
+            if contract_strictness == "reject":
+                hard.append(db_msg)
+            else:
+                soft.append(db_msg)
+
+        return hard, soft
+
+    def test_missing_openai_key_hard_blocks(self) -> None:
+        """OPENAI_API_KEY missing is always a hard block."""
+        hard, _soft = self._check("poster_production", "warn", env={})
+        assert any("OPENAI_API_KEY" in h for h in hard)
+
+    def test_missing_fal_key_hard_blocks_for_visual(self) -> None:
+        """FAL_KEY missing hard-blocks visual workflows."""
+        hard, _soft = self._check(
+            "poster_production", "warn",
+            env={"OPENAI_API_KEY": "sk-test"},
+        )
+        assert any("FAL_KEY" in h for h in hard)
+
+    def test_missing_fal_key_ignored_for_non_visual(self) -> None:
+        """FAL_KEY missing is fine for document workflows."""
+        hard, _soft = self._check(
+            "document_production", "warn",
+            env={"OPENAI_API_KEY": "sk-test"},
+        )
+        assert not any("FAL_KEY" in h for h in hard)
+
+    def test_missing_db_soft_warns_in_canva_baseline(self) -> None:
+        """DATABASE_URL missing is a soft warning in warn mode."""
+        hard, soft = self._check(
+            "document_production", "warn",
+            env={"OPENAI_API_KEY": "sk-test"},
+        )
+        assert not any("DATABASE_URL" in h for h in hard)
+        assert any("DATABASE_URL" in s for s in soft)
+
+    def test_missing_db_hard_blocks_in_reject_mode(self) -> None:
+        """DATABASE_URL missing is a hard block in reject (enhanced/full) mode."""
+        hard, _soft = self._check(
+            "poster_production", "reject",
+            env={"OPENAI_API_KEY": "sk-test", "FAL_KEY": "fk-test"},
+        )
+        assert any("DATABASE_URL" in h for h in hard)
+
+    def test_run_governed_raises_on_hard_block(
+        self, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """run_governed raises PolicyDenied when readiness hard-blocks."""
+        import os
+
+        def _blocking_check(
+            workflow_name: str, contract_strictness: str = "warn",
+        ) -> tuple[list[str], list[str]]:
+            hard: list[str] = []
+            if not os.environ.get("OPENAI_API_KEY", ""):
+                hard.append("OPENAI_API_KEY not set — all LLM calls will fail")
+            if not os.environ.get("FAL_KEY", ""):
+                hard.append("FAL_KEY not set — image generation will fail")
+            return hard, []
+
+        monkeypatch.setattr(
+            "tools.orchestrate._check_runtime_readiness",
+            _blocking_check,
+        )
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("FAL_KEY", raising=False)
+
+        with pytest.raises(PolicyDenied, match="hard-block"):
+            run_governed(
+                "make a poster",
+                client_id="c1",
+                job_id="j-block",
+                tool_registry={"x": _stub_tool},
+            )

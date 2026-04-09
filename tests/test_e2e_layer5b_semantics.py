@@ -670,3 +670,195 @@ class TestGenericExecutorSemantics:
         assert result["template_name"] == "poster_default"
         assert mock_assemble.call_args.kwargs["template_name"] == "poster_default"
         assert mock_assemble.call_args.kwargs["output_dir"].name == "job-123"
+
+
+# ---------------------------------------------------------------------------
+# 5b.5 — Post-render QA parity: Playwright AND Typst fallback
+# ---------------------------------------------------------------------------
+
+
+class TestPostRenderQAParity:
+    """Both delivery paths (Playwright + Typst fallback) must run
+    post-render composition QA.  No poster leaves without it."""
+
+    @staticmethod
+    def _base_context(tmp_path: Path) -> dict[str, Any]:
+        """Shared delivery context for both paths."""
+        return {
+            "job_context": {
+                "job_id": "job-parity",
+                "client_id": "dmb",
+                "routing": {"workflow": "poster_production"},
+            },
+            "artifact_payload": {
+                "image_path": "/tmp/poster.png",
+                "poster_copy": json.dumps({
+                    "headline": "Grand Opening",
+                    "subheadline": "Today Only",
+                    "cta": "Shop Now",
+                    "body_text": "",
+                }),
+                "quality_verdict": {"passed": True, "nima_score": 4.0},
+            },
+            "stage_results": [],
+        }
+
+    def test_playwright_path_calls_post_render_qa(
+        self, tmp_path: Path,
+    ) -> None:
+        """Playwright path: assemble → PNG exists → evaluate_rendered_poster called."""
+        from tools.registry import _deliver
+
+        pdf_path = tmp_path / "poster_default.pdf"
+        pdf_path.write_text("pdf-content")
+        png_path = tmp_path / "poster_default.png"
+        png_path.write_bytes(b"\x89PNG" + b"\x00" * 60)
+
+        post_render_good = {
+            "passed": True,
+            "nima_score": 4.2,
+            "composition_score": 4.0,
+            "issues": [],
+            "cost_usd": 0.002,
+            "vision_check_failed": False,
+        }
+
+        with (
+            patch(
+                "tools.publish.assemble_poster_pdf",
+                return_value=pdf_path,
+            ),
+            patch(
+                "tools.visual_pipeline.evaluate_rendered_poster",
+                return_value=post_render_good,
+            ) as mock_eval,
+        ):
+            result = _deliver(self._base_context(tmp_path))
+
+        assert result["status"] == "ok"
+        mock_eval.assert_called_once()
+        assert result["post_render_qa"]["passed"] is True
+
+    def test_playwright_path_blocks_on_qa_failure(
+        self, tmp_path: Path,
+    ) -> None:
+        """Playwright: post-render QA failure prevents delivery."""
+        from tools.registry import _deliver
+
+        pdf_path = tmp_path / "poster_default.pdf"
+        pdf_path.write_text("pdf-content")
+        png_path = tmp_path / "poster_default.png"
+        png_path.write_bytes(b"\x89PNG" + b"\x00" * 60)
+
+        post_render_bad = {
+            "passed": False,
+            "nima_score": 2.5,
+            "composition_score": 2.0,
+            "issues": ["CTA invisible under dark overlay"],
+            "cost_usd": 0.002,
+            "vision_check_failed": False,
+        }
+
+        with (
+            patch(
+                "tools.publish.assemble_poster_pdf",
+                return_value=pdf_path,
+            ),
+            patch(
+                "tools.visual_pipeline.evaluate_rendered_poster",
+                return_value=post_render_bad,
+            ),
+        ):
+            result = _deliver(self._base_context(tmp_path))
+
+        assert result["status"] == "error"
+        assert "post-render QA" in result["output"]
+
+    def test_typst_fallback_calls_post_render_qa(
+        self, tmp_path: Path,
+    ) -> None:
+        """Typst fallback: assemble_document_pdf → rasterize → evaluate_rendered_poster called."""
+        from tools.registry import _deliver
+
+        typst_pdf = tmp_path / "poster.pdf"
+        typst_pdf.write_text("pdf-content")
+        typst_png = tmp_path / "poster.png"
+        typst_png.write_bytes(b"\x89PNG" + b"\x00" * 60)
+
+        post_render_good = {
+            "passed": True,
+            "nima_score": 3.8,
+            "composition_score": 3.5,
+            "issues": [],
+            "cost_usd": 0.002,
+            "vision_check_failed": False,
+        }
+
+        with (
+            patch(
+                "tools.publish.assemble_poster_pdf",
+                side_effect=RuntimeError("Playwright unavailable"),
+            ),
+            patch(
+                "tools.publish.assemble_document_pdf",
+                return_value=typst_pdf,
+            ),
+            patch(
+                "tools.publish.rasterize_pdf_to_png",
+                return_value=typst_png,
+            ) as mock_raster,
+            patch(
+                "tools.visual_pipeline.evaluate_rendered_poster",
+                return_value=post_render_good,
+            ) as mock_eval,
+        ):
+            result = _deliver(self._base_context(tmp_path))
+
+        assert result["status"] == "ok"
+        mock_raster.assert_called_once_with(typst_pdf)
+        mock_eval.assert_called_once()
+        assert result["post_render_qa"]["passed"] is True
+
+    def test_typst_fallback_blocks_on_qa_failure(
+        self, tmp_path: Path,
+    ) -> None:
+        """Typst fallback: post-render QA failure prevents delivery."""
+        from tools.registry import _deliver
+
+        typst_pdf = tmp_path / "poster.pdf"
+        typst_pdf.write_text("pdf-content")
+        typst_png = tmp_path / "poster.png"
+        typst_png.write_bytes(b"\x89PNG" + b"\x00" * 60)
+
+        post_render_bad = {
+            "passed": False,
+            "nima_score": 3.6,
+            "composition_score": 2.2,
+            "issues": ["Text overlaps CTA button"],
+            "cost_usd": 0.002,
+            "vision_check_failed": False,
+        }
+
+        with (
+            patch(
+                "tools.publish.assemble_poster_pdf",
+                side_effect=RuntimeError("Playwright unavailable"),
+            ),
+            patch(
+                "tools.publish.assemble_document_pdf",
+                return_value=typst_pdf,
+            ),
+            patch(
+                "tools.publish.rasterize_pdf_to_png",
+                return_value=typst_png,
+            ),
+            patch(
+                "tools.visual_pipeline.evaluate_rendered_poster",
+                return_value=post_render_bad,
+            ),
+        ):
+            result = _deliver(self._base_context(tmp_path))
+
+        assert result["status"] == "error"
+        assert "Typst-rendered poster" in result["output"]
+        assert "Text overlaps CTA button" in result["output"]

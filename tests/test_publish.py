@@ -370,6 +370,38 @@ class TestDocumentAssembly:
         assert result.stat().st_size > 0
 
 
+class TestPDFRasterization:
+    """rasterize_pdf_to_png produces a valid PNG from a real PDF."""
+
+    def test_rasterize_real_pdf(self, tmp_path: Path) -> None:
+        """Produce a PDF via Typst then rasterize to PNG via pdftoppm."""
+        from tools.publish import rasterize_pdf_to_png
+
+        # First generate a real PDF we can rasterize
+        pdf_path = assemble_document_pdf(
+            template_name="invoice",
+            content={
+                "company_name": "Test Corp",
+                "invoice_number": "INV-TEST",
+                "invoice_date": "9 April 2026",
+                "client_name": "Client Ltd",
+            },
+            output_dir=tmp_path,
+        )
+        assert pdf_path.exists()
+
+        png_path = rasterize_pdf_to_png(pdf_path)
+        assert png_path.exists()
+        assert png_path.suffix == ".png"
+        assert png_path.stat().st_size > 1000  # not a stub
+
+    def test_missing_pdf_raises(self, tmp_path: Path) -> None:
+        from tools.publish import rasterize_pdf_to_png
+
+        with pytest.raises(FileNotFoundError):
+            rasterize_pdf_to_png(tmp_path / "nonexistent.pdf")
+
+
 # ---------------------------------------------------------------------------
 # 6. RollingContext updates after each page
 # ---------------------------------------------------------------------------

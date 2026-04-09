@@ -148,21 +148,54 @@ def _persist_interpreted_intent(
         )
 
 
-def _check_runtime_readiness(workflow_name: str) -> list[str]:
+def _check_runtime_readiness(
+    workflow_name: str,
+    contract_strictness: str = "warn",
+) -> tuple[list[str], list[str]]:
     """Pre-flight check for critical runtime dependencies.
 
-    Returns a list of degradation warnings. Empty list = all clear.
-    Does NOT block execution — logs warnings so operators know
-    what quality features are inactive.
+    Returns:
+        (hard_blocks, soft_warnings):
+            hard_blocks: Issues that MUST stop execution (empty = proceed).
+            soft_warnings: Degradations logged but non-blocking.
+
+    Blocking policy:
+        - OPENAI_API_KEY missing → always hard-block (every workflow needs LLM)
+        - FAL_KEY missing → hard-block for visual workflows
+        - DATABASE_URL missing → hard-block when contract_strictness == "reject"
+          (enhanced/full posture), soft-warn otherwise (canva_baseline)
     """
     import os
 
-    degradations: list[str] = []
+    hard_blocks: list[str] = []
+    soft_warnings: list[str] = []
 
-    # 1. Database availability
+    # 1. LLM API key — always required, nothing works without it
+    openai_key = os.environ.get("OPENAI_API_KEY", "")
+    if not openai_key:
+        hard_blocks.append(
+            "OPENAI_API_KEY not set — all LLM calls will fail"
+        )
+
+    # 2. Image generation backend (for visual workflows)
+    _VISUAL_WORKFLOWS = frozenset({
+        "poster_production", "brochure_production",
+        "childrens_book_production", "social_batch",
+    })
+    if workflow_name in _VISUAL_WORKFLOWS:
+        fal_key = os.environ.get("FAL_KEY", "")
+        if not fal_key:
+            hard_blocks.append(
+                "FAL_KEY not set — image generation will fail"
+            )
+
+    # 3. Database availability — controls exemplar injection, knowledge
+    # retrieval, trace persistence, and outcome memory.
+    # Hard-block in strict quality modes; soft-warn in canva_baseline.
     db_url = os.environ.get("DATABASE_URL", "")
+    db_issue = ""
     if not db_url:
-        degradations.append(
+        db_issue = (
             "DATABASE_URL not set — exemplar injection, knowledge "
             "retrieval, trace persistence, and outcome memory are inactive"
         )
@@ -173,31 +206,18 @@ def _check_runtime_readiness(workflow_name: str) -> list[str]:
             conn = get_connection()
             conn.close()
         except Exception:
-            degradations.append(
+            db_issue = (
                 "DATABASE_URL set but Postgres unreachable — "
                 "DB-backed features will silently no-op"
             )
 
-    # 2. Image generation backend (for visual workflows)
-    _VISUAL_WORKFLOWS = {
-        "poster_production", "brochure_production",
-        "childrens_book_production", "social_batch",
-    }
-    if workflow_name in _VISUAL_WORKFLOWS:
-        fal_key = os.environ.get("FAL_KEY", "")
-        if not fal_key:
-            degradations.append(
-                "FAL_KEY not set — image generation will fail"
-            )
+    if db_issue:
+        if contract_strictness == "reject":
+            hard_blocks.append(db_issue)
+        else:
+            soft_warnings.append(db_issue)
 
-    # 3. LLM API key
-    openai_key = os.environ.get("OPENAI_API_KEY", "")
-    if not openai_key:
-        degradations.append(
-            "OPENAI_API_KEY not set — all LLM calls will fail"
-        )
-
-    return degradations
+    return hard_blocks, soft_warnings
 
 
 def run_governed(
@@ -371,13 +391,32 @@ def run_governed(
                 )
 
     # Step 5b: Runtime readiness — verify critical dependencies
-    degradations = _check_runtime_readiness(workflow_name)
-    if degradations:
-        job_context["runtime_degradations"] = degradations
+    # Resolve contract strictness from quality posture to decide blocking policy.
+    from middleware.quality_posture import get_quality_posture
+
+    resolved_posture_name = str(
+        job_context.get("quality_posture") or "canva_baseline"
+    )
+    try:
+        posture_cfg = get_quality_posture(resolved_posture_name)
+        strictness = posture_cfg.contract_strictness
+    except Exception:
+        strictness = "warn"
+
+    hard_blocks, soft_warnings = _check_runtime_readiness(
+        workflow_name, contract_strictness=strictness,
+    )
+    if hard_blocks:
+        raise PolicyDenied(
+            f"Runtime readiness hard-block for '{workflow_name}': "
+            + "; ".join(hard_blocks)
+        )
+    if soft_warnings:
+        job_context["runtime_degradations"] = soft_warnings
         logger.warning(
             "Governed: runtime degradations for '%s': %s",
             workflow_name,
-            degradations,
+            soft_warnings,
         )
 
     # Step 5c: Delivery support — fail early for non-deliverable workflows

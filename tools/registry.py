@@ -1149,7 +1149,7 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
 
     # Fallback: Typst renderer
     try:
-        from tools.publish import assemble_document_pdf
+        from tools.publish import assemble_document_pdf, rasterize_pdf_to_png
 
         pdf_path = assemble_document_pdf(
             template_name="poster",
@@ -1158,14 +1158,70 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
             fonts=style.get("fonts"),
             output_dir=output_dir,
         )
+
+        # Rasterize the Typst PDF to PNG so post-render QA can evaluate
+        # the rendered composition — same gate as the Playwright path.
+        typst_post_render: dict[str, Any] = {}
+        typst_post_render_cost = 0.0
+        typst_png_path: Path | None = None
+        try:
+            typst_png_path = rasterize_pdf_to_png(pdf_path)
+            from tools.visual_pipeline import evaluate_rendered_poster
+
+            raw_nima = None
+            if isinstance(quality_verdict, dict):
+                raw_nima = quality_verdict.get("nima_score")
+            controls = _runtime_controls(context)
+            typst_post_render = evaluate_rendered_poster(
+                rendered_png_path=str(typst_png_path),
+                raw_image_nima=(
+                    float(raw_nima) if raw_nima is not None else None
+                ),
+                nima_floor=float(
+                    controls.get("render_nima_floor", 3.5)
+                ),
+                composition_threshold=float(
+                    controls.get("composition_threshold", 3.0)
+                ),
+            )
+            typst_post_render_cost = float(
+                typst_post_render.get("cost_usd", 0.0)
+            )
+            if not typst_post_render.get("passed", True):
+                return {
+                    "status": "error",
+                    "output": (
+                        "delivery_failed: Typst-rendered poster did not "
+                        "pass post-render QA — "
+                        + "; ".join(typst_post_render.get("issues", []))
+                    ),
+                    "post_render_qa": typst_post_render,
+                    "pdf_path": str(pdf_path),
+                    "png_path": str(typst_png_path),
+                    "image_path": image_path,
+                    "copy": parsed,
+                    "cost_usd": typst_post_render_cost,
+                }
+        except Exception as raster_exc:
+            logger.warning(
+                "Typst post-render QA skipped (rasterization failed): %s",
+                raster_exc,
+            )
+
         return {
             "status": "ok",
             "output": "poster_delivered",
             "pdf_path": str(pdf_path),
+            "png_path": (
+                str(typst_png_path)
+                if typst_png_path is not None and typst_png_path.exists()
+                else None
+            ),
+            "post_render_qa": typst_post_render,
             "image_path": image_path,
             "template_name": template_name,
             "copy": parsed,
-            "cost_usd": 0.0,
+            "cost_usd": typst_post_render_cost,
         }
     except Exception as exc:
         logger.error("Both renderers failed: %s", exc)

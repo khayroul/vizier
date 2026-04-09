@@ -663,6 +663,64 @@ def assemble_document_pdf(
     return pdf_path
 
 
+def rasterize_pdf_to_png(
+    pdf_path: Path,
+    *,
+    dpi: int = 150,
+    page: int = 1,
+) -> Path:
+    """Rasterize a single PDF page to PNG via ``pdftoppm``.
+
+    Used to create a preview image for post-render QA when the Typst
+    fallback path produces a PDF without a companion PNG.
+
+    Args:
+        pdf_path: Path to the input PDF.
+        dpi: Resolution for rasterization (default 150 — fast, readable).
+        page: 1-indexed page number to rasterize.
+
+    Returns:
+        Path to the generated PNG file (sibling of the PDF).
+
+    Raises:
+        RuntimeError: If ``pdftoppm`` is not installed or fails.
+        FileNotFoundError: If the input PDF does not exist.
+    """
+    if not pdf_path.exists():
+        raise FileNotFoundError(f"PDF not found: {pdf_path}")
+
+    # pdftoppm appends "-{page_number}" to the output prefix.
+    # We strip that suffix to get a clean .png filename.
+    out_prefix = pdf_path.with_suffix("")
+    result = subprocess.run(
+        [
+            "pdftoppm",
+            "-png",
+            "-r", str(dpi),
+            "-f", str(page),
+            "-l", str(page),
+            "-singlefile",
+            str(pdf_path),
+            str(out_prefix),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"pdftoppm rasterization failed (exit {result.returncode}): "
+            f"{result.stderr.strip()}"
+        )
+
+    png_path = out_prefix.with_suffix(".png")
+    if not png_path.exists():
+        raise RuntimeError(
+            f"pdftoppm produced no output — expected {png_path}"
+        )
+    return png_path
+
+
 # ---------------------------------------------------------------------------
 # RollingContext integration
 # ---------------------------------------------------------------------------

@@ -79,3 +79,23 @@ def pytest_collection_modifyitems(
         for item in items:
             if item.get_closest_marker("requires_api"):
                 item.add_marker(skip_api)
+
+
+# ---------------------------------------------------------------------------
+# Runtime readiness bypass — tests don't have OPENAI_API_KEY / FAL_KEY
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _bypass_runtime_readiness(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bypass runtime readiness hard-blocks in all tests.
+
+    The readiness gate checks for OPENAI_API_KEY and FAL_KEY which
+    are not present in the test environment.  Tests that explicitly
+    need to verify readiness behaviour should override this fixture
+    or call ``_check_runtime_readiness`` directly with controlled env.
+    """
+    monkeypatch.setattr(
+        "tools.orchestrate._check_runtime_readiness",
+        lambda workflow_name, contract_strictness="warn": ([], []),
+    )
