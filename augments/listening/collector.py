@@ -8,7 +8,6 @@ from typing import Protocol
 
 import structlog
 
-from adapter.llm_client import chat as llm_chat
 from augments.listening.sources import LAST30DAYS_SOURCES, build_direct_adapters
 from augments.listening.sources.last30days import Last30DaysAdapter
 from augments.listening.store import ListeningStore
@@ -160,20 +159,29 @@ def _summarise(keyword: str, source: str, items: tuple[ListeningItem, ...]) -> s
     snippet_lines = "\n".join(
         f"- {item.title}: {item.snippet[:140]}" for item in items[:5]
     )
-    response = llm_chat(
-        messages=[
-            {
-                "role": "system",
-                "content": "Summarize listening items in 2-3 concise markdown bullet points. Output only markdown.",
-            },
-            {
-                "role": "user",
-                "content": f"Keyword: {keyword}\nSource: {source}\nItems:\n{snippet_lines}",
-            },
-        ],
-        max_tokens=180,
-        strip_preamble=True,
-    )
-    if response:
-        return response
+    try:
+        from utils.call_llm import call_llm
+
+        result = call_llm(
+            stable_prefix=[
+                {
+                    "role": "system",
+                    "content": "Summarize listening items in 2-3 concise markdown bullet points. Output only markdown.",
+                },
+            ],
+            variable_suffix=[
+                {
+                    "role": "user",
+                    "content": f"Keyword: {keyword}\nSource: {source}\nItems:\n{snippet_lines}",
+                },
+            ],
+            max_tokens=180,
+            operation_type="listening_summarise",
+        )
+        content = result.get("content", "")
+        if content:
+            return content
+    except Exception:  # noqa: BLE001
+        logger.debug("LLM summarisation unavailable, falling back to raw snippets")
+
     return f"### {source}\n\n{snippet_lines}"

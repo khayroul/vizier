@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
-from exceptions import InputCheckError
+from augments.listening.exceptions import InputCheckError
 
 
 @dataclass(frozen=True)

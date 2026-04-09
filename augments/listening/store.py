@@ -16,7 +16,7 @@ from augments.listening.watchlist import (
     SpikeAlert,
     WatchlistConfig,
 )
-from exceptions import WatchlistNotFoundError
+from augments.listening.exceptions import WatchlistNotFoundError
 
 logger = structlog.get_logger(__name__)
 

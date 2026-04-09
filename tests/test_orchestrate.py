@@ -137,6 +137,136 @@ class TestRunGovernedHappyPath:
 
 
 # ---------------------------------------------------------------------------
+# 1b. Delivery support matrix
+# ---------------------------------------------------------------------------
+
+
+class TestDeliverySupportMatrix:
+    """Keep delivery-support claims aligned with actual shipped lanes."""
+
+    @patch("tools.orchestrate.WorkflowExecutor")
+    @patch("tools.orchestrate.PolicyEvaluator")
+    @patch("tools.orchestrate.evaluate_readiness")
+    @patch("tools.orchestrate.route")
+    def test_document_production_reaches_executor(
+        self,
+        mock_route: MagicMock,
+        mock_readiness: MagicMock,
+        mock_policy_cls: MagicMock,
+        mock_executor_cls: MagicMock,
+    ) -> None:
+        """document_production remains a genuinely supported deliverable lane."""
+        mock_route.return_value = RoutingResult(
+            workflow="document_production",
+            job_id="j-doc",
+        )
+        mock_readiness.return_value = ReadinessResult(
+            status="ready",
+            completeness=1.0,
+        )
+        mock_policy_cls.return_value.evaluate.return_value = _allow_decision()
+        mock_executor_cls.return_value.run.return_value = {
+            "workflow": "document_production",
+            "stages": [],
+            "trace": {},
+        }
+
+        result = run_governed(
+            "draft a client report",
+            client_id="c1",
+            job_id="j-doc",
+            tool_registry={"x": _stub_tool},
+        )
+
+        mock_executor_cls.return_value.run.assert_called_once()
+        assert result["workflow"] == "document_production"
+
+    @pytest.mark.parametrize(
+        "workflow_name",
+        ["invoice", "proposal", "company_profile"],
+    )
+    @patch("tools.orchestrate.WorkflowExecutor")
+    @patch("tools.orchestrate.PolicyEvaluator")
+    @patch("tools.orchestrate.evaluate_readiness")
+    @patch("tools.orchestrate.route")
+    def test_s16_document_family_workflows_fail_delivery_support_gate(
+        self,
+        mock_route: MagicMock,
+        mock_readiness: MagicMock,
+        mock_policy_cls: MagicMock,
+        mock_executor_cls: MagicMock,
+        workflow_name: str,
+    ) -> None:
+        """S16 document-family workflows stay out of the deliverable matrix."""
+        mock_route.return_value = RoutingResult(workflow=workflow_name, job_id="j-s16")
+        mock_readiness.return_value = ReadinessResult(
+            status="ready",
+            completeness=1.0,
+        )
+        mock_policy_cls.return_value.evaluate.return_value = _allow_decision()
+
+        with pytest.raises(
+            PolicyDenied,
+            match="delivery stage but delivery is not yet implemented",
+        ):
+            run_governed(
+                f"run {workflow_name}",
+                client_id="c1",
+                job_id="j-s16",
+                tool_registry={"x": _stub_tool},
+            )
+
+        mock_executor_cls.return_value.run.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# 1c. Stub registry regressions
+# ---------------------------------------------------------------------------
+
+
+class TestStubRegistryRegressions:
+    """Lock in real-tool vs stub-tool support-matrix truths."""
+
+    def test_typst_render_not_marked_as_stub(self) -> None:
+        from tools.registry import get_stub_tool_names
+
+        assert "typst_render" not in get_stub_tool_names()
+
+    def test_typst_render_alone_does_not_trip_requires_session_stub_gate(
+        self,
+    ) -> None:
+        """A real render tool must not be treated as an unresolved stub."""
+        from tools.workflow_schema import (
+            QualityTechniquesConfig,
+            StageDefinition,
+            TripwireConfig,
+            WorkflowPack,
+        )
+
+        executor = WorkflowExecutor.__new__(WorkflowExecutor)
+        executor.tool_registry = {"typst_render": _stub_tool}
+        executor.scorer_fn = None
+        executor.reviser_fn = None
+        executor.rolling_context = None
+        executor.pack = WorkflowPack(
+            name="document_production",
+            stages=[
+                StageDefinition(
+                    name="render",
+                    action="render the document",
+                    tools=["typst_render"],
+                    role="production",
+                )
+            ],
+            tripwire=TripwireConfig(),
+            quality_techniques=QualityTechniquesConfig(),
+            requires_session="S16",
+        )
+
+        executor._check_stub_workflow()
+
+
+# ---------------------------------------------------------------------------
 # 2. Blocked readiness
 # ---------------------------------------------------------------------------
 
