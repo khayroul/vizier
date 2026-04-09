@@ -1,0 +1,6 @@
+density: minimal
+tone_fit: [premium, elegant, sophisticated]
+occasion_fit: [announcement, corporate, product_launch]
+cta_prominence: low
+hero_style: contained
+supported_slots: [headline, subheadline, cta, kicker]

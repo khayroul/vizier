@@ -1,0 +1,6 @@
+density: dense
+tone_fit: [urgent, bold, playful]
+occasion_fit: [sale, promo]
+cta_prominence: high
+hero_style: contained
+supported_slots: [headline, subheadline, cta, body_text, offer_block, badge, price, footer]

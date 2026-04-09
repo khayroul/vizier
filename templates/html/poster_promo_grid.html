@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=794, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: {{ primary }};
+      --accent: {{ accent }};
+      --font-headline: '{{ font_headline }}', 'Plus Jakarta Sans', 'Helvetica Neue', Arial, sans-serif;
+      --font-body: '{{ font_body }}', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 794px;
+      height: 1123px;
+      overflow: hidden;
+      position: relative;
+      font-family: var(--font-body);
+      background: #fff;
+    }
+    .hero {
+      position: relative;
+      width: 100%;
+      height: 520px;
+      overflow: hidden;
+    }
+    .hero img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.6) 100%);
+    }
+    {% if badge %}
+    .badge {
+      position: absolute;
+      top: 0;
+      right: 0;
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--font-headline);
+      font-size: 18px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 16px 24px;
+      z-index: 2;
+    }
+    {% endif %}
+    .hero-headline {
+      position: absolute;
+      bottom: 24px;
+      left: 36px;
+      right: 36px;
+      font-family: var(--font-headline);
+      font-size: 44px;
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -1.5px;
+      color: #fff;
+      z-index: 2;
+    }
+    .content {
+      padding: 32px 36px;
+    }
+    .subheadline {
+      font-size: 16px;
+      font-weight: 400;
+      line-height: 1.5;
+      color: #555;
+      margin-bottom: 24px;
+    }
+    {% if offer_block %}
+    .offer-strip {
+      background: var(--primary);
+      color: #fff;
+      padding: 20px 28px;
+      border-radius: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .offer-strip .discount {
+      font-family: var(--font-headline);
+      font-size: 40px;
+      font-weight: 800;
+      letter-spacing: -1px;
+    }
+    .offer-strip .validity {
+      font-size: 13px;
+      color: rgba(255,255,255,0.75);
+      text-align: right;
+    }
+    {% endif %}
+    {% if price %}
+    .price-display {
+      font-family: var(--font-headline);
+      font-size: 36px;
+      font-weight: 800;
+      color: var(--accent);
+      margin-bottom: 20px;
+    }
+    {% endif %}
+    .body-panel ul { list-style: none; padding: 0; }
+    .body-panel ul li {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #444;
+      padding-left: 16px;
+      margin-bottom: 6px;
+      position: relative;
+    }
+    .body-panel ul li::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 8px;
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+    .body-panel { margin-bottom: 24px; }
+    .cta-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .cta-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--font-headline);
+      font-size: 15px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      padding: 16px 36px;
+      border-radius: 60px;
+      border: none;
+      box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 30%, transparent);
+    }
+    {% if footer %}
+    .footer {
+      position: absolute;
+      bottom: 24px;
+      left: 36px;
+      right: 36px;
+      font-size: 11px;
+      color: #999;
+      line-height: 1.4;
+      border-top: 1px solid #eee;
+      padding-top: 12px;
+    }
+    {% endif %}
+    {% if logo_url %}
+    .logo {
+      position: absolute;
+      top: 24px;
+      left: 24px;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid rgba(255,255,255,0.4);
+      z-index: 3;
+    }
+    {% endif %}
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <img src="{{ background_image }}" alt="">
+    <div class="hero-overlay"></div>
+    {% if logo_url %}
+    <img class="logo" src="{{ logo_url }}" alt="logo">
+    {% endif %}
+    {% if badge %}
+    <div class="badge">{{ badge }}</div>
+    {% endif %}
+    {% if headline %}
+    <div class="hero-headline">{{ headline }}</div>
+    {% endif %}
+  </div>
+  <div class="content">
+    {% if subheadline %}
+    <div class="subheadline">{{ subheadline }}</div>
+    {% endif %}
+    {% if offer_block %}
+    <div class="offer-strip">
+      <div class="discount">{{ offer_block.get('discount', '') }}</div>
+      <div class="validity">{{ offer_block.get('validity', '') }}</div>
+    </div>
+    {% endif %}
+    {% if price %}
+    <div class="price-display">{{ price }}</div>
+    {% endif %}
+    {% if body_items %}
+    <div class="body-panel">
+      <ul>
+        {% for item in body_items %}
+        <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    <div class="cta-row">
+      {% if cta %}
+      <div class="cta-button">{{ cta }} &rarr;</div>
+      {% endif %}
+    </div>
+  </div>
+  {% if footer %}
+  <div class="footer">{{ footer }}</div>
+  {% endif %}
+</body>
+</html>

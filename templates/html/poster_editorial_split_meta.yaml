@@ -1,0 +1,6 @@
+density: moderate
+tone_fit: [professional, corporate, premium]
+occasion_fit: [product_launch, announcement, corporate]
+cta_prominence: medium
+hero_style: split
+supported_slots: [headline, subheadline, cta, body_text, kicker]

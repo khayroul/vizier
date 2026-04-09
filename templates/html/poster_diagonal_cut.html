@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=794, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: {{ primary }};
+      --accent: {{ accent }};
+      --font-headline: '{{ font_headline }}', 'Plus Jakarta Sans', 'Helvetica Neue', Arial, sans-serif;
+      --font-body: '{{ font_body }}', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 794px;
+      height: 1123px;
+      overflow: hidden;
+      position: relative;
+      font-family: var(--font-body);
+      background: var(--primary);
+    }
+    .image-zone {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60%;
+      clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
+      overflow: hidden;
+    }
+    .image-zone img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .accent-stripe {
+      position: absolute;
+      top: 56%;
+      left: 0;
+      right: 0;
+      height: 8px;
+      background: var(--accent);
+      transform: skewY(-4deg);
+      z-index: 2;
+    }
+    .content {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 44%;
+      padding: 48px 48px 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      color: #fff;
+      z-index: 2;
+    }
+    {% if kicker %}
+    .kicker {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+    {% endif %}
+    .headline {
+      font-family: var(--font-headline);
+      font-size: 44px;
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -1.5px;
+      margin-bottom: 14px;
+      max-width: 600px;
+    }
+    .subheadline {
+      font-size: 16px;
+      font-weight: 400;
+      line-height: 1.5;
+      color: rgba(255,255,255,0.78);
+      max-width: 500px;
+      margin-bottom: 24px;
+    }
+    .body-panel ul { list-style: none; padding: 0; }
+    .body-panel ul li {
+      font-size: 14px;
+      line-height: 1.6;
+      color: rgba(255,255,255,0.85);
+      padding-left: 16px;
+      margin-bottom: 6px;
+      position: relative;
+    }
+    .body-panel ul li::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 8px;
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+    .body-panel { margin-bottom: 24px; }
+    .cta-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--font-headline);
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      padding: 16px 36px;
+      border-radius: 60px;
+      border: none;
+    }
+    {% if logo_url %}
+    .logo {
+      position: absolute;
+      top: 28px;
+      right: 28px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid rgba(255,255,255,0.3);
+      z-index: 3;
+    }
+    {% endif %}
+  </style>
+</head>
+<body>
+  <div class="image-zone">
+    <img src="{{ background_image }}" alt="">
+  </div>
+  <div class="accent-stripe"></div>
+  {% if logo_url %}
+  <img class="logo" src="{{ logo_url }}" alt="logo">
+  {% endif %}
+  <div class="content">
+    {% if kicker %}
+    <div class="kicker">{{ kicker }}</div>
+    {% endif %}
+    {% if headline %}
+    <div class="headline">{{ headline }}</div>
+    {% endif %}
+    {% if subheadline %}
+    <div class="subheadline">{{ subheadline }}</div>
+    {% endif %}
+    {% if body_items %}
+    <div class="body-panel">
+      <ul>
+        {% for item in body_items %}
+        <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    {% if cta %}
+    <div class="cta-button">{{ cta }} &rarr;</div>
+    {% endif %}
+  </div>
+</body>
+</html>

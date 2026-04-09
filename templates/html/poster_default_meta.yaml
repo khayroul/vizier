@@ -1,0 +1,6 @@
+density: moderate
+tone_fit: [professional, versatile, corporate, festive]
+occasion_fit: [product_launch, announcement, event, corporate, awareness]
+cta_prominence: high
+hero_style: full_bleed
+supported_slots: [headline, subheadline, cta, body_text]

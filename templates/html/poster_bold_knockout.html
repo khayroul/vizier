@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=794, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: {{ primary }};
+      --accent: {{ accent }};
+      --font-headline: '{{ font_headline }}', 'Plus Jakarta Sans', 'Helvetica Neue', Arial, sans-serif;
+      --font-body: '{{ font_body }}', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 794px;
+      height: 1123px;
+      overflow: hidden;
+      position: relative;
+      font-family: var(--font-body);
+      background: #000;
+    }
+    .bg-image {
+      position: absolute;
+      inset: 0;
+      background-image: url('{{ background_image }}');
+      background-size: cover;
+      background-position: center;
+    }
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg,
+        rgba(0,0,0,0.15) 0%,
+        rgba(0,0,0,0.0) 30%,
+        rgba(0,0,0,0.0) 50%,
+        rgba(0,0,0,0.70) 80%,
+        rgba(0,0,0,0.90) 100%
+      );
+    }
+    .content {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      z-index: 2;
+    }
+    {% if badge %}
+    .badge {
+      position: absolute;
+      top: 40px;
+      left: 40px;
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--font-headline);
+      font-size: 16px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      padding: 12px 24px;
+      border-radius: 4px;
+      z-index: 3;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    }
+    {% endif %}
+    .headline {
+      font-family: var(--font-headline);
+      font-size: 80px;
+      font-weight: 800;
+      line-height: 0.95;
+      letter-spacing: -4px;
+      color: #fff;
+      text-transform: uppercase;
+      max-width: 700px;
+      text-shadow: 0 4px 24px rgba(0,0,0,0.5);
+    }
+    .bottom-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 36px 48px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 2;
+    }
+    .cta-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--font-headline);
+      font-size: 16px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      padding: 18px 40px;
+      border-radius: 60px;
+      border: none;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+    {% if logo_url %}
+    .logo {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid rgba(255,255,255,0.3);
+    }
+    {% endif %}
+  </style>
+</head>
+<body>
+  <div class="bg-image"></div>
+  <div class="overlay"></div>
+  {% if badge %}
+  <div class="badge">{{ badge }}</div>
+  {% endif %}
+  <div class="content">
+    {% if headline %}
+    <div class="headline">{{ headline }}</div>
+    {% endif %}
+  </div>
+  <div class="bottom-bar">
+    {% if cta %}
+    <div class="cta-button">{{ cta }} &rarr;</div>
+    {% endif %}
+    {% if logo_url %}
+    <img class="logo" src="{{ logo_url }}" alt="logo">
+    {% endif %}
+  </div>
+</body>
+</html>

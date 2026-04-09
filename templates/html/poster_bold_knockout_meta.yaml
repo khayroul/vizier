@@ -1,0 +1,6 @@
+density: minimal
+tone_fit: [bold, urgent, premium]
+occasion_fit: [sale, product_launch, announcement]
+cta_prominence: high
+hero_style: full_bleed
+supported_slots: [headline, cta, badge]
