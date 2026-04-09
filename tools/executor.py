@@ -1353,6 +1353,20 @@ class WorkflowExecutor:
             except Exception as exc:
                 logger.warning("Failed to persist trace for job %s: %s", job_id, exc)
 
+            # Push trace to Langfuse with session correlation (hardening 1.7)
+            try:
+                from middleware.observability import trace_to_langfuse
+
+                trace_to_langfuse(production_trace, metadata={
+                    "client_id": job_context.get("client_id"),
+                    "job_id": job_id,
+                    "artifact_type": job_context.get("artifact_family"),
+                    "hermes_session_id": job_context.get("hermes_session_id"),
+                    "workflow": self.pack.name,
+                })
+            except Exception as exc:
+                logger.warning("Failed to push Langfuse trace for job %s: %s", job_id, exc)
+
         result: dict[str, Any] = {
             "workflow": self.pack.name,
             "stages": stage_results,
