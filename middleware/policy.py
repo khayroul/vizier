@@ -39,10 +39,11 @@ def persist_policy_decision(decision: PolicyDecision) -> None:
                 INSERT INTO policy_logs
                     (decision_id, job_id, client_id,
                      capability, action, gate,
-                     reason, constraints)
+                     reason, constraints, evaluated_at)
                 VALUES
                     (%(decision_id)s, %(job_id)s, %(client_id)s, %(capability)s,
-                     %(action)s, %(gate)s, %(reason)s, %(constraints)s)
+                     %(action)s, %(gate)s, %(reason)s, %(constraints)s,
+                     %(evaluated_at)s)
                 """,
                 {
                     "decision_id": str(decision.decision_id),
@@ -57,6 +58,7 @@ def persist_policy_decision(decision: PolicyDecision) -> None:
                         if decision.constraints
                         else "{}"
                     ),
+                    "evaluated_at": decision.timestamp,
                 },
             )
     except (psycopg2.Error, OSError, ImportError, RuntimeError):
