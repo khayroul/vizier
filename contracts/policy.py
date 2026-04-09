@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -44,7 +45,7 @@ class PolicyDecision(BaseModel):
         default=None,
         description="What was being evaluated, e.g. 'poster_production'",
     )
-    constraints: dict[str, str | int | float | bool] = Field(
+    constraints: dict[str, Any] = Field(
         default_factory=dict,
         description="Audit-grade structured constraints imposed by this decision",
     )

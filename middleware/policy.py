@@ -129,28 +129,64 @@ class PolicyEvaluator:
     # ------------------------------------------------------------------
 
     def evaluate(self, request: PolicyRequest) -> PolicyDecision:
-        """Run all gates in order. Return first non-allow or allow."""
-        for gate in (
+        """Run all gates in order. Return first non-allow or allow.
+
+        Every call produces exactly one persisted policy_logs row.
+        On allow, the row includes a ``constraints`` snapshot recording
+        what each gate evaluated — no silent passes.
+        """
+        gates = (
             self._phase_gate,
             self._tool_gate,
             self._budget_gate,
             self._cost_gate,
-        ):
+        )
+        gate_results: list[PolicyDecision] = []
+
+        for gate in gates:
             decision = gate(request)
+            gate_results.append(decision)
             if decision.action != PolicyAction.allow:
                 logger.info(
                     "policy_gate_blocked",
                     extra={
                         "gate": decision.gate,
-                        "action": decision.action,
+                        "action": decision.action.value,
                         "reason": decision.reason,
                         "capability": request.capability,
                         "job_id": request.job_id,
                     },
                 )
+                # Include snapshot of gates evaluated before the block
+                decision = decision.model_copy(
+                    update={
+                        "constraints": {
+                            **decision.constraints,
+                            "gates_evaluated": [
+                                {
+                                    "gate": gr.gate,
+                                    "action": gr.action.value,
+                                    "reason": gr.reason,
+                                }
+                                for gr in gate_results
+                            ],
+                        },
+                    },
+                )
                 persist_policy_decision(decision)
                 return decision
 
+        # All gates passed — build constraints snapshot for auditability
+        constraints_snapshot = {
+            "gates_evaluated": [
+                {
+                    "gate": gr.gate,
+                    "action": gr.action.value,
+                    "reason": gr.reason,
+                }
+                for gr in gate_results
+            ],
+        }
         decision = PolicyDecision(
             action=PolicyAction.allow,
             reason="All gates passed",
@@ -158,6 +194,7 @@ class PolicyEvaluator:
             job_id=request.job_id,
             client_id=request.client_id,
             capability=request.capability,
+            constraints=constraints_snapshot,
         )
         persist_policy_decision(decision)
         return decision

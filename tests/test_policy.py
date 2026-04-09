@@ -281,6 +281,51 @@ class TestAllGatesPass:
         assert decision.action == PolicyAction.allow
         assert decision.gate == "all"
 
+    def test_allow_includes_gates_evaluated_snapshot(
+        self, evaluator: PolicyEvaluator
+    ) -> None:
+        """No silent passes — allow decisions record what each gate checked."""
+        request = PolicyRequest(
+            capability="poster_production",
+            tool_name="generate_copy",
+            running_cost_usd=0.50,
+            client_id="client-123",
+            job_id="job-456",
+        )
+        decision = evaluator.evaluate(request)
+        assert decision.action == PolicyAction.allow
+
+        gates_evaluated = decision.constraints.get("gates_evaluated")
+        assert gates_evaluated is not None, "allow must include gates_evaluated"
+        assert isinstance(gates_evaluated, list)
+        assert len(gates_evaluated) == 4  # phase, tool, budget, cost
+
+        gate_names = [g["gate"] for g in gates_evaluated]
+        assert gate_names == ["phase", "tool", "budget", "cost"]
+        for gate_result in gates_evaluated:
+            assert gate_result["action"] == "allow"
+            assert gate_result["reason"]  # non-empty
+
+    def test_block_includes_gates_evaluated_snapshot(
+        self, evaluator: PolicyEvaluator
+    ) -> None:
+        """Block decisions also record what was evaluated before the block."""
+        request = PolicyRequest(
+            capability="poster_production",
+            tool_name="batch_social",  # not approved → tool gate blocks
+        )
+        decision = evaluator.evaluate(request)
+        assert decision.action == PolicyAction.block
+        assert decision.gate == "tool"
+
+        gates_evaluated = decision.constraints.get("gates_evaluated")
+        assert gates_evaluated is not None
+        assert len(gates_evaluated) == 2  # phase (allowed), then tool (blocked)
+        assert gates_evaluated[0]["gate"] == "phase"
+        assert gates_evaluated[0]["action"] == "allow"
+        assert gates_evaluated[1]["gate"] == "tool"
+        assert gates_evaluated[1]["action"] == "block"
+
 
 # ---------------------------------------------------------------------------
 # Observability — Langfuse trace with metadata
