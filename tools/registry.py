@@ -965,6 +965,107 @@ def _load_client_brand(client_id: str) -> dict[str, Any]:
         return {}
 
 
+def _attempt_readability_revision(
+    *,
+    template_name: str,
+    content: dict[str, Any],
+    style: dict[str, Any],
+    output_dir: Path,
+    quality_verdict: Any,
+    controls: dict[str, Any],
+    image_path: str,
+    parsed: dict[str, Any],
+    original_qa: dict[str, Any],
+) -> dict[str, Any] | None:
+    """One-shot readability revision: re-render with boosted overlay + text-shadow.
+
+    Called when post-render QA fails on text-overlay dimensions
+    (cta_visibility / text_readability / overlay_balance) but the
+    underlying image is fine (NIMA above floor, vision check succeeded).
+
+    Injects ``_readability_boost`` flag into the content dict so
+    ``render_poster_html`` applies stronger CSS overlay + text-shadow.
+    Then re-runs post-render QA on the revised render.
+
+    Returns:
+        A successful delivery result dict if the revision passes QA,
+        or ``None`` if the revision also fails (caller should fail-stop).
+    """
+    from tools.publish import assemble_poster_pdf
+
+    boosted_content = {**content, "_readability_boost": True}
+
+    try:
+        revised_pdf = assemble_poster_pdf(
+            template_name=template_name,
+            content=boosted_content,
+            colors=style.get("colors"),
+            fonts=style.get("fonts"),
+            output_dir=output_dir,
+        )
+    except Exception as render_exc:
+        logger.warning(
+            "Readability revision re-render failed: %s", render_exc,
+        )
+        return None
+
+    revised_png = revised_pdf.with_suffix("").with_name(
+        revised_pdf.stem + ".png"
+    )
+    if not revised_png.exists():
+        logger.warning("Readability revision produced no PNG")
+        return None
+
+    from tools.visual_pipeline import evaluate_rendered_poster
+
+    raw_nima = None
+    if isinstance(quality_verdict, dict):
+        raw_nima = quality_verdict.get("nima_score")
+
+    revised_qa = evaluate_rendered_poster(
+        rendered_png_path=str(revised_png),
+        raw_image_nima=(
+            float(raw_nima) if raw_nima is not None else None
+        ),
+        nima_floor=float(controls.get("render_nima_floor", 3.5)),
+        composition_threshold=float(
+            controls.get("composition_threshold", 3.0)
+        ),
+    )
+
+    total_cost = (
+        float(original_qa.get("cost_usd", 0.0))
+        + float(revised_qa.get("cost_usd", 0.0))
+    )
+
+    if revised_qa.get("passed", False):
+        logger.info(
+            "Readability revision succeeded (composition %.2f → %.2f)",
+            original_qa.get("composition_score", 0.0),
+            revised_qa.get("composition_score", 0.0),
+        )
+        return {
+            "status": "ok",
+            "output": "poster_delivered",
+            "revision_applied": True,
+            "pdf_path": str(revised_pdf),
+            "png_path": str(revised_png),
+            "post_render_qa": revised_qa,
+            "original_qa": original_qa,
+            "image_path": image_path,
+            "template_name": template_name,
+            "copy": parsed,
+            "cost_usd": total_cost,
+        }
+
+    logger.warning(
+        "Readability revision also failed QA (composition %.2f), "
+        "failing delivery",
+        revised_qa.get("composition_score", 0.0),
+    )
+    return None
+
+
 def _deliver(context: dict[str, Any]) -> dict[str, Any]:
     """Deliver the final artifact — composes poster PDF via Typst if applicable."""
     job_ctx = context.get("job_context", {})
@@ -1111,6 +1212,33 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
                 ),
             )
             if not post_render_result.get("passed", True):
+                # Post-render revision V1: one deterministic retry for
+                # text-overlay issues (cta_visibility / text_readability /
+                # overlay_balance).  Fail-stop for image/vision problems.
+                from tools.visual_pipeline import classify_post_render_failure
+
+                failure_class = classify_post_render_failure(post_render_result)
+                if failure_class == "retryable":
+                    logger.info(
+                        "Post-render revision: retrying with readability "
+                        "boost (original issues: %s)",
+                        post_render_result.get("issues"),
+                    )
+                    revision_result = _attempt_readability_revision(
+                        template_name=template_name,
+                        content=content,
+                        style=style,
+                        output_dir=output_dir,
+                        quality_verdict=quality_verdict,
+                        controls=controls,
+                        image_path=image_path,
+                        parsed=parsed,
+                        original_qa=post_render_result,
+                    )
+                    if revision_result is not None:
+                        return revision_result
+                    # Revision also failed — fall through to error return
+
                 return {
                     "status": "error",
                     "output": (
@@ -1119,6 +1247,7 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
                         + "; ".join(post_render_result.get("issues", []))
                     ),
                     "post_render_qa": post_render_result,
+                    "failure_class": failure_class,
                     "pdf_path": str(pdf_path),
                     "png_path": str(png_path),
                     "image_path": image_path,

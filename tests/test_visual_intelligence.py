@@ -10,6 +10,7 @@ from __future__ import annotations
 import io
 import json
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -854,3 +855,289 @@ class TestPostRenderQA:
         assert result["vision_check_failed"] is True
         assert result["composition_score"] == 0.0
         assert any("vision" in i.lower() for i in result["issues"])
+
+    def test_individual_dimension_scores_exposed(
+        self, tmp_path: Path,
+    ) -> None:
+        """evaluate_rendered_poster returns cta/readability/balance individually."""
+        from tools.visual_pipeline import evaluate_rendered_poster
+
+        img = Image.new("RGB", (200, 200), color=(100, 120, 140))
+        poster_path = tmp_path / "poster_dims.png"
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        poster_path.write_bytes(buf.getvalue())
+
+        good_llm = _mock_llm_response(json.dumps({
+            "cta_visibility": 4.0,
+            "text_readability": 3.5,
+            "overlay_balance": 2.5,
+            "issues": ["CTA overlaps image element"],
+        }))
+
+        with patch(
+            "tools.visual_pipeline.nima_score", return_value=4.2,
+        ), patch(
+            "utils.call_llm.call_llm", return_value=good_llm,
+        ):
+            result = evaluate_rendered_poster(
+                rendered_png_path=str(poster_path),
+            )
+
+        assert result["cta_visibility"] == 4.0
+        assert result["text_readability"] == 3.5
+        assert result["overlay_balance"] == 2.5
+
+
+# ===========================================================================
+# Post-render failure classification
+# ===========================================================================
+
+
+class TestClassifyPostRenderFailure:
+    """classify_post_render_failure routes to retryable vs fail_stop."""
+
+    def test_passed_qa_returns_passed(self) -> None:
+        from tools.visual_pipeline import classify_post_render_failure
+
+        result = classify_post_render_failure({"passed": True})
+        assert result == "passed"
+
+    def test_vision_check_failed_is_fail_stop(self) -> None:
+        from tools.visual_pipeline import classify_post_render_failure
+
+        result = classify_post_render_failure({
+            "passed": False,
+            "vision_check_failed": True,
+            "nima_score": 4.5,
+            "nima_floor": 3.5,
+            "composition_score": 0.0,
+        })
+        assert result == "fail_stop"
+
+    def test_nima_below_floor_is_fail_stop(self) -> None:
+        from tools.visual_pipeline import classify_post_render_failure
+
+        result = classify_post_render_failure({
+            "passed": False,
+            "vision_check_failed": False,
+            "nima_score": 2.5,
+            "nima_floor": 3.5,
+            "composition_score": 2.0,
+        })
+        assert result == "fail_stop"
+
+    def test_good_nima_bad_composition_is_retryable(self) -> None:
+        from tools.visual_pipeline import classify_post_render_failure
+
+        result = classify_post_render_failure({
+            "passed": False,
+            "vision_check_failed": False,
+            "nima_score": 4.2,
+            "nima_floor": 3.5,
+            "composition_score": 2.5,
+            "composition_threshold": 3.0,
+        })
+        assert result == "retryable"
+
+
+# ===========================================================================
+# Readability boost CSS injection
+# ===========================================================================
+
+
+class TestReadabilityBoost:
+    """_inject_readability_boost injects CSS into HTML."""
+
+    def test_css_injected_before_head_close(self) -> None:
+        from tools.publish import _inject_readability_boost
+
+        html = "<html><head><style>body{}</style></head><body></body></html>"
+        boosted = _inject_readability_boost(html)
+        assert "readability boost" in boosted.lower()
+        # CSS block should appear before </head>
+        head_close = boosted.lower().index("</head>")
+        boost_pos = boosted.lower().index("readability boost")
+        assert boost_pos < head_close
+
+    def test_no_head_tag_still_injects(self) -> None:
+        from tools.publish import _inject_readability_boost
+
+        html = "<div>no head here</div>"
+        boosted = _inject_readability_boost(html)
+        assert "readability boost" in boosted.lower()
+        assert "<div>" in boosted
+
+
+# ===========================================================================
+# Post-render revision in delivery (T1.4 integration)
+# ===========================================================================
+
+
+class TestPostRenderRevision:
+    """_attempt_readability_revision wired into _deliver."""
+
+    @staticmethod
+    def _base_context(tmp_path: Path) -> dict[str, Any]:
+        return {
+            "job_context": {
+                "job_id": "job-rev",
+                "client_id": "dmb",
+                "routing": {"workflow": "poster_production"},
+            },
+            "artifact_payload": {
+                "image_path": "/tmp/poster.png",
+                "poster_copy": json.dumps({
+                    "headline": "Grand Opening",
+                    "subheadline": "Today Only",
+                    "cta": "Shop Now",
+                    "body_text": "",
+                }),
+                "quality_verdict": {"passed": True, "nima_score": 4.0},
+            },
+            "stage_results": [],
+        }
+
+    def test_retryable_failure_triggers_revision(
+        self, tmp_path: Path,
+    ) -> None:
+        """Text-overlay QA failure → readability revision → success."""
+        from tools.registry import _deliver
+
+        pdf_path = tmp_path / "poster_default.pdf"
+        pdf_path.write_text("pdf-content")
+        png_path = tmp_path / "poster_default.png"
+        png_path.write_bytes(b"\x89PNG" + b"\x00" * 60)
+
+        call_count = {"n": 0}
+
+        def _qa_side_effect(**kwargs: Any) -> dict[str, Any]:
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                # First call: fail on composition (retryable)
+                return {
+                    "passed": False,
+                    "nima_score": 4.2,
+                    "nima_floor": 3.5,
+                    "composition_score": 2.5,
+                    "cta_visibility": 2.0,
+                    "text_readability": 2.5,
+                    "overlay_balance": 3.0,
+                    "vision_check_failed": False,
+                    "issues": ["CTA hard to read"],
+                    "cost_usd": 0.002,
+                }
+            # Second call (after revision): pass
+            return {
+                "passed": True,
+                "nima_score": 4.2,
+                "nima_floor": 3.5,
+                "composition_score": 4.0,
+                "cta_visibility": 4.0,
+                "text_readability": 4.0,
+                "overlay_balance": 4.0,
+                "vision_check_failed": False,
+                "issues": [],
+                "cost_usd": 0.002,
+            }
+
+        with (
+            patch(
+                "tools.publish.assemble_poster_pdf",
+                return_value=pdf_path,
+            ),
+            patch(
+                "tools.visual_pipeline.evaluate_rendered_poster",
+                side_effect=_qa_side_effect,
+            ) as mock_eval,
+        ):
+            result = _deliver(self._base_context(tmp_path))
+
+        assert result["status"] == "ok"
+        assert result.get("revision_applied") is True
+        assert mock_eval.call_count == 2
+        assert result["original_qa"]["passed"] is False
+        assert result["post_render_qa"]["passed"] is True
+
+    def test_fail_stop_skips_revision(
+        self, tmp_path: Path,
+    ) -> None:
+        """NIMA floor failure → fail_stop, no revision attempt."""
+        from tools.registry import _deliver
+
+        pdf_path = tmp_path / "poster_default.pdf"
+        pdf_path.write_text("pdf-content")
+        png_path = tmp_path / "poster_default.png"
+        png_path.write_bytes(b"\x89PNG" + b"\x00" * 60)
+
+        fail_stop_qa = {
+            "passed": False,
+            "nima_score": 2.0,
+            "nima_floor": 3.5,
+            "composition_score": 2.0,
+            "cta_visibility": 2.0,
+            "text_readability": 2.0,
+            "overlay_balance": 2.0,
+            "vision_check_failed": False,
+            "issues": ["Rendered NIMA too low"],
+            "cost_usd": 0.002,
+        }
+
+        with (
+            patch(
+                "tools.publish.assemble_poster_pdf",
+                return_value=pdf_path,
+            ),
+            patch(
+                "tools.visual_pipeline.evaluate_rendered_poster",
+                return_value=fail_stop_qa,
+            ) as mock_eval,
+        ):
+            result = _deliver(self._base_context(tmp_path))
+
+        assert result["status"] == "error"
+        assert result["failure_class"] == "fail_stop"
+        # Only ONE QA call — no revision attempted
+        mock_eval.assert_called_once()
+
+    def test_revision_also_fails_returns_error(
+        self, tmp_path: Path,
+    ) -> None:
+        """Revision attempted but also fails → error with original issues."""
+        from tools.registry import _deliver
+
+        pdf_path = tmp_path / "poster_default.pdf"
+        pdf_path.write_text("pdf-content")
+        png_path = tmp_path / "poster_default.png"
+        png_path.write_bytes(b"\x89PNG" + b"\x00" * 60)
+
+        # Both attempts fail (composition still bad after boost)
+        bad_composition = {
+            "passed": False,
+            "nima_score": 4.2,
+            "nima_floor": 3.5,
+            "composition_score": 2.5,
+            "cta_visibility": 2.0,
+            "text_readability": 2.5,
+            "overlay_balance": 3.0,
+            "vision_check_failed": False,
+            "issues": ["CTA still unreadable"],
+            "cost_usd": 0.002,
+        }
+
+        with (
+            patch(
+                "tools.publish.assemble_poster_pdf",
+                return_value=pdf_path,
+            ),
+            patch(
+                "tools.visual_pipeline.evaluate_rendered_poster",
+                return_value=bad_composition,
+            ) as mock_eval,
+        ):
+            result = _deliver(self._base_context(tmp_path))
+
+        assert result["status"] == "error"
+        assert result["failure_class"] == "retryable"
+        # Two QA calls: original + revision
+        assert mock_eval.call_count == 2

@@ -852,6 +852,74 @@ def _render_jinja2_template(
     return template.render(**context)
 
 
+# ---------------------------------------------------------------------------
+# Post-render revision: deterministic readability boost (T1.4)
+# ---------------------------------------------------------------------------
+
+_READABILITY_BOOST_CSS = """\
+<style>
+  /* Post-render revision V1 — deterministic readability boost.
+     Injected when first render fails QA on text-overlay dimensions
+     (cta_visibility / text_readability / overlay_balance) but NIMA is fine.
+     Strengthens gradient overlay + adds text-shadow for contrast. */
+  .overlay-gradient {
+    background: linear-gradient(
+      180deg,
+      rgba(0,0,0,0.40) 0%,
+      rgba(0,0,0,0.15) 25%,
+      rgba(0,0,0,0.20) 45%,
+      rgba(0,0,0,0.65) 70%,
+      rgba(0,0,0,0.88) 88%,
+      rgba(0,0,0,0.96) 100%
+    ) !important;
+  }
+  .overlay-side {
+    background: linear-gradient(
+      90deg, rgba(0,0,0,0.50) 0%, transparent 55%
+    ) !important;
+  }
+  .headline, .subheadline {
+    text-shadow:
+      0 2px 8px rgba(0,0,0,0.7),
+      0 1px 3px rgba(0,0,0,0.5) !important;
+  }
+  .cta-button {
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5) !important;
+    box-shadow:
+      0 8px 24px rgba(0,0,0,0.5),
+      0 2px 8px rgba(0,0,0,0.4) !important;
+  }
+  .body-panel {
+    background: rgba(0,0,0,0.35) !important;
+    backdrop-filter: blur(4px);
+  }
+</style>
+"""
+
+
+def _inject_readability_boost(html: str) -> str:
+    """Inject readability-boost CSS overrides into rendered HTML.
+
+    Inserts a ``<style>`` block before ``</head>`` that strengthens the
+    overlay gradient and adds text-shadow to key text elements.  This is
+    a pure CSS override — no template modification required, works with
+    all poster templates.
+
+    Args:
+        html: The filled HTML string from Jinja2 template rendering.
+
+    Returns:
+        HTML with the boost CSS injected.
+    """
+    # Insert before </head> so it overrides template styles via specificity + !important
+    marker = "</head>"
+    idx = html.lower().find(marker.lower())
+    if idx == -1:
+        # If no </head> found, prepend to the whole string (fallback)
+        return _READABILITY_BOOST_CSS + html
+    return html[:idx] + _READABILITY_BOOST_CSS + html[idx:]
+
+
 async def render_poster_html(
     *,
     template_name: str,
@@ -947,6 +1015,12 @@ async def render_poster_html(
     }
 
     filled_html = _render_jinja2_template(template_path, jinja_ctx)
+
+    # Readability boost: inject stronger overlay + text-shadow CSS when
+    # post-render QA flagged text-overlay issues on the first attempt.
+    # This is a deterministic adjustment — no LLM involved.
+    if content.get("_readability_boost"):
+        filled_html = _inject_readability_boost(filled_html)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     slug = template_name.replace(" ", "_")

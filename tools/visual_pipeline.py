@@ -223,6 +223,9 @@ def evaluate_rendered_poster(
     # Previous default of 3.0 (pass threshold) silently degraded to
     # NIMA-only on any GPT vision failure.
     composition_score = 0.0
+    cta_score = 0.0
+    readability_score = 0.0
+    balance_score = 0.0
     vision_check_failed = False
 
     try:
@@ -248,11 +251,10 @@ def evaluate_rendered_poster(
         import json as _json
 
         parsed = _json.loads(llm_result["content"])
-        scores = [
-            float(parsed.get("cta_visibility", 3.0)),
-            float(parsed.get("text_readability", 3.0)),
-            float(parsed.get("overlay_balance", 3.0)),
-        ]
+        cta_score = float(parsed.get("cta_visibility", 3.0))
+        readability_score = float(parsed.get("text_readability", 3.0))
+        balance_score = float(parsed.get("overlay_balance", 3.0))
+        scores = [cta_score, readability_score, balance_score]
         composition_score = sum(scores) / len(scores)
         llm_issues = parsed.get("issues", [])
         if isinstance(llm_issues, list):
@@ -274,6 +276,9 @@ def evaluate_rendered_poster(
         "nima_score": rendered_nima,
         "raw_image_nima": raw_image_nima,
         "composition_score": composition_score,
+        "cta_visibility": cta_score,
+        "text_readability": readability_score,
+        "overlay_balance": balance_score,
         "composition_threshold": composition_threshold,
         "nima_floor": nima_floor,
         "vision_check_failed": vision_check_failed,
@@ -282,6 +287,44 @@ def evaluate_rendered_poster(
         "output_tokens": output_tokens,
         "cost_usd": cost_usd,
     }
+
+
+def classify_post_render_failure(
+    qa_result: dict[str, Any],
+) -> str:
+    """Classify a post-render QA failure for revision eligibility.
+
+    Returns:
+        ``'passed'`` — QA actually passed, no failure to classify.
+        ``'retryable'`` — text-overlay issue fixable by boosting overlay
+            contrast (cta_visibility / text_readability / overlay_balance).
+        ``'fail_stop'`` — fundamental image or vision problem; retrying
+            with the same image would waste tokens.
+
+    Classification logic:
+        - Vision check failed entirely → fail_stop (can't even evaluate).
+        - NIMA below floor → fail_stop (rendered image itself is degraded).
+        - Composition score below threshold but NIMA OK → retryable
+          (text placement/contrast is the problem, not the image).
+    """
+    if qa_result.get("passed", False):
+        return "passed"
+
+    # Vision couldn't run at all — no signal to act on
+    if qa_result.get("vision_check_failed", False):
+        return "fail_stop"
+
+    # NIMA floor failure means the rendered image is aesthetically bad —
+    # boosting overlay won't fix a fundamentally degraded render.
+    nima = float(qa_result.get("nima_score", 0.0))
+    nima_floor = float(qa_result.get("nima_floor", 3.5))
+    if nima < nima_floor:
+        return "fail_stop"
+
+    # If we reach here: NIMA is fine but composition_score is below
+    # threshold — the issue is text overlay readability/placement,
+    # which a stronger gradient + text-shadow can fix.
+    return "retryable"
 
 
 def run_visual_pipeline(
