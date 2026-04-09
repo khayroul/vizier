@@ -148,6 +148,58 @@ def _persist_interpreted_intent(
         )
 
 
+def _check_runtime_readiness(workflow_name: str) -> list[str]:
+    """Pre-flight check for critical runtime dependencies.
+
+    Returns a list of degradation warnings. Empty list = all clear.
+    Does NOT block execution — logs warnings so operators know
+    what quality features are inactive.
+    """
+    import os
+
+    degradations: list[str] = []
+
+    # 1. Database availability
+    db_url = os.environ.get("DATABASE_URL", "")
+    if not db_url:
+        degradations.append(
+            "DATABASE_URL not set — exemplar injection, knowledge "
+            "retrieval, trace persistence, and outcome memory are inactive"
+        )
+    else:
+        try:
+            from utils.database import get_connection
+
+            conn = get_connection()
+            conn.close()
+        except Exception:
+            degradations.append(
+                "DATABASE_URL set but Postgres unreachable — "
+                "DB-backed features will silently no-op"
+            )
+
+    # 2. Image generation backend (for visual workflows)
+    _VISUAL_WORKFLOWS = {
+        "poster_production", "brochure_production",
+        "childrens_book_production", "social_batch",
+    }
+    if workflow_name in _VISUAL_WORKFLOWS:
+        fal_key = os.environ.get("FAL_KEY", "")
+        if not fal_key:
+            degradations.append(
+                "FAL_KEY not set — image generation will fail"
+            )
+
+    # 3. LLM API key
+    openai_key = os.environ.get("OPENAI_API_KEY", "")
+    if not openai_key:
+        degradations.append(
+            "OPENAI_API_KEY not set — all LLM calls will fail"
+        )
+
+    return degradations
+
+
 def run_governed(
     raw_input: str,
     client_id: str,
@@ -317,6 +369,30 @@ def run_governed(
                     f"Tool '{tool_name}' in stage '{stage.name}' blocked by policy: "
                     f"{tool_decision.reason} (gate={tool_decision.gate})"
                 )
+
+    # Step 5b: Runtime readiness — verify critical dependencies
+    degradations = _check_runtime_readiness(workflow_name)
+    if degradations:
+        job_context["runtime_degradations"] = degradations
+        logger.warning(
+            "Governed: runtime degradations for '%s': %s",
+            workflow_name,
+            degradations,
+        )
+
+    # Step 5c: Delivery support — fail early for non-deliverable workflows
+    _DELIVERABLE_WORKFLOWS = frozenset({"poster_production"})
+    has_delivery_stage = any(
+        stage.role == "delivery" for stage in pack.stages
+    )
+    if has_delivery_stage and workflow_name not in _DELIVERABLE_WORKFLOWS:
+        raise PolicyDenied(
+            f"Workflow '{workflow_name}' has a delivery stage but delivery "
+            f"is not yet implemented for this workflow type. "
+            f"Only {sorted(_DELIVERABLE_WORKFLOWS)} can deliver final artifacts. "
+            f"The system would waste tokens generating content that cannot "
+            f"be rendered to a final PDF/PNG."
+        )
 
     # Step 6: Execute workflow with tripwire scorer/reviser if available
     scorer_fn = tool_registry.get("_tripwire_scorer")

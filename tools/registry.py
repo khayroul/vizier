@@ -1548,32 +1548,251 @@ def _generate_page_text(context: dict[str, Any]) -> dict[str, Any]:
 
 
 def _character_verify(context: dict[str, Any]) -> dict[str, Any]:
-    """Verify character consistency across illustrations."""
+    """Verify character consistency across illustrations via LLM.
+
+    Compares character descriptions from the CharacterBible against
+    the generated page text/illustrations to flag drift.
+    """
+    from utils.call_llm import call_llm
+
+    job_ctx = context.get("job_context", {})
+    payload = _artifact_payload(context)
+    page_text = str(
+        payload.get("page_text")
+        or payload.get("text_content")
+        or context.get("previous_output", {}).get("output", "")
+    )
+    character_bible = job_ctx.get("character_bible", {})
+    if not page_text.strip():
+        return {
+            "status": "ok",
+            "output": "character_verify_skipped: no page text",
+            "score": 3.0,
+            "cost_usd": 0.0,
+        }
+
+    import json as _json
+
+    result = call_llm(
+        stable_prefix=[{
+            "role": "system",
+            "content": (
+                "You are a children's book editor. Check whether the "
+                "page text is consistent with the character descriptions. "
+                "Score 1-5 (5 = perfectly consistent). "
+                "Return JSON: {\"score\": <1-5>, \"issues\": [...]}"
+            ),
+        }],
+        variable_suffix=[{
+            "role": "user",
+            "content": (
+                f"Character bible:\n{_json.dumps(character_bible, default=str)}\n\n"
+                f"Page text:\n{page_text}"
+            ),
+        }],
+        model="gpt-5.4-mini",
+        temperature=0.2,
+        max_tokens=200,
+        response_format={"type": "json_object"},
+        operation_type="score",
+    )
+    try:
+        parsed = _json.loads(result["content"])
+        score = float(parsed.get("score", 3.0))
+        issues = parsed.get("issues", [])
+    except (ValueError, KeyError):
+        score = 3.0
+        issues = ["Parse error in character verification"]
+
+    controls = _runtime_controls(context)
+    threshold = float(controls.get("character_verify_threshold", 3.0))
+    passed = score >= threshold
+
     return {
-        "status": "ok",
-        "output": "character_verified",
-        "score": 0.9,
-        "cost_usd": 0.0,
+        "status": "ok" if passed else "error",
+        "output": (
+            f"character_verify: score {score:.1f}"
+            + (f" — issues: {issues}" if issues else "")
+        ),
+        "score": score,
+        "issues": issues,
+        "input_tokens": int(result.get("input_tokens", 0) or 0),
+        "output_tokens": int(result.get("output_tokens", 0) or 0),
+        "cost_usd": float(result.get("cost_usd", 0.0) or 0.0),
     }
 
 
 def _narrative_qa(context: dict[str, Any]) -> dict[str, Any]:
-    """Run narrative quality checks on story content."""
+    """Run narrative quality checks on story content via LLM.
+
+    Evaluates coherence, pacing, age-appropriateness, and lesson delivery.
+    """
+    from utils.call_llm import call_llm
+
+    payload = _artifact_payload(context)
+    job_ctx = context.get("job_context", {})
+    text = str(
+        payload.get("page_text")
+        or payload.get("text_content")
+        or context.get("previous_output", {}).get("output", "")
+    )
+    if not text.strip():
+        return {
+            "status": "ok",
+            "output": "narrative_qa_skipped: no text to evaluate",
+            "score": 3.0,
+            "cost_usd": 0.0,
+        }
+
+    import json as _json
+
+    language = str(job_ctx.get("language", "en"))
+    target_age = str(job_ctx.get("target_age", ""))
+    result = call_llm(
+        stable_prefix=[{
+            "role": "system",
+            "content": (
+                "You are a children's literature editor. Evaluate the "
+                "narrative on 4 dimensions (score each 1-5):\n"
+                "1. coherence: logical flow and consistency\n"
+                "2. pacing: appropriate rhythm for the target age\n"
+                "3. age_appropriateness: vocabulary and themes\n"
+                "4. lesson_delivery: thematic message woven naturally\n\n"
+                "Return JSON: {\"coherence\": <1-5>, \"pacing\": <1-5>, "
+                "\"age_appropriateness\": <1-5>, \"lesson_delivery\": <1-5>, "
+                "\"issues\": [...]}"
+            ),
+        }],
+        variable_suffix=[{
+            "role": "user",
+            "content": (
+                f"Language: {language}\n"
+                f"Target age: {target_age or 'unspecified'}\n\n"
+                f"Text:\n{text[:3000]}"
+            ),
+        }],
+        model="gpt-5.4-mini",
+        temperature=0.2,
+        max_tokens=250,
+        response_format={"type": "json_object"},
+        operation_type="score",
+    )
+    try:
+        parsed = _json.loads(result["content"])
+        scores = [
+            float(parsed.get("coherence", 3.0)),
+            float(parsed.get("pacing", 3.0)),
+            float(parsed.get("age_appropriateness", 3.0)),
+            float(parsed.get("lesson_delivery", 3.0)),
+        ]
+        avg_score = sum(scores) / len(scores)
+        issues = parsed.get("issues", [])
+    except (ValueError, KeyError):
+        avg_score = 3.0
+        issues = ["Parse error in narrative QA"]
+
+    controls = _runtime_controls(context)
+    threshold = float(controls.get("narrative_qa_threshold", 3.0))
+    passed = avg_score >= threshold
+
     return {
-        "status": "ok",
-        "output": "narrative_qa_passed",
-        "score": 4.0,
-        "cost_usd": 0.0,
+        "status": "ok" if passed else "error",
+        "output": (
+            f"narrative_qa: score {avg_score:.1f}"
+            + (f" — issues: {issues}" if issues else "")
+        ),
+        "score": avg_score,
+        "issues": issues if isinstance(issues, list) else [],
+        "input_tokens": int(result.get("input_tokens", 0) or 0),
+        "output_tokens": int(result.get("output_tokens", 0) or 0),
+        "cost_usd": float(result.get("cost_usd", 0.0) or 0.0),
     }
 
 
 def _document_qa(context: dict[str, Any]) -> dict[str, Any]:
-    """Run document quality checks."""
+    """Run document quality checks via LLM.
+
+    Evaluates structure, completeness, clarity, and professionalism.
+    """
+    from utils.call_llm import call_llm
+
+    payload = _artifact_payload(context)
+    job_ctx = context.get("job_context", {})
+    text = str(
+        payload.get("text_content")
+        or payload.get("document_content")
+        or context.get("previous_output", {}).get("output", "")
+    )
+    if not text.strip():
+        return {
+            "status": "ok",
+            "output": "document_qa_skipped: no text to evaluate",
+            "score": 3.0,
+            "cost_usd": 0.0,
+        }
+
+    import json as _json
+
+    language = str(job_ctx.get("language", "en"))
+    artifact_family = str(job_ctx.get("artifact_family", "document"))
+    result = call_llm(
+        stable_prefix=[{
+            "role": "system",
+            "content": (
+                "You are a professional document reviewer. Evaluate on "
+                "4 dimensions (score each 1-5):\n"
+                "1. structure: clear sections, logical flow, headings\n"
+                "2. completeness: covers the brief, no missing sections\n"
+                "3. clarity: easy to understand, no ambiguity\n"
+                "4. professionalism: tone, grammar, formatting quality\n\n"
+                "Return JSON: {\"structure\": <1-5>, \"completeness\": <1-5>, "
+                "\"clarity\": <1-5>, \"professionalism\": <1-5>, "
+                "\"issues\": [...]}"
+            ),
+        }],
+        variable_suffix=[{
+            "role": "user",
+            "content": (
+                f"Document type: {artifact_family}\n"
+                f"Language: {language}\n\n"
+                f"Content:\n{text[:3000]}"
+            ),
+        }],
+        model="gpt-5.4-mini",
+        temperature=0.2,
+        max_tokens=250,
+        response_format={"type": "json_object"},
+        operation_type="score",
+    )
+    try:
+        parsed = _json.loads(result["content"])
+        scores = [
+            float(parsed.get("structure", 3.0)),
+            float(parsed.get("completeness", 3.0)),
+            float(parsed.get("clarity", 3.0)),
+            float(parsed.get("professionalism", 3.0)),
+        ]
+        avg_score = sum(scores) / len(scores)
+        issues = parsed.get("issues", [])
+    except (ValueError, KeyError):
+        avg_score = 3.0
+        issues = ["Parse error in document QA"]
+
+    controls = _runtime_controls(context)
+    threshold = float(controls.get("document_qa_threshold", 3.0))
+    passed = avg_score >= threshold
+
     return {
-        "status": "ok",
-        "output": "document_qa_passed",
-        "score": 4.0,
-        "cost_usd": 0.0,
+        "status": "ok" if passed else "error",
+        "output": (
+            f"document_qa: score {avg_score:.1f}"
+            + (f" — issues: {issues}" if issues else "")
+        ),
+        "score": avg_score,
+        "issues": issues if isinstance(issues, list) else [],
+        "input_tokens": int(result.get("input_tokens", 0) or 0),
+        "output_tokens": int(result.get("output_tokens", 0) or 0),
+        "cost_usd": float(result.get("cost_usd", 0.0) or 0.0),
     }
 
 
@@ -1792,8 +2011,87 @@ def _platform_check(context: dict[str, Any]) -> dict[str, Any]:
 
 
 def _text_qa(context: dict[str, Any]) -> dict[str, Any]:
-    """Run text quality checks on copy."""
-    return {"status": "ok", "output": "text_qa_passed", "score": 4.0, "cost_usd": 0.0}
+    """Run text/copy quality checks via LLM.
+
+    Evaluates grammar, tone consistency, brand voice, and engagement.
+    """
+    from utils.call_llm import call_llm
+
+    payload = _artifact_payload(context)
+    job_ctx = context.get("job_context", {})
+    text = str(
+        payload.get("text_content")
+        or payload.get("caption")
+        or context.get("previous_output", {}).get("output", "")
+    )
+    if not text.strip():
+        return {
+            "status": "ok",
+            "output": "text_qa_skipped: no text to evaluate",
+            "score": 3.0,
+            "cost_usd": 0.0,
+        }
+
+    import json as _json
+
+    language = str(job_ctx.get("language", "en"))
+    copy_register = str(job_ctx.get("copy_register", "neutral"))
+    result = call_llm(
+        stable_prefix=[{
+            "role": "system",
+            "content": (
+                "You are a copy editor. Evaluate the text on 3 dimensions "
+                "(score each 1-5):\n"
+                "1. grammar: correct grammar and spelling\n"
+                "2. tone: matches the requested register\n"
+                "3. engagement: compelling, clear call to action\n\n"
+                "Return JSON: {\"grammar\": <1-5>, \"tone\": <1-5>, "
+                "\"engagement\": <1-5>, \"issues\": [...]}"
+            ),
+        }],
+        variable_suffix=[{
+            "role": "user",
+            "content": (
+                f"Language: {language}\n"
+                f"Register: {copy_register}\n\n"
+                f"Text:\n{text[:2000]}"
+            ),
+        }],
+        model="gpt-5.4-mini",
+        temperature=0.2,
+        max_tokens=200,
+        response_format={"type": "json_object"},
+        operation_type="score",
+    )
+    try:
+        parsed = _json.loads(result["content"])
+        scores = [
+            float(parsed.get("grammar", 3.0)),
+            float(parsed.get("tone", 3.0)),
+            float(parsed.get("engagement", 3.0)),
+        ]
+        avg_score = sum(scores) / len(scores)
+        issues = parsed.get("issues", [])
+    except (ValueError, KeyError):
+        avg_score = 3.0
+        issues = ["Parse error in text QA"]
+
+    controls = _runtime_controls(context)
+    threshold = float(controls.get("text_qa_threshold", 3.0))
+    passed = avg_score >= threshold
+
+    return {
+        "status": "ok" if passed else "error",
+        "output": (
+            f"text_qa: score {avg_score:.1f}"
+            + (f" — issues: {issues}" if issues else "")
+        ),
+        "score": avg_score,
+        "issues": issues if isinstance(issues, list) else [],
+        "input_tokens": int(result.get("input_tokens", 0) or 0),
+        "output_tokens": int(result.get("output_tokens", 0) or 0),
+        "cost_usd": float(result.get("cost_usd", 0.0) or 0.0),
+    }
 
 
 def _onboard_client(context: dict[str, Any]) -> dict[str, Any]:
