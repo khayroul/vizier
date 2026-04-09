@@ -130,6 +130,51 @@ def test_pre_llm_call_prefers_structured_gateway_media_env(
     assert state.media_context.primary_image_path == str(image_path)
 
 
+def test_gateway_env_builds_media_manifest_for_all_types(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Manifest includes non-image media (e.g. PDF, audio) that were previously filtered out."""
+    image_path = tmp_path / "photo.jpg"
+    image_path.write_bytes(b"fake-jpg")
+    pdf_path = tmp_path / "brief.pdf"
+    pdf_path.write_bytes(b"fake-pdf")
+
+    monkeypatch.setenv(
+        "HERMES_SESSION_MEDIA_URLS", f'["{image_path}", "{pdf_path}"]'
+    )
+    monkeypatch.setenv(
+        "HERMES_SESSION_MEDIA_TYPES", '["image/jpeg", "application/pdf"]'
+    )
+
+    result = bridge._pre_llm_call(
+        session_id="sess-manifest",
+        user_message="Create a poster using the uploaded files",
+        is_first_turn=True,
+        model="gpt-5.4-mini",
+        platform="telegram",
+    )
+
+    assert result is not None
+    state = bridge._SESSION_STATE["sess-manifest"]
+    manifest = state.media_context.media_manifest
+
+    # Both entries should be in the manifest
+    assert len(manifest) == 2
+    mime_types = {entry.mime_type for entry in manifest}
+    assert "image/jpeg" in mime_types
+    assert "application/pdf" in mime_types
+
+    # Image should still appear in backward-compat image_paths
+    assert len(state.media_context.media_paths) == 1
+    assert str(image_path) in state.media_context.media_paths[0]
+
+    # Primary image should be marked in manifest
+    primary_entries = [e for e in manifest if e.role == "primary_image"]
+    assert len(primary_entries) == 1
+    assert primary_entries[0].mime_type == "image/jpeg"
+
+
 def test_pre_tool_call_enriches_run_pipeline_args_from_session_media_context(
     tmp_path: Path,
 ) -> None:

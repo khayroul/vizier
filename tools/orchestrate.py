@@ -131,6 +131,7 @@ def run_governed(
     reference_image_url: str | None = None,
     reference_notes: str | None = None,
     hermes_session_id: str | None = None,
+    media_manifest: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     """Run the full governed execution chain.
 
@@ -232,6 +233,8 @@ def run_governed(
         job_context["reference_image_url"] = reference_image_url
     if reference_notes:
         job_context["reference_notes"] = reference_notes
+    if media_manifest:
+        job_context["media_manifest"] = media_manifest
 
     if decision.action == PolicyAction.block:
         raise PolicyDenied(

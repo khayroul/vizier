@@ -78,6 +78,16 @@ _SESSION_STATE: dict[str, "BridgeSessionState"] = {}
 
 
 @dataclass(frozen=True)
+class MediaManifestEntry:
+    """Single media attachment with type and role metadata."""
+
+    path: str = ""
+    url: str = ""
+    mime_type: str = ""
+    role: str = "attachment"  # "primary_image" | "reference" | "attachment"
+
+
+@dataclass(frozen=True)
 class BridgeMediaContext:
     """Normalized per-turn media context for bridge-side tool enrichment."""
 
@@ -86,6 +96,7 @@ class BridgeMediaContext:
     primary_image_path: str = ""
     primary_image_url: str = ""
     source: str = ""
+    media_manifest: tuple[MediaManifestEntry, ...] = ()
 
     def has_reference(self) -> bool:
         return bool(self.primary_image_path or self.primary_image_url)
@@ -317,17 +328,31 @@ def _extract_env_media_context() -> BridgeMediaContext:
     media_urls = _load_json_list_env("HERMES_SESSION_MEDIA_URLS")
     media_types = _load_json_list_env("HERMES_SESSION_MEDIA_TYPES")
 
+    _IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".gif")
     image_paths: list[str] = []
     image_urls: list[str] = []
+    manifest_entries: list[MediaManifestEntry] = []
+
     for index, candidate in enumerate(media_urls):
         media_type = media_types[index] if index < len(media_types) else ""
         is_image = media_type.startswith("image/")
-        if Path(candidate).is_file():
-            if is_image or candidate.lower().endswith((".png", ".jpg", ".jpeg", ".webp", ".gif")):
-                image_paths.append(candidate)
-        elif candidate.startswith(("http://", "https://")):
-            if is_image or candidate.lower().endswith((".png", ".jpg", ".jpeg", ".webp", ".gif")):
-                image_urls.append(candidate)
+        is_local = Path(candidate).is_file()
+        is_remote = candidate.startswith(("http://", "https://"))
+
+        # Build manifest entry for ALL media (not just images)
+        if is_local or is_remote:
+            manifest_entries.append(MediaManifestEntry(
+                path=candidate if is_local else "",
+                url=candidate if is_remote else "",
+                mime_type=media_type,
+                role="attachment",
+            ))
+
+        # Backward-compat: image-specific lists
+        if is_local and (is_image or candidate.lower().endswith(_IMAGE_EXTS)):
+            image_paths.append(candidate)
+        elif is_remote and (is_image or candidate.lower().endswith(_IMAGE_EXTS)):
+            image_urls.append(candidate)
 
     if primary_path and not Path(primary_path).is_file():
         primary_path = ""
@@ -339,7 +364,20 @@ def _extract_env_media_context() -> BridgeMediaContext:
     if not primary_url and image_urls:
         primary_url = image_urls[0]
 
-    if not (primary_path or primary_url or image_paths or image_urls):
+    # Mark primary image entry in manifest
+    for idx, entry in enumerate(manifest_entries):
+        if (entry.path and entry.path == primary_path) or (
+            entry.url and entry.url == primary_url
+        ):
+            manifest_entries[idx] = MediaManifestEntry(
+                path=entry.path,
+                url=entry.url,
+                mime_type=entry.mime_type,
+                role="primary_image",
+            )
+            break
+
+    if not (primary_path or primary_url or image_paths or image_urls or manifest_entries):
         return BridgeMediaContext()
 
     return BridgeMediaContext(
@@ -348,6 +386,7 @@ def _extract_env_media_context() -> BridgeMediaContext:
         primary_image_path=primary_path,
         primary_image_url=primary_url,
         source="gateway_env",
+        media_manifest=tuple(manifest_entries),
     )
 
 
@@ -682,6 +721,16 @@ def _run_pipeline_handler(args: dict[str, Any], **kwargs: Any) -> str:
         run_kwargs["reference_image_url"] = reference_image_url
     if reference_notes:
         run_kwargs["reference_notes"] = reference_notes
+
+    # Thread media manifest into governed execution (hardening 1.8)
+    if _SESSION_STATE:
+        latest_state = next(iter(_SESSION_STATE.values()))
+        manifest = latest_state.media_context.media_manifest
+        if manifest:
+            run_kwargs["media_manifest"] = [
+                {"path": e.path, "url": e.url, "mime_type": e.mime_type, "role": e.role}
+                for e in manifest
+            ]
 
     script = f"""
 import json
