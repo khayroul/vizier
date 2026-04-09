@@ -75,6 +75,10 @@ _ACTION_KEYWORDS = {
 }
 
 _SESSION_STATE: dict[str, "BridgeSessionState"] = {}
+# Hermes passes session_id to pre_llm_call but task_id (a per-turn UUID) to
+# pre_tool_call.  These two mappings let pre_tool_call resolve the right session.
+_ACTIVE_SESSION_ID: str = ""
+_TASK_TO_SESSION: dict[str, str] = {}
 
 
 @dataclass(frozen=True)
@@ -468,6 +472,8 @@ def _pre_llm_call(
     **kwargs: Any,
 ) -> dict[str, str] | None:
     del kwargs
+    global _ACTIVE_SESSION_ID  # noqa: PLW0603
+    _ACTIVE_SESSION_ID = session_id
     state = _get_session_state(session_id, platform=platform, model=model)
     state.llm_turns += 1
     state.last_user_preview = _preview(user_message)
@@ -549,7 +555,17 @@ def _pre_tool_call(
     if tool_name != "run_pipeline" or not isinstance(args, dict):
         return
 
+    # Hermes passes task_id (per-turn UUID) here, not session_id.
+    # Resolve via: direct hit → cached mapping → active session fallback.
     state = _SESSION_STATE.get(task_id)
+    if state is None:
+        mapped_sid = _TASK_TO_SESSION.get(task_id)
+        if mapped_sid:
+            state = _SESSION_STATE.get(mapped_sid)
+        elif _ACTIVE_SESSION_ID:
+            state = _SESSION_STATE.get(_ACTIVE_SESSION_ID)
+            if state is not None and task_id:
+                _TASK_TO_SESSION[task_id] = _ACTIVE_SESSION_ID
     media_context = state.media_context if state else BridgeMediaContext()
     enriched_fields: list[str] = []
 
@@ -570,6 +586,11 @@ def _pre_tool_call(
         args["reference_image_url"] = media_context.primary_image_url
         enriched_fields.append("reference_image_url")
 
+    # Thread session_id into args so handler reads it from context, not recency (P1 fix).
+    # This is always injected — it's session correlation, not a tool enrichment.
+    if state and state.session_id:
+        args["_hermes_session_id"] = state.session_id
+
     if not enriched_fields:
         return
 
@@ -580,7 +601,8 @@ def _pre_tool_call(
         "Vizier bridge tool enrichment: %s",
         json.dumps(
             {
-                "session_id": task_id,
+                "task_id": task_id,
+                "session_id": state.session_id if state else "",
                 "tool_name": tool_name,
                 "media_source": media_context.source,
                 "enriched_fields": enriched_fields,
@@ -599,10 +621,17 @@ def _on_session_end(
     **kwargs: Any,
 ) -> None:
     del kwargs
+    global _ACTIVE_SESSION_ID  # noqa: PLW0603
     state = _SESSION_STATE.pop(
         session_id,
         BridgeSessionState(session_id=session_id, platform=platform, model=model),
     )
+    # Evict any task→session entries pointing at the ended session.
+    stale = [tid for tid, sid in _TASK_TO_SESSION.items() if sid == session_id]
+    for tid in stale:
+        del _TASK_TO_SESSION[tid]
+    if _ACTIVE_SESSION_ID == session_id:
+        _ACTIVE_SESSION_ID = ""
     if platform and not state.platform:
         state.platform = platform
     if model and not state.model:
@@ -699,12 +728,17 @@ def _run_pipeline_handler(args: dict[str, Any], **kwargs: Any) -> str:
     )
     reference_notes = args.get("reference_notes")
 
-    # Thread Hermes session_id into governed execution (hardening 1.6)
-    hermes_session_id: str | None = None
-    if _SESSION_STATE:
-        # Use the most recent session (there's typically only one active)
-        latest_state = next(iter(_SESSION_STATE.values()))
-        hermes_session_id = latest_state.session_id
+    # Thread Hermes session_id into governed execution (hardening 1.6).
+    # Read from args where _pre_tool_call injected it (concurrency-safe).
+    # No fallback to _SESSION_STATE iteration — that path is unsafe under
+    # concurrent sessions and hiding it behind a fallback masks the bug.
+    hermes_session_id: str | None = args.get("_hermes_session_id")
+    if not hermes_session_id:
+        logger.debug(
+            "No _hermes_session_id in run_pipeline args — "
+            "pre_tool_call may not have fired for job %s",
+            args.get("job_id", "?"),
+        )
 
     run_kwargs: dict[str, Any] = {
         "raw_input": request,
@@ -722,15 +756,24 @@ def _run_pipeline_handler(args: dict[str, Any], **kwargs: Any) -> str:
     if reference_notes:
         run_kwargs["reference_notes"] = reference_notes
 
-    # Thread media manifest into governed execution (hardening 1.8)
-    if _SESSION_STATE:
-        latest_state = next(iter(_SESSION_STATE.values()))
-        manifest = latest_state.media_context.media_manifest
-        if manifest:
-            run_kwargs["media_manifest"] = [
-                {"path": e.path, "url": e.url, "mime_type": e.mime_type, "role": e.role}
-                for e in manifest
-            ]
+    # Thread media manifest into governed execution (hardening 1.8).
+    # Look up by exact session_id only — no recency fallback.
+    # If session_id is missing, skip manifest rather than risk cross-session bleed.
+    manifest: tuple[Any, ...] = ()
+    if hermes_session_id:
+        _session_for_manifest = _SESSION_STATE.get(hermes_session_id)
+        if _session_for_manifest:
+            manifest = _session_for_manifest.media_context.media_manifest
+    elif _SESSION_STATE:
+        logger.debug(
+            "No hermes_session_id for manifest lookup — "
+            "skipping media manifest to avoid cross-session bleed",
+        )
+    if manifest:
+        run_kwargs["media_manifest"] = [
+            {"path": e.path, "url": e.url, "mime_type": e.mime_type, "role": e.role}
+            for e in manifest
+        ]
 
     script = f"""
 import json
@@ -931,7 +974,9 @@ __all__ = [
     "BridgeMediaContext",
     "BridgeSessionState",
     "register",
+    "_ACTIVE_SESSION_ID",
     "_SESSION_STATE",
+    "_TASK_TO_SESSION",
     "_extract_env_media_context",
     "_extract_nested",
     "_extract_message_media_context",

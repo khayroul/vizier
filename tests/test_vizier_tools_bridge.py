@@ -15,8 +15,12 @@ def _clear_session_state() -> Iterator[None]:
     """Ensure bridge session state never leaks between tests."""
 
     bridge._SESSION_STATE.clear()
+    bridge._TASK_TO_SESSION.clear()
+    bridge._ACTIVE_SESSION_ID = ""
     yield
     bridge._SESSION_STATE.clear()
+    bridge._TASK_TO_SESSION.clear()
+    bridge._ACTIVE_SESSION_ID = ""
 
 
 class _FakePluginContext:
@@ -190,7 +194,8 @@ def test_pre_tool_call_enriches_run_pipeline_args_from_session_media_context(
     )
 
     args = {"request": "Create a poster for DMB"}
-    bridge._pre_tool_call("run_pipeline", args=args, task_id="sess-tool")
+    # Use a different task_id to match real Hermes behaviour (task_id != session_id).
+    bridge._pre_tool_call("run_pipeline", args=args, task_id="task-uuid-1")
 
     assert args["platform"] == "telegram"
     assert args["reference_image_path"] == str(image_path)
@@ -209,7 +214,8 @@ def test_pre_tool_call_keeps_explicit_reference_args() -> None:
         "reference_image_path": "/tmp/already-set.png",
         "platform": "cli",
     }
-    bridge._pre_tool_call("run_pipeline", args=args, task_id="sess-explicit")
+    # Use a different task_id to match real Hermes behaviour (task_id != session_id).
+    bridge._pre_tool_call("run_pipeline", args=args, task_id="task-uuid-2")
 
     assert args["reference_image_path"] == "/tmp/already-set.png"
     assert args["platform"] == "cli"
@@ -260,6 +266,74 @@ def test_extract_reference_image_path_requires_real_file(tmp_path: Path) -> None
 def test_extract_reference_image_url_recovers_hosted_reference() -> None:
     text = "Please adapt this layout from image_url: https://example.com/ref.jpg"
     assert bridge._extract_reference_image_url(text) == "https://example.com/ref.jpg"
+
+
+def test_pre_tool_call_resolves_session_when_task_id_differs(
+    tmp_path: Path,
+) -> None:
+    """Regression: Hermes passes a per-turn UUID as task_id, not session_id.
+
+    pre_tool_call must still find the session state created by pre_llm_call
+    even when the two identifiers are completely different.
+    """
+    image_path = tmp_path / "distinct-ids.png"
+    image_path.write_bytes(b"fake")
+
+    session_id = "session-abc-123"
+    task_id = "task-uuid-999-differs"
+
+    bridge._on_session_start(
+        session_id=session_id,
+        model="gpt-5.4-mini",
+        platform="whatsapp",
+    )
+    bridge._pre_llm_call(
+        session_id=session_id,
+        user_message=f"Create a poster from image_url: {image_path}",
+        is_first_turn=True,
+        model="gpt-5.4-mini",
+        platform="whatsapp",
+    )
+
+    args: dict[str, object] = {"request": "Make a poster"}
+    bridge._pre_tool_call("run_pipeline", args=args, task_id=task_id)
+
+    # Enrichment must have found the session state despite different task_id.
+    assert args["platform"] == "whatsapp"
+    assert args["reference_image_path"] == str(image_path)
+    assert args.get("_hermes_session_id") == session_id
+    assert bridge._SESSION_STATE[session_id].tool_enrichments == 1
+
+    # The mapping should be cached for subsequent tool calls in the same turn.
+    assert bridge._TASK_TO_SESSION[task_id] == session_id
+
+    # Second tool call in same turn should still resolve via cached mapping.
+    args2: dict[str, object] = {"request": "Make another poster"}
+    bridge._pre_tool_call("run_pipeline", args=args2, task_id=task_id)
+    assert args2["platform"] == "whatsapp"
+    assert bridge._SESSION_STATE[session_id].tool_enrichments == 2
+
+
+def test_session_end_cleans_task_to_session_mapping() -> None:
+    """_on_session_end must evict stale task→session entries."""
+    session_id = "sess-cleanup"
+    task_id = "task-cleanup-uuid"
+
+    bridge._on_session_start(session_id=session_id, model="gpt-5.4-mini")
+    bridge._pre_llm_call(
+        session_id=session_id,
+        user_message="Create a poster for DMB",
+        is_first_turn=True,
+        model="gpt-5.4-mini",
+    )
+    bridge._pre_tool_call("run_pipeline", args={"request": "poster"}, task_id=task_id)
+
+    assert task_id in bridge._TASK_TO_SESSION
+
+    bridge._on_session_end(session_id=session_id, completed=True)
+
+    assert task_id not in bridge._TASK_TO_SESSION
+    assert bridge._ACTIVE_SESSION_ID == ""
 
 
 def test_live_plugin_loader_still_exposes_bridge_helpers() -> None:
