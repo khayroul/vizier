@@ -85,37 +85,53 @@ def _quality_target_text(payload: dict[str, Any], fallback: dict[str, Any]) -> s
     return str(output)
 
 
-_TEMPLATE_ALIASES = {
-    "corporate_premium": "poster_default",
-    "premium_traditional": "poster_default",
-    "warm_heritage": "poster_default",
-    "road_safety": "poster_road_safety",
-}
-
-
 def _resolve_template_name(job_ctx: dict[str, Any], *, workflow: str) -> str:
-    """Resolve a concrete render template from job context."""
+    """Resolve a concrete render template via intent-aware scoring.
+
+    Priority:
+    1. Explicit template_name in job_ctx (operator override)
+    2. Road safety pattern match (backward compat for safety workflows)
+    3. Intent-aware selector scoring against _meta.yaml catalog
+    4. Fallback: poster_default
+    """
     if workflow != "poster_production":
         return "poster"
 
-    candidates: list[str] = []
+    # 1. Explicit override
     explicit = job_ctx.get("template_name")
-    if explicit:
-        candidates.append(str(explicit))
+    if explicit and (_HTML_TEMPLATES_DIR / f"{explicit}.html").exists():
+        return str(explicit)
 
-    design_system = job_ctx.get("design_system") or job_ctx.get("routing", {}).get("design_system")
-    if isinstance(design_system, str) and design_system:
+    # 2. Road safety backward compat
+    design_system = job_ctx.get("design_system") or job_ctx.get(
+        "routing", {},
+    ).get("design_system")
+    if isinstance(design_system, str):
         ds_key = design_system.strip().lower().replace(" ", "_")
-        candidates.extend([design_system, ds_key])
         if "road" in ds_key or "safety" in ds_key:
-            candidates.append("poster_road_safety")
+            return "poster_road_safety"
 
-    candidates.append("poster_default")
+    # 3. Intent-aware selector (hardening 2.6)
+    from contracts.interpreted_intent import InterpretedIntent
+    from tools.template_selector import select_template
 
-    for candidate in candidates:
-        resolved = _TEMPLATE_ALIASES.get(candidate, candidate)
-        if (_HTML_TEMPLATES_DIR / f"{resolved}.html").exists():
-            return resolved
+    intent_data = job_ctx.get("interpreted_intent", {})
+    try:
+        intent = (
+            InterpretedIntent.model_validate(intent_data)
+            if intent_data
+            else InterpretedIntent()
+        )
+    except Exception:
+        intent = InterpretedIntent()
+
+    match = select_template(
+        intent,
+        client_style_hint=str(design_system or ""),
+    )
+
+    if (_HTML_TEMPLATES_DIR / f"{match.template_name}.html").exists():
+        return match.template_name
     return "poster_default"
 
 
