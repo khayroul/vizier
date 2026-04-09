@@ -123,12 +123,19 @@ def _get_expand_prefix() -> list[dict[str, str]]:
 def expand_brief(
     raw_brief: str,
     brand_config: dict[str, Any] | None = None,
+    interpreted_intent: dict[str, Any] | None = None,
 ) -> dict[str, str]:
     """Expand a raw visual brief into structured JSON via GPT-5.4-mini.
+
+    When ``interpreted_intent`` is provided, it is injected into the expansion
+    prompt so expand_brief does **visual elaboration** (composition, style,
+    technical details) rather than redundant brief parsing. The intent provides
+    the canonical parse; this function provides the visual layer on top.
 
     Args:
         raw_brief: The operator's raw brief text.
         brand_config: Optional brand configuration with colours, logo rules, etc.
+        interpreted_intent: Structured intent from brief interpreter (optional).
 
     Returns:
         Dict with keys: composition, style, brand, technical, text_content.
@@ -140,7 +147,23 @@ def expand_brief(
         )
         brand_context = f"\n\nBrand config: {brand_json}"
 
-    user_msg = f"Expand this brief:{brand_context}\n\n{raw_brief}"
+    intent_context = ""
+    if interpreted_intent:
+        intent_parts: list[str] = []
+        if interpreted_intent.get("occasion"):
+            intent_parts.append(f"Occasion: {interpreted_intent['occasion']}")
+        if interpreted_intent.get("mood"):
+            intent_parts.append(f"Mood: {interpreted_intent['mood']}")
+        if interpreted_intent.get("audience"):
+            intent_parts.append(f"Audience: {interpreted_intent['audience']}")
+        if interpreted_intent.get("cultural_context"):
+            intent_parts.append(f"Cultural context: {interpreted_intent['cultural_context']}")
+        if interpreted_intent.get("text_density"):
+            intent_parts.append(f"Text density: {interpreted_intent['text_density']}")
+        if intent_parts:
+            intent_context = "\n\nInterpreted intent:\n" + "\n".join(intent_parts)
+
+    user_msg = f"Expand this brief:{brand_context}{intent_context}\n\n{raw_brief}"
 
     result = call_llm(
         stable_prefix=_get_expand_prefix(),
