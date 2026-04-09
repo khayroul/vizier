@@ -805,8 +805,6 @@ def _typst_render(context: dict[str, Any]) -> dict[str, Any]:
         )
 
     # Compile the source
-    import tempfile
-
     from tools.publish import _compile_typst
 
     source_file = output_dir / "document.typ"
@@ -1259,7 +1257,6 @@ def _deliver_document(
         Delivery result dict with status, pdf_path, structural QA.
     """
     payload = _artifact_payload(context)
-    job_ctx = context.get("job_context", {})
     stage_results = context.get("stage_results", [])
 
     # 1. Locate PDF from upstream _typst_render output
@@ -1763,7 +1760,7 @@ def _web_search(context: dict[str, Any]) -> dict[str, Any]:
 
 def _trend_analyse(context: dict[str, Any]) -> dict[str, Any]:
     """Analyse market trends."""
-    from tools.research import fetch_trends  # noqa: F401 — validates import
+    from tools.research import fetch_trends  # noqa: F401 — validates import  # pyright: ignore[reportUnusedImport]
 
     return {"status": "ok", "output": "trends_analysed", "cost_usd": 0.0}
 
@@ -2038,7 +2035,7 @@ def _calibration_check(context: dict[str, Any]) -> dict[str, Any]:
 
 def _character_workshop(context: dict[str, Any]) -> dict[str, Any]:
     """Run creative character workshop for publishing."""
-    from tools.illustrate import run_creative_workshop  # noqa: F401 — validates import
+    from tools.illustrate import run_creative_workshop  # noqa: F401 — validates import  # pyright: ignore[reportUnusedImport]
 
     return {"status": "ok", "output": "character_workshop_complete", "cost_usd": 0.0}
 
@@ -2493,7 +2490,7 @@ def _generate_section(context: dict[str, Any]) -> dict[str, Any]:
 
 def _generate_invoice(context: dict[str, Any]) -> dict[str, Any]:
     """Generate an invoice PDF."""
-    from tools.invoice import generate_invoice  # noqa: F401 — validates import
+    from tools.invoice import generate_invoice  # noqa: F401 — validates import  # pyright: ignore[reportUnusedImport]
 
     return {"status": "ok", "output": "invoice_generated", "cost_usd": 0.0}
 
@@ -2624,7 +2621,7 @@ def _text_qa(context: dict[str, Any]) -> dict[str, Any]:
 
 def _onboard_client(context: dict[str, Any]) -> dict[str, Any]:
     """Run client onboarding pipeline."""
-    from tools.seeding import seed_client  # noqa: F401 — validates import
+    from tools.seeding import seed_client  # noqa: F401 — validates import  # pyright: ignore[reportUnusedImport]
 
     return {"status": "ok", "output": "client_onboarded", "cost_usd": 0.0}
 
@@ -2652,8 +2649,8 @@ _STUB_TOOL_NAMES: frozenset[str] = frozenset({
     "web_search",            # no live search backend in workflow runtime
     "competitor_scan",       # no live competitor backend in workflow runtime
     "swipe_index",           # swipe ingestion not wired to workflow runtime
-    "rolling_summary",       # executor-handled, not a real tool
-    "section_tripwire",      # executor-handled, not a real tool
+    # rolling_summary + section_tripwire removed — executor-internal operations,
+    # not workflow tools. They were incorrectly listed here.
 })
 
 
