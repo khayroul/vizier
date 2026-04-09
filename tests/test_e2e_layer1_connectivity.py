@@ -135,7 +135,24 @@ class TestOpenAIEmbeddings:
 # ---------------------------------------------------------------------------
 
 
+def _minio_available() -> bool:
+    """Check if MinIO client is installed and server is reachable."""
+    try:
+        import minio  # noqa: F401
+    except ImportError:
+        return False
+    import socket
+    try:
+        sock = socket.create_connection(("localhost", 9000), timeout=2)
+        sock.close()
+        return True
+    except (OSError, ConnectionRefusedError):
+        return False
+
+
 @pytest.mark.requires_db
+@pytest.mark.integration
+@pytest.mark.skipif(not _minio_available(), reason="MinIO client not installed or server not reachable")
 class TestMinIOConnectivity:
     """MinIO is reachable: upload + download round-trip."""
 

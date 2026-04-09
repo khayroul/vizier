@@ -50,6 +50,15 @@ class PolicyDenied(Exception):
     """Raised when the policy evaluator blocks the request."""
 
 
+def _is_valid_uuid(value: str) -> bool:
+    """Check if a string looks like a valid UUID (required for jobs.id column)."""
+    import re
+    return bool(re.match(
+        r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        value.lower(),
+    ))
+
+
 def _ensure_job_row(
     job_id: str,
     client_id: str,
@@ -59,7 +68,12 @@ def _ensure_job_row(
     """Create or update the jobs row so downstream persistence has a real FK target.
 
     Uses INSERT ... ON CONFLICT to be idempotent. Sets status='running'.
+    Skips gracefully if job_id is not a valid UUID (e.g. in test contexts).
     """
+    if not _is_valid_uuid(job_id):
+        logger.debug("Skipping job row creation for non-UUID job_id: %s", job_id)
+        return
+
     try:
         from utils.database import get_cursor
 
@@ -89,6 +103,9 @@ def _ensure_job_row(
 
 def _update_job_status(job_id: str, status: str) -> None:
     """Update job status to 'completed' or 'failed'."""
+    if not _is_valid_uuid(job_id):
+        return
+
     try:
         from utils.database import get_cursor
 

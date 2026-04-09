@@ -473,7 +473,16 @@ def _build_packet(
     return packet
 
 
+def _torch_available() -> bool:
+    try:
+        import torch  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
 @pytest.mark.acceptance
+@pytest.mark.skipif(not _torch_available(), reason="torch not installed — required for visual scoring")
 @pytest.mark.parametrize(
     "case",
     POSTER_ACCEPTANCE_CASES,

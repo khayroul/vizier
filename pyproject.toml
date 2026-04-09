@@ -93,6 +93,11 @@ include = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "integration: tests requiring external infrastructure (MinIO, external APIs)",
+    "acceptance: full pipeline acceptance tests requiring governed runtime",
+    "requires_db: tests requiring a live Postgres database",
+]
 
 [tool.ruff]
 line-length = 88
