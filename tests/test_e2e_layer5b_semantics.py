@@ -1083,3 +1083,266 @@ class TestDocumentDeliveryE2E:
         # run_governed, so we verify indirectly by running a quick import check)
         source = Path(orch_mod.__file__).read_text()
         assert "document_production" in source
+
+
+# ---------------------------------------------------------------------------
+# 5b.7 — Real pipeline integration: no mocks on local tools
+# ---------------------------------------------------------------------------
+
+
+class TestDocumentPipelineReal:
+    """Real document pipeline — exercises Typst compilation, not mocked.
+
+    These tests call real _typst_render (writes files, runs typst compile),
+    real _deliver_document (structural QA on the actual PDF), and real
+    _wrap_plain_text_as_typst (markdown → Typst conversion).
+
+    LLM calls are still mocked because they require OPENAI_API_KEY.
+    For fully faithful end-to-end tests, see TestDocumentPipelineFullAPI
+    (requires --run-api).
+    """
+
+    def test_typst_render_real_compilation(self, tmp_path: Path) -> None:
+        """_typst_render actually compiles Typst and produces a real PDF."""
+        from tools.registry import _typst_render
+
+        result = _typst_render({
+            "job_context": {
+                "job_id": "real-doc-001",
+                "client_id": "default",
+            },
+            "artifact_payload": {
+                "template_name": "report",
+                "title": "Q1 Performance Report",
+                "subtitle": "Marketing Division",
+                "client_name": "Test Corp",
+                "author": "Vizier",
+                "date": "April 2026",
+                "period": "Q1 2026",
+            },
+            "stage_results": [],
+        })
+
+        assert result["status"] == "ok", f"Typst render failed: {result}"
+        assert result["output"] == "typst_rendered"
+        pdf_path = Path(result["pdf_path"])
+        assert pdf_path.exists(), f"PDF not created at {pdf_path}"
+        pdf_bytes = pdf_path.read_bytes()
+        assert pdf_bytes[:5] == b"%PDF-", "Not a valid PDF"
+        assert len(pdf_bytes) > 1000, f"PDF too small: {len(pdf_bytes)} bytes"
+
+    def test_typst_render_plain_text_compilation(self, tmp_path: Path) -> None:
+        """_typst_render wraps plain text and compiles to real PDF."""
+        from tools.registry import _typst_render
+
+        result = _typst_render({
+            "job_context": {
+                "job_id": "real-doc-002",
+                "raw_input": "Monthly Marketing Summary",
+            },
+            "artifact_payload": {
+                "document_content": (
+                    "# Executive Summary\n\n"
+                    "Marketing performance exceeded targets across all channels.\n\n"
+                    "## Social Media\n\n"
+                    "- Instagram engagement increased 42%\n"
+                    "- Facebook reach expanded to 50,000 monthly\n"
+                    "- TikTok campaign generated 200K views\n\n"
+                    "## Website Performance\n\n"
+                    "Organic traffic grew 18% month-over-month. "
+                    "Bounce rate decreased from 65% to 52%.\n\n"
+                    "### Key Metrics\n\n"
+                    "- Page views: 125,000\n"
+                    "- Unique visitors: 45,000\n"
+                    "- Conversion rate: 3.2%\n"
+                ),
+            },
+            "stage_results": [],
+        })
+
+        assert result["status"] == "ok", f"Typst render failed: {result}"
+        pdf_path = Path(result["pdf_path"])
+        assert pdf_path.exists()
+        pdf_bytes = pdf_path.read_bytes()
+        assert pdf_bytes[:5] == b"%PDF-"
+        assert len(pdf_bytes) > 500
+
+    def test_document_pipeline_render_then_deliver(self, tmp_path: Path) -> None:
+        """Full local pipeline: _typst_render → _deliver_document with real PDF."""
+        from tools.registry import _deliver, _typst_render
+
+        # Step 1: Real render
+        render_result = _typst_render({
+            "job_context": {
+                "job_id": "real-pipeline-001",
+                "client_id": "default",
+            },
+            "artifact_payload": {
+                "template_name": "invoice",
+                "company_name": "Vizier Creative Sdn Bhd",
+                "invoice_number": "VIZ-2026-042",
+                "invoice_date": "9 April 2026",
+                "client_name": "DMB Ventures",
+            },
+            "stage_results": [],
+        })
+
+        assert render_result["status"] == "ok"
+        pdf_path = render_result["pdf_path"]
+
+        # Step 2: Real delivery with structural QA
+        deliver_result = _deliver({
+            "job_context": {
+                "job_id": "real-pipeline-001",
+                "routing": {"workflow": "invoice"},
+            },
+            "artifact_payload": {"pdf_path": pdf_path},
+            "stage_results": [render_result],
+        })
+
+        assert deliver_result["status"] == "ok"
+        assert deliver_result["output"] == "document_delivered"
+        assert deliver_result["structural_qa"]["passed"] is True
+        # Verify the actual PDF on disk
+        actual_pdf = Path(deliver_result["pdf_path"])
+        assert actual_pdf.exists()
+        assert actual_pdf.read_bytes()[:5] == b"%PDF-"
+
+    def test_document_pipeline_generate_then_render(self, tmp_path: Path) -> None:
+        """Simulated _generate_document (mocked LLM) → real _typst_render → real _deliver."""
+        from tools.registry import _deliver, _typst_render
+
+        # Simulate what _generate_document would produce
+        generated_content = (
+            "# Project Proposal: Digital Marketing Campaign\n\n"
+            "## Background\n\n"
+            "DMB Ventures requires a comprehensive digital marketing strategy "
+            "for their new product line launching in Q2 2026.\n\n"
+            "## Objectives\n\n"
+            "- Increase brand awareness by 30%\n"
+            "- Generate 500 qualified leads\n"
+            "- Achieve 5x ROI on ad spend\n\n"
+            "## Strategy\n\n"
+            "The campaign will leverage social media, content marketing, "
+            "and targeted paid advertising across three phases.\n\n"
+            "### Phase 1: Foundation\n\n"
+            "Establish brand presence and content calendar.\n\n"
+            "### Phase 2: Growth\n\n"
+            "Scale successful channels and launch paid campaigns.\n\n"
+            "### Phase 3: Optimisation\n\n"
+            "Analyse results and reallocate budget to top performers.\n"
+        )
+
+        # Step 1: Real typst render from plain text content
+        render_result = _typst_render({
+            "job_context": {
+                "job_id": "real-gen-render-001",
+                "raw_input": "Proposal for DMB digital marketing",
+                "client_name": "DMB Ventures",
+            },
+            "artifact_payload": {
+                "document_content": generated_content,
+            },
+            "stage_results": [],
+        })
+
+        assert render_result["status"] == "ok", f"Render failed: {render_result}"
+        pdf_path = Path(render_result["pdf_path"])
+        assert pdf_path.exists()
+        pdf_bytes = pdf_path.read_bytes()
+        assert pdf_bytes[:5] == b"%PDF-"
+        assert len(pdf_bytes) > 1000, f"PDF too small: {len(pdf_bytes)} bytes"
+
+        # Step 2: Real delivery
+        deliver_result = _deliver({
+            "job_context": {
+                "job_id": "real-gen-render-001",
+                "routing": {"workflow": "document_production"},
+            },
+            "artifact_payload": {"pdf_path": str(pdf_path)},
+            "stage_results": [render_result],
+        })
+
+        assert deliver_result["status"] == "ok"
+        assert deliver_result["structural_qa"]["passed"] is True
+
+
+@pytest.mark.requires_api
+class TestDocumentPipelineFullAPI:
+    """Fully faithful end-to-end: real LLM + real Typst + real delivery.
+
+    These tests consume real OpenAI tokens. Run with ``--run-api``.
+    """
+
+    def test_generate_then_render_then_deliver(self) -> None:
+        """Real _generate_document → real _typst_render → real _deliver."""
+        from tools.registry import _deliver, _generate_document, _typst_render
+
+        # Step 1: Real LLM generation
+        gen_result = _generate_document({
+            "prompt": (
+                "Write a concise 1-page executive summary for a monthly "
+                "digital marketing report for a Malaysian SME. "
+                "Include sections: Overview, Key Metrics, Recommendations. "
+                "Keep it under 300 words."
+            ),
+            "job_context": {
+                "job_id": "api-doc-001",
+                "client_id": "default",
+                "language": "en",
+                "artifact_family": "document",
+            },
+            "artifact_payload": {},
+            "stage_results": [],
+        })
+
+        assert gen_result["status"] == "ok", f"Generation failed: {gen_result}"
+        assert len(gen_result["output"]) > 50, "Generated content too short"
+        gen_tokens = int(gen_result.get("input_tokens", 0)) + int(
+            gen_result.get("output_tokens", 0)
+        )
+        gen_cost = float(gen_result.get("cost_usd", 0.0))
+
+        # Step 2: Real Typst render of generated content
+        render_result = _typst_render({
+            "job_context": {
+                "job_id": "api-doc-001",
+                "raw_input": "Monthly marketing report",
+                "client_name": "Test SME",
+            },
+            "artifact_payload": {
+                "document_content": gen_result["output"],
+            },
+            "stage_results": [gen_result],
+        })
+
+        assert render_result["status"] == "ok", f"Render failed: {render_result}"
+        pdf_path = Path(render_result["pdf_path"])
+        assert pdf_path.exists()
+        pdf_bytes = pdf_path.read_bytes()
+        assert pdf_bytes[:5] == b"%PDF-"
+
+        # Step 3: Real delivery
+        deliver_result = _deliver({
+            "job_context": {
+                "job_id": "api-doc-001",
+                "routing": {"workflow": "document_production"},
+            },
+            "artifact_payload": {"pdf_path": str(pdf_path)},
+            "stage_results": [gen_result, render_result],
+        })
+
+        assert deliver_result["status"] == "ok"
+        assert deliver_result["structural_qa"]["passed"] is True
+
+        # Report token usage
+        print(f"\n{'='*60}")
+        print(f"DOCUMENT PIPELINE — REAL TOKEN USAGE")
+        print(f"{'='*60}")
+        print(f"Generation: {gen_result.get('input_tokens', 0)} input + "
+              f"{gen_result.get('output_tokens', 0)} output tokens")
+        print(f"Generation cost: ${gen_cost:.6f}")
+        print(f"Total tokens: {gen_tokens}")
+        print(f"PDF size: {len(pdf_bytes)} bytes")
+        print(f"Content preview: {gen_result['output'][:200]}...")
+        print(f"{'='*60}")
