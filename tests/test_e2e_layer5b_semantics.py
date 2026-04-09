@@ -1062,27 +1062,21 @@ class TestDocumentDeliveryE2E:
         assert result["output"] == "document_delivered"
 
     def test_deliverable_workflows_includes_document(self) -> None:
-        """document_production is in _DELIVERABLE_WORKFLOWS so orchestrate
-        does not reject it at the delivery-support gate."""
-        from tools.orchestrate import run_governed
-
-        # We just need to verify the gate doesn't reject. The easiest way
-        # is to check the frozenset directly.
+        """document_production is marked deliverable in the workflow registry
+        so orchestrate does not reject it at the delivery-support gate."""
         from tools.orchestrate import _WORKFLOWS_DIR
         from tools.workflow_schema import load_workflow
+        from utils.workflow_registry import get_deliverable_workflows
 
         pack = load_workflow(_WORKFLOWS_DIR / "document_production.yaml")
         has_delivery = any(s.role == "delivery" for s in pack.stages)
         assert has_delivery, "document_production should have a delivery stage"
 
-        # The gate in run_governed checks _DELIVERABLE_WORKFLOWS — we verify
-        # the workflow name is in the set by checking the orchestrate module.
-        import tools.orchestrate as orch_mod
-
-        # Access the frozen set via the module source (it's defined inside
-        # run_governed, so we verify indirectly by running a quick import check)
-        source = Path(orch_mod.__file__).read_text()
-        assert "document_production" in source
+        deliverable = get_deliverable_workflows()
+        assert "document_production" in deliverable, (
+            "document_production must be marked deliverable: true "
+            "in config/workflow_registry.yaml"
+        )
 
 
 # ---------------------------------------------------------------------------

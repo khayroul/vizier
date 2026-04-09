@@ -1378,11 +1378,12 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
         if effective_workflow == "rework":
             effective_workflow = str(job_ctx.get("original_workflow", "rework"))
 
-    # Route delivery by workflow type.
-    # Only document_production is fully wired.  invoice/proposal/company_profile
-    # are S16 — still phase-blocked with placeholder generators.
-    _DOCUMENT_WORKFLOWS = frozenset({"document_production"})
-    if effective_workflow in _DOCUMENT_WORKFLOWS:
+    # Route delivery by artifact family.
+    # Document-family workflows use Typst-based document delivery.
+    # Poster-family workflows use the poster render path below.
+    from utils.workflow_registry import is_document_family_workflow
+
+    if is_document_family_workflow(effective_workflow):
         return _deliver_document(context, effective_workflow)
 
     if effective_workflow != "poster_production":

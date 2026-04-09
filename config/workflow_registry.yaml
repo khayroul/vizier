@@ -7,81 +7,97 @@ workflows:
     description: "Visual posters, banners, flyers, graphics"
     artifact_family: poster
     phase_gate: core
+    deliverable: true
 
   document_production:
     description: "Reports, plans, proposals, written documents"
     artifact_family: document
     phase_gate: core
+    deliverable: true
 
   brochure_production:
     description: "Brochures, pamphlets, bifold/trifold"
     artifact_family: brochure
     phase_gate: core
+    deliverable: false  # delivery path not yet wired
 
   childrens_book_production:
     description: "Children's picture books, illustrated stories"
     artifact_family: childrens_book
     phase_gate: publishing
+    deliverable: false  # S15 publishing tools are stubs
 
   ebook_production:
     description: "Ebooks, guides, long-form content, novels"
     artifact_family: ebook
     phase_gate: core
+    deliverable: false  # S15 publishing tools are stubs
 
   serial_fiction_production:
     description: "Serialised fiction with recurring characters"
     artifact_family: serial_fiction
     phase_gate: publishing
+    deliverable: false  # S21
 
   research:
     description: "Market research, competitor analysis, audits"
     artifact_family: document
     phase_gate: research
+    deliverable: false  # no delivery stage in workflow
 
   refinement:
     description: "Vague requests needing clarification"
     artifact_family: document
     phase_gate: core
+    deliverable: false  # no delivery stage in workflow
 
   onboarding:
     description: "New client setup and calibration"
     artifact_family: document
     phase_gate: core
+    deliverable: false  # no delivery stage in workflow
 
   rework:
     description: "Corrections to previous deliverables"
     artifact_family: document
     phase_gate: core
+    deliverable: false  # inherits deliverability from original workflow
 
   invoice:
     description: "Invoice PDF generation"
     artifact_family: invoice
     phase_gate: extended_ops
+    deliverable: false  # S16
 
   proposal:
     description: "Business proposals"
     artifact_family: proposal
     phase_gate: extended_ops
+    deliverable: false  # S16
 
   company_profile:
     description: "Company profile documents"
     artifact_family: company_profile
     phase_gate: extended_ops
+    deliverable: false  # S16
 
   social_batch:
     description: "Batch social media post generation"
     artifact_family: social_post
     phase_gate: social
+    deliverable: false  # S24
 
   social_caption:
     description: "Social media caption generation"
     artifact_family: social_post
     phase_gate: social
+    deliverable: false  # S24
 
   content_calendar:
     description: "Content calendar planning"
     artifact_family: content_calendar
     phase_gate: social
+    deliverable: false  # S22
 
 # Density is a property of the artifact FAMILY, not the workflow.
 # Multiple workflows can share a family (e.g. research + document_production -> document).

@@ -86,6 +86,31 @@ def _load_phase_config() -> dict[str, Any]:
         return yaml.safe_load(fh)  # type: ignore[no-any-return]
 
 
+def get_deliverable_workflows() -> frozenset[str]:
+    """Return the set of workflow names marked ``deliverable: true``.
+
+    Used by the orchestrator to fail-fast on workflows that lack a
+    fully wired delivery path.  Changing deliverability is a YAML edit
+    in config/workflow_registry.yaml — no Python change required.
+    """
+    workflows = load_workflow_registry()["workflows"]
+    return frozenset(
+        name for name, cfg in workflows.items() if cfg.get("deliverable", False)
+    )
+
+
+def is_document_family_workflow(name: str) -> bool:
+    """Return True if *name* belongs to the ``document`` artifact family.
+
+    Used by the deliver tool to route to the document delivery path
+    instead of the poster delivery path.
+    """
+    try:
+        return get_workflow_family(name) == "document"
+    except KeyError:
+        return False
+
+
 def get_active_workflow_descriptions() -> list[tuple[str, str]]:
     """Return (name, description) tuples for workflows in active phases.
 
@@ -197,6 +222,33 @@ def validate_workflow_registry(data: dict[str, Any] | None = None) -> None:
                 f"artifact_family_density key "
                 f"'{family_name}' is not a valid "
                 "ArtifactFamily"
+            )
+
+    # 7. Every workflow has an explicit deliverable field (no silent defaults)
+    for wf_name, wf_cfg in workflows.items():
+        if "deliverable" not in wf_cfg:
+            errors.append(
+                f"Workflow '{wf_name}' is missing the 'deliverable' field — "
+                "set to true or false explicitly"
+            )
+
+    # 8. Deliverable workflows must have a manifest with a delivery stage
+    for wf_name, wf_cfg in workflows.items():
+        if not wf_cfg.get("deliverable", False):
+            continue
+        yaml_path = _WORKFLOWS_DIR / f"{wf_name}.yaml"
+        if not yaml_path.exists():
+            continue  # already caught by check #1
+        with yaml_path.open() as fh:
+            manifest = yaml.safe_load(fh) or {}
+        stages = manifest.get("stages", [])
+        has_delivery = any(
+            stage.get("role") == "delivery" for stage in stages
+        )
+        if not has_delivery:
+            errors.append(
+                f"Workflow '{wf_name}' is marked deliverable but its "
+                "manifest has no delivery stage"
             )
 
     if errors:

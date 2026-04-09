@@ -17,7 +17,7 @@ from contracts.routing import RoutingResult, route
 from middleware.policy import PolicyEvaluator, PolicyRequest
 from middleware.runtime_controls import resolve_runtime_controls
 from tools.executor import ToolCallable, WorkflowExecutor
-from utils.workflow_registry import get_workflow_family
+from utils.workflow_registry import get_deliverable_workflows, get_workflow_family
 
 logger = logging.getLogger(__name__)
 
@@ -419,21 +419,18 @@ def run_governed(
             soft_warnings,
         )
 
-    # Step 5c: Delivery support — fail early for non-deliverable workflows
-    # Only workflows with a fully wired delivery path.
-    # invoice/proposal/company_profile are S16 — still phase-blocked
-    # with placeholder generators.  Add them here when S16 ships.
-    _DELIVERABLE_WORKFLOWS = frozenset({
-        "poster_production", "document_production",
-    })
+    # Step 5c: Delivery support — fail early for non-deliverable workflows.
+    # Reads deliverable: true/false from config/workflow_registry.yaml.
+    # To make a new workflow deliverable, set deliverable: true in the YAML.
+    deliverable_workflows = get_deliverable_workflows()
     has_delivery_stage = any(
         stage.role == "delivery" for stage in pack.stages
     )
-    if has_delivery_stage and workflow_name not in _DELIVERABLE_WORKFLOWS:
+    if has_delivery_stage and workflow_name not in deliverable_workflows:
         raise PolicyDenied(
             f"Workflow '{workflow_name}' has a delivery stage but delivery "
             f"is not yet implemented for this workflow type. "
-            f"Only {sorted(_DELIVERABLE_WORKFLOWS)} can deliver final artifacts. "
+            f"Only {sorted(deliverable_workflows)} can deliver final artifacts. "
             f"The system would waste tokens generating content that cannot "
             f"be rendered to a final PDF/PNG."
         )
