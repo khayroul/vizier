@@ -1,0 +1,101 @@
+# evaluations/benchmark/poster_briefs.yaml
+# Frozen benchmark briefs for quality measurement.
+# Each brief exercises different template families, content slots, and adherence patterns.
+
+version: "1.0"
+briefs:
+  - id: bench_festive_raya
+    raw_input: "Create a Hari Raya open house poster for DMB halal catering. Include date 10 April, venue Dewan Komuniti Shah Alam, dress code baju Melayu. Warm festive mood."
+    client_id: dmb
+    expected:
+      occasion: hari_raya
+      mood: festive
+      text_density: moderate
+      must_include: ["date", "venue", "dress code"]
+      required_slots: [headline, body_text, cta, event_meta]
+
+  - id: bench_corporate_launch
+    raw_input: "Design a product launch poster for AutoHub's new SUV model X7. Professional look, premium feel. Include price from RM 189,000."
+    client_id: autohub
+    expected:
+      occasion: product_launch
+      mood: professional
+      text_density: minimal
+      required_slots: [headline, cta, price]
+
+  - id: bench_sale_promo
+    raw_input: "50% off Ramadan sale poster for DMB. Valid 1-30 March. All menu items. Urgent, bold design."
+    client_id: dmb
+    expected:
+      occasion: sale
+      mood: urgent
+      text_density: moderate
+      must_include: ["50%", "dates"]
+      required_slots: [headline, cta, offer_block, badge]
+
+  - id: bench_event_invitation
+    raw_input: "Annual gala dinner invitation poster. Black tie event, 15 May 2026, Grand Hyatt KL. Elegant and formal."
+    client_id: default
+    expected:
+      occasion: event
+      mood: formal
+      text_density: moderate
+      must_include: ["date", "venue", "dress code"]
+      required_slots: [headline, cta, event_meta, footer]
+
+  - id: bench_road_safety
+    raw_input: "Road safety awareness poster for Autohub. Buckle up campaign. Clear message, high contrast."
+    client_id: autohub
+    expected:
+      occasion: awareness
+      mood: serious
+      text_density: minimal
+      required_slots: [headline, body_text, cta]
+
+  - id: bench_minimal_brief
+    raw_input: "Poster for DMB"
+    client_id: dmb
+    expected:
+      occasion: ""
+      mood: ""
+      text_density: moderate
+      required_slots: [headline, cta]
+
+  - id: bench_malay_festive
+    raw_input: "Buat poster Maulidur Rasul untuk DMB. Tema hijau dan emas. Sertakan tarikh 27 September."
+    client_id: dmb
+    expected:
+      occasion: maulidur_rasul
+      mood: festive
+      text_density: moderate
+      must_include: ["tarikh"]
+      required_slots: [headline, body_text, cta]
+
+  - id: bench_playful_kids
+    raw_input: "Fun children's day poster for a community event. Bright colors, playful fonts. Include games, face painting, balloon art. Free entry."
+    client_id: default
+    expected:
+      occasion: community_event
+      mood: playful
+      text_density: dense
+      must_include: ["games", "face painting", "free entry"]
+      required_slots: [headline, body_text, cta, kicker]
+
+  - id: bench_premium_announcement
+    raw_input: "AutoHub is now an authorized BMW dealer. Premium announcement poster. Sophisticated, understated."
+    client_id: autohub
+    expected:
+      occasion: announcement
+      mood: premium
+      text_density: minimal
+      required_slots: [headline, subheadline, cta]
+
+  - id: bench_health_awareness
+    raw_input: "Health screening day poster. Free blood pressure and glucose checks. Saturday 20 April, 9am-1pm, Klinik Komuniti Subang. Bring IC."
+    client_id: default
+    expected:
+      occasion: health
+      mood: caring
+      text_density: dense
+      must_include: ["date", "time", "venue", "bring IC"]
+      required_slots: [headline, body_text, cta, event_meta, footer]

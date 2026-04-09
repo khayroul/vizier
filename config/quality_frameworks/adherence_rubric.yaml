@@ -1,0 +1,53 @@
+# adherence_rubric.yaml
+# Brief-adherence scoring dimensions — supplements posteriq_quality_dimensions.yaml
+# Used by quality harness and runtime adherence gating
+
+dimensions:
+  occasion_match:
+    description: "Does the output reflect the requested occasion/theme?"
+    weight: 0.25
+    criteria:
+      - "Theme/occasion clearly present in visual and textual elements"
+      - "Seasonal or cultural markers appropriate for the occasion"
+      - "Tone matches the occasion (festive, formal, urgent, etc.)"
+
+  audience_fit:
+    description: "Is the output appropriate for the target audience?"
+    weight: 0.20
+    criteria:
+      - "Language register matches audience (formal, casual, corporate)"
+      - "Visual style appeals to target demographic"
+      - "Vocabulary and references are audience-appropriate"
+
+  content_completeness:
+    description: "Are all must-include elements present and must-avoid respected?"
+    weight: 0.25
+    criteria:
+      - "All must-include items from brief appear in output"
+      - "No must-avoid items present in output"
+      - "Required commercial info (date, venue, price) clearly visible"
+
+  reference_fidelity:
+    description: "If a reference was provided, is it reflected in the output?"
+    weight: 0.15
+    criteria:
+      - "Composition echoes reference layout when provided"
+      - "Color palette draws from reference when specified"
+      - "Style elements (typography weight, image treatment) aligned"
+
+  output_variety:
+    description: "Is this output visually distinct from recent similar briefs?"
+    weight: 0.15
+    criteria:
+      - "Layout differs from last 3 outputs for same client"
+      - "Template choice varies across similar occasion types"
+      - "Not a near-duplicate of recent production"
+
+scoring:
+  scale: "1-5"
+  thresholds:
+    fail: 2.0
+    marginal: 3.0
+    pass: 3.5
+    good: 4.0
+    excellent: 4.5
