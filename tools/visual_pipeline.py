@@ -219,7 +219,11 @@ def evaluate_rendered_poster(
     input_tokens = 0
     output_tokens = 0
     cost_usd = 0.0
-    composition_score = 3.0
+    # Default to 0.0 (fail) — vision check must succeed to pass.
+    # Previous default of 3.0 (pass threshold) silently degraded to
+    # NIMA-only on any GPT vision failure.
+    composition_score = 0.0
+    vision_check_failed = False
 
     try:
         llm_result = call_llm(
@@ -254,9 +258,11 @@ def evaluate_rendered_poster(
         if isinstance(llm_issues, list):
             issues.extend(str(issue) for issue in llm_issues)
     except Exception as exc:
+        vision_check_failed = True
+        issues.append(f"Vision composition check failed: {exc}")
         logger.warning(
-            "Post-render composition check failed; "
-            "passing on NIMA alone: %s",
+            "Post-render composition check failed — failing poster "
+            "(vision QA is required, not optional): %s",
             exc,
         )
 
@@ -270,6 +276,7 @@ def evaluate_rendered_poster(
         "composition_score": composition_score,
         "composition_threshold": composition_threshold,
         "nima_floor": nima_floor,
+        "vision_check_failed": vision_check_failed,
         "issues": issues,
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,

@@ -821,3 +821,36 @@ class TestPostRenderQA:
 
         assert result["passed"] is False
         assert any("nima" in i.lower() for i in result["issues"])
+
+    def test_vision_failure_fails_poster_not_degrades(
+        self, tmp_path: Path,
+    ) -> None:
+        """P2 fix: GPT vision failure must fail the poster, not silently pass.
+
+        Previously, composition_score defaulted to 3.0 (the pass threshold),
+        so a vision exception would leave it at the pass threshold and the
+        poster could sneak through on NIMA alone.
+        """
+        from tools.visual_pipeline import evaluate_rendered_poster
+
+        img = Image.new("RGB", (200, 200), color=(100, 120, 140))
+        poster_path = tmp_path / "poster_vision_fail.png"
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        poster_path.write_bytes(buf.getvalue())
+
+        with patch(
+            "tools.visual_pipeline.nima_score", return_value=4.5,
+        ), patch(
+            "utils.call_llm.call_llm",
+            side_effect=RuntimeError("GPT vision transient failure"),
+        ):
+            result = evaluate_rendered_poster(
+                rendered_png_path=str(poster_path),
+            )
+
+        # Poster must FAIL even though NIMA is excellent (4.5 > 3.5 floor)
+        assert result["passed"] is False
+        assert result["vision_check_failed"] is True
+        assert result["composition_score"] == 0.0
+        assert any("vision" in i.lower() for i in result["issues"])

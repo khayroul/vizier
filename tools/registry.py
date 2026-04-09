@@ -583,16 +583,32 @@ def _visual_qa(context: dict[str, Any]) -> dict[str, Any]:
         )
 
         try:
-            from tools.image import generate_image, select_image_model
+            from tools.image import (
+                generate_image,
+                select_image_dimensions,
+                select_image_model,
+            )
             from uuid import uuid4
 
             critique_guidance = (
                 "REVISION — previous image failed QA. Fix these issues: "
                 + "; ".join(failing_dims)
             )
-            visual_prompt = expanded_brief.get("visual_prompt", "")
+            # Use the same expanded composition prompt as the first pass,
+            # NOT "visual_prompt" (which doesn't exist in expanded_brief).
+            visual_prompt = expanded_brief.get("composition", "")
             if not visual_prompt:
                 visual_prompt = str(job_ctx.get("raw_input", ""))
+
+            # Apply the same sanitization + no-text framing as first pass
+            visual_prompt = _sanitize_visual_prompt(visual_prompt)
+            visual_prompt = (
+                "Illustration of a visual scene: "
+                + visual_prompt.rstrip(".")
+                + ". The image contains NO text whatsoever — no letters, "
+                "no words, no numbers, no logos, no signs with writing, "
+                "no watermarks. Pure visual imagery only."
+            )
             revised_prompt = f"{visual_prompt}\n\n{critique_guidance}"
 
             ref_url = (
@@ -616,9 +632,24 @@ def _visual_qa(context: dict[str, Any]) -> dict[str, Any]:
                 ),
                 reference_image_url=ref_url,
             )
+            # Recover original dimensions from first-pass output so the
+            # revised image matches the poster geometry, not 1024x1024.
+            first_pass_width = (
+                previous_output.get("image_width") if isinstance(previous_output, dict) else None
+            )
+            first_pass_height = (
+                previous_output.get("image_height") if isinstance(previous_output, dict) else None
+            )
+            if not first_pass_width or not first_pass_height:
+                first_pass_width, first_pass_height = select_image_dimensions(
+                    artifact_family=qa_kwargs["artifact_family"],
+                    platform=str(job_ctx.get("platform") or ""),
+                )
             image_bytes = generate_image(
                 prompt=revised_prompt,
                 model=model,
+                width=first_pass_width,
+                height=first_pass_height,
                 image_url=ref_url,
             )
             total_cost += 0.025  # approx fal.ai cost
