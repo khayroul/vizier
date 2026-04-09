@@ -16,7 +16,6 @@ from typing import Any
 
 import yaml
 
-from contracts.interpreted_intent import InterpretedIntent
 from tools.brief_interpreter import interpret_brief
 from tools.template_selector import select_template
 

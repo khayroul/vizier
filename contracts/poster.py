@@ -27,7 +27,8 @@ class PosterContentSchema(BaseModel):
     price: str = ""
     footer: str = ""  # fine print, address, contact
     disclaimer: str = ""
-    logo_treatment: str = ""  # top-right-circle | bottom-left-inline | watermark
+    # logo_treatment deferred — no templates consume it yet.
+    # Re-add when at least one template's CSS responds to the value.
     secondary_cta: str = ""
 
     def to_legacy_dict(self) -> dict[str, str]:
@@ -44,7 +45,7 @@ class PosterContentSchema(BaseModel):
         """Return names of optional slots that have non-empty values."""
         optional_fields = {
             "subheadline", "kicker", "event_meta", "offer_block", "badge",
-            "price", "footer", "disclaimer", "logo_treatment", "secondary_cta",
+            "price", "footer", "disclaimer", "secondary_cta",
         }
         active: set[str] = set()
         for name in optional_fields:

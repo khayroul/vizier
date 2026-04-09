@@ -13,6 +13,7 @@ import logging
 import os
 import subprocess
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 from ebooklib import epub
@@ -796,7 +797,7 @@ def _render_jinja2_template(
 async def render_poster_html(
     *,
     template_name: str,
-    content: dict[str, str],
+    content: dict[str, Any],
     colors: dict[str, str] | None = None,
     fonts: dict[str, str] | None = None,
     output_dir: Path,
@@ -807,8 +808,9 @@ async def render_poster_html(
 
     Args:
         template_name: Template filename without extension.
-        content: Text content (headline, subheadline, cta, body_text,
-            background_image, logo_url).
+        content: Text content dict with core fields (headline, subheadline,
+            cta, body_text, background_image, logo_url) and optional extended
+            slots (kicker, badge, event_meta, offer_block, etc.).
         colors: Colour overrides (primary, accent).
         fonts: Font overrides (headline, body).
         output_dir: Directory for output files.
@@ -851,26 +853,39 @@ async def render_poster_html(
             b64 = base64.b64encode(logo_path.read_bytes()).decode()
             logo = f"data:{mime};base64,{b64}"
 
-    # Build Jinja2 context — template uses conditionals and loops
+    # Build Jinja2 context — pass ALL content fields so templates can use
+    # extended slots via conditionals (P1 fix: don't strip new fields).
     jinja_ctx: dict[str, Any] = {
+        # Core layout fields
         "headline": content.get("headline", ""),
         "subheadline": content.get("subheadline", ""),
         "cta": content.get("cta", ""),
         "background_image": bg_image,
         "logo_url": logo,
         "body_items": _parse_body_items(content.get("body_text", "")),
+        "body_text": content.get("body_text", ""),
         "primary": resolved_colors.get(
-            "primary", _DEFAULT_COLORS["primary"]
+            "primary", _DEFAULT_COLORS["primary"],
         ),
         "accent": resolved_colors.get(
-            "accent", _DEFAULT_COLORS["accent"]
+            "accent", _DEFAULT_COLORS["accent"],
         ),
         "font_headline": resolved_fonts.get(
-            "headline", _DEFAULT_FONTS["headline"]
+            "headline", _DEFAULT_FONTS["headline"],
         ),
         "font_body": resolved_fonts.get(
-            "body", _DEFAULT_FONTS["body"]
+            "body", _DEFAULT_FONTS["body"],
         ),
+        # Extended string slots — available to all templates via Jinja conditionals
+        "kicker": content.get("kicker", ""),
+        "badge": content.get("badge", ""),
+        "price": content.get("price", ""),
+        "footer": content.get("footer", ""),
+        "disclaimer": content.get("disclaimer", ""),
+        "secondary_cta": content.get("secondary_cta", ""),
+        # Structured slots — templates iterate keys when present
+        "event_meta": content.get("event_meta"),
+        "offer_block": content.get("offer_block"),
     }
 
     filled_html = _render_jinja2_template(template_path, jinja_ctx)
@@ -926,7 +941,7 @@ async def render_poster_html(
 def assemble_poster_pdf(
     *,
     template_name: str = "poster_default",
-    content: dict[str, str],
+    content: dict[str, Any],
     colors: dict[str, str] | None = None,
     fonts: dict[str, str] | None = None,
     output_dir: Path,
@@ -939,8 +954,9 @@ def assemble_poster_pdf(
 
     Args:
         template_name: Template filename without extension.
-        content: Text content dict (headline, subheadline, cta,
-            body_text, background_image).
+        content: Text content dict with core fields (headline, subheadline,
+            cta, body_text, background_image) and optional extended slots
+            (kicker, badge, event_meta, offer_block, etc.).
         colors: Optional colour overrides (primary, accent).
         fonts: Optional font overrides (headline, body).
         output_dir: Directory for output files.

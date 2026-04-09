@@ -85,7 +85,12 @@ def _quality_target_text(payload: dict[str, Any], fallback: dict[str, Any]) -> s
     return str(output)
 
 
-def _resolve_template_name(job_ctx: dict[str, Any], *, workflow: str) -> str:
+def _resolve_template_name(
+    job_ctx: dict[str, Any],
+    *,
+    workflow: str,
+    active_slots: set[str] | None = None,
+) -> str:
     """Resolve a concrete render template via intent-aware scoring.
 
     Priority:
@@ -127,6 +132,7 @@ def _resolve_template_name(job_ctx: dict[str, Any], *, workflow: str) -> str:
 
     match = select_template(
         intent,
+        active_slots=active_slots,
         client_style_hint=str(design_system or ""),
     )
 
@@ -347,7 +353,12 @@ def _image_generate(context: dict[str, Any]) -> dict[str, Any]:
         prompt_for_expansion = f"{prompt}\n\n{reference_guidance}"
 
     # Anti-drift #25: ALWAYS expand brief before generation
-    expanded = expand_brief(prompt_for_expansion, brand_config=brand_config)
+    # Pass interpreted intent so visual elaboration uses canonical parse (P1 fix)
+    expanded = expand_brief(
+        prompt_for_expansion,
+        brand_config=brand_config,
+        interpreted_intent=job_ctx.get("interpreted_intent"),
+    )
     visual_prompt = expanded.get("composition", prompt)
 
     if reference_visual_dna:
@@ -499,6 +510,8 @@ def _visual_qa(context: dict[str, Any]) -> dict[str, Any]:
         critique_max_tokens=int(controls.get("critique_max_tokens", 300)),
         allow_parallel_guardrails=bool(controls.get("allow_parallel_guardrails", True)),
         qa_threshold=float(controls.get("qa_threshold", 3.2)),
+        # Pass interpreted intent so adherence gate can score brief fidelity (P1 fix)
+        interpreted_intent=job_ctx.get("interpreted_intent"),
     )
 
     status = "ok" if quality["passed"] else "error"
@@ -835,7 +848,21 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
 
     parsed = _parse_poster_copy(copy_text)
     style = _load_client_style(job_ctx.get("client_id", "default"))
-    template_name = _resolve_template_name(job_ctx, workflow=effective_workflow)
+
+    # Compute active optional slots for intent-aware template selection (P1 fix)
+    _OPTIONAL_SLOTS = {
+        "kicker", "badge", "price", "footer", "disclaimer",
+        "secondary_cta", "event_meta", "offer_block",
+    }
+    active_slots: set[str] = set()
+    for slot in _OPTIONAL_SLOTS:
+        val = parsed.get(slot)
+        if val is not None and val != "":
+            active_slots.add(slot)
+
+    template_name = _resolve_template_name(
+        job_ctx, workflow=effective_workflow, active_slots=active_slots or None,
+    )
     output_root = Path.home() / "vizier" / "data" / "deliverables"
     output_dir = output_root / str(job_ctx.get("job_id", "default"))
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -855,13 +882,25 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
             "cost_usd": 0.0,
         }
 
-    content = {
+    # Carry ALL parsed fields through to renderer — not just legacy 4 (P1 fix).
+    # Templates use Jinja2 conditionals to render slots they support.
+    content: dict[str, Any] = {
         "headline": parsed.get("headline", ""),
         "subheadline": parsed.get("subheadline", ""),
         "cta": parsed.get("cta", ""),
         "body_text": parsed.get("body_text", ""),
         "background_image": image_path,
     }
+    # Extended string slots
+    for slot in ("kicker", "badge", "price", "footer", "disclaimer", "secondary_cta"):
+        val = parsed.get(slot, "")
+        if val:
+            content[slot] = str(val)
+    # Structured dict slots
+    for slot in ("event_meta", "offer_block"):
+        val = parsed.get(slot)
+        if isinstance(val, dict):
+            content[slot] = val
 
     # Primary: Playwright HTML renderer (Canva-quality CSS)
     # Fallback: Typst (for environments without Playwright/Chromium)

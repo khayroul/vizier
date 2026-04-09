@@ -118,6 +118,36 @@ def _update_job_status(job_id: str, status: str) -> None:
         logger.warning("Failed to update job %s status to %s", job_id, status, exc_info=True)
 
 
+def _persist_interpreted_intent(
+    job_id: str, intent_data: dict[str, object],
+) -> None:
+    """Persist canonical interpreted intent to jobs.interpreted_intent JSONB column.
+
+    Called once after brief interpretation succeeds. This is the single source
+    of truth for the structured parse used at runtime — downstream tools
+    (copy generation, template selection, visual elaboration, adherence scoring)
+    all consume this same intent from job_context, and this function ensures
+    it survives in the database for reproducibility and offline analysis.
+    """
+    if not _is_valid_uuid(job_id) or not intent_data:
+        return
+
+    try:
+        import json
+
+        from utils.database import get_cursor
+
+        with get_cursor() as cur:
+            cur.execute(
+                "UPDATE jobs SET interpreted_intent = %s, updated_at = now() WHERE id = %s",
+                (json.dumps(intent_data, default=str), job_id),
+            )
+    except Exception:
+        logger.warning(
+            "Failed to persist interpreted intent for %s", job_id, exc_info=True,
+        )
+
+
 def run_governed(
     raw_input: str,
     client_id: str,
@@ -175,6 +205,8 @@ def run_governed(
 
         interpretation = interpret_brief(raw_input)
         interpreted_intent_data = interpretation.intent.to_jsonb()
+        # Persist canonical intent to DB for reproducibility (P1 fix)
+        _persist_interpreted_intent(job_id, interpreted_intent_data)
     except Exception:
         logger.warning("Brief interpretation failed for job %s", job_id, exc_info=True)
 

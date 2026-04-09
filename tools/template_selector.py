@@ -6,7 +6,7 @@ Template _meta.yaml files are the source of truth for template capabilities.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 

@@ -37,9 +37,15 @@ def evaluate_visual_artifact(
     critique_max_tokens: int = 300,
     allow_parallel_guardrails: bool = True,
     qa_threshold: float = 3.2,
+    adherence_threshold: float = 2.5,
     precomputed_nima_score: float | None = None,
+    interpreted_intent: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Evaluate a rendered visual artifact using the stronger scoring stack."""
+    """Evaluate a rendered visual artifact using the stronger scoring stack.
+
+    Pass/fail now incorporates brief adherence when interpreted_intent is
+    available: a visually polished poster that ignores the brief will fail QA.
+    """
     image_bytes = Path(image_path).read_bytes()
     score = (
         float(precomputed_nima_score)
@@ -78,12 +84,45 @@ def evaluate_visual_artifact(
             )
             guardrail_flags = []
 
+    # Brief-adherence scoring: fail QA when output ignores the brief (P1 fix).
+    # Only runs when interpreted_intent is available (i.e. brief interpreter succeeded).
+    adherence_result: dict[str, Any] | None = None
+    adherence_passed = True
+    total_input_tokens = int(exemplar_result.get("input_tokens", 0) or 0)
+    total_output_tokens = int(exemplar_result.get("output_tokens", 0) or 0)
+    total_cost_usd = float(exemplar_result.get("cost_usd", 0.0) or 0.0)
+
+    if interpreted_intent:
+        try:
+            from tools.visual_scoring import score_adherence
+
+            adherence_result = score_adherence(
+                image_bytes, interpreted_intent,
+            )
+            adherence_score = float(adherence_result.get("adherence_score", 3.0))
+            adherence_passed = adherence_score >= adherence_threshold
+            total_input_tokens += int(adherence_result.get("input_tokens", 0) or 0)
+            total_output_tokens += int(adherence_result.get("output_tokens", 0) or 0)
+            total_cost_usd += float(adherence_result.get("cost_usd", 0.0) or 0.0)
+
+            if not adherence_passed:
+                logger.warning(
+                    "Adherence gate failed: %.2f < %.2f threshold",
+                    adherence_score, adherence_threshold,
+                )
+        except Exception as exc:
+            logger.warning(
+                "Adherence scoring failed; proceeding without adherence gate: %s",
+                exc,
+            )
+
     passed = (
         prescreen["action"] != "regenerate"
         and float(exemplar_result["weighted_score"]) >= qa_threshold
+        and adherence_passed
     )
 
-    return {
+    result: dict[str, Any] = {
         "nima_score": score,
         "nima_action": prescreen["action"],
         "weighted_score": exemplar_result["weighted_score"],
@@ -92,10 +131,15 @@ def evaluate_visual_artifact(
         "guardrail_flags": guardrail_flags,
         "passed": passed,
         "qa_threshold": qa_threshold,
-        "input_tokens": exemplar_result.get("input_tokens", 0),
-        "output_tokens": exemplar_result.get("output_tokens", 0),
-        "cost_usd": exemplar_result.get("cost_usd", 0.0),
+        "adherence_threshold": adherence_threshold,
+        "input_tokens": total_input_tokens,
+        "output_tokens": total_output_tokens,
+        "cost_usd": total_cost_usd,
     }
+    if adherence_result is not None:
+        result["adherence_result"] = adherence_result
+        result["adherence_score"] = adherence_result.get("adherence_score", 3.0)
+    return result
 
 
 def run_visual_pipeline(
