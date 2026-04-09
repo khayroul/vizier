@@ -14,6 +14,9 @@ dist/
 build/
 .venv/
 
+# Graphify temp snapshots
+.tmp_graphify_*.py
+
 # Runtime directories
 data/
 logs/
