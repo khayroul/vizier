@@ -1,0 +1,32 @@
+# AutoHub Malaysia — client configuration
+# Automotive dealership network, English-primary with BM support.
+
+client_id: autohub
+client_name: AutoHub Malaysia
+
+brand:
+  primary_color: "#0D47A1"
+  secondary_color: "#1565C0"
+  accent_color: "#FF6F00"
+  headline_font: Montserrat
+  body_font: Inter
+  logo_mark: assets/clients/autohub/logo.png
+
+defaults:
+  template_name: corporate_modern
+  image_mode: photorealistic
+  style_hint: bold automotive
+  language: en
+  tone: professional
+  copy_register: conversational
+  industry: [automotive, retail, malaysia]
+  colour_temperature: cool
+
+brand_mood: [bold, energetic]
+
+workflow_overrides:
+  tripwire:
+    threshold: 3.5
+  quality_techniques:
+    exemplar_injection: true
+    self_refine: on_prompt

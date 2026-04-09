@@ -1,0 +1,32 @@
+# Default — fallback client configuration
+# Used when no client-specific config exists. Neutral brand, bilingual.
+
+client_id: default
+client_name: Default Client
+
+brand:
+  primary_color: "#212121"
+  secondary_color: "#424242"
+  accent_color: "#1976D2"
+  headline_font: Inter
+  body_font: Inter
+  logo_mark: ""
+
+defaults:
+  template_name: corporate_standard
+  image_mode: photorealistic
+  style_hint: clean professional
+  language: en
+  tone: neutral
+  copy_register: neutral
+  industry: [general]
+  colour_temperature: neutral
+
+brand_mood: [clean, professional]
+
+workflow_overrides:
+  tripwire:
+    threshold: 3.0
+  quality_techniques:
+    exemplar_injection: false
+    self_refine: on_prompt
