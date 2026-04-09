@@ -168,6 +168,16 @@ def run_governed(
         routing_result.confidence,
     )
 
+    # Step 1.5: Interpret brief (hardening 2.3)
+    interpreted_intent_data: dict[str, object] = {}
+    try:
+        from tools.brief_interpreter import interpret_brief
+
+        interpretation = interpret_brief(raw_input)
+        interpreted_intent_data = interpretation.intent.to_jsonb()
+    except Exception:
+        logger.warning("Brief interpretation failed for job %s", job_id, exc_info=True)
+
     # Step 2: Readiness gate
     try:
         family = ArtifactFamily(get_workflow_family(workflow_name))
@@ -223,6 +233,8 @@ def run_governed(
         "design_system": routing_result.design_system,
         **runtime_context,
     }
+    if interpreted_intent_data:
+        job_context["interpreted_intent"] = interpreted_intent_data
     if hermes_session_id:
         job_context["hermes_session_id"] = hermes_session_id
     if platform:
