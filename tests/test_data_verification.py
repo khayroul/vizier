@@ -37,8 +37,12 @@ class TestD12Verification:
         ratings = json.loads(ratings_path.read_text())
 
         accessible = 0
+        d12_root = DATASETS / "D12_PosterIQ"
         for record in ratings:
-            img_path = DATASETS / "D12_PosterIQ" / record["path"]
+            # Images may be at the JSON path or under data/ prefix
+            img_path = d12_root / record["path"]
+            if not img_path.exists():
+                img_path = d12_root / "data" / record["path"]
             if img_path.exists() and img_path.stat().st_size > 0:
                 accessible += 1
 

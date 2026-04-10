@@ -800,18 +800,19 @@ class TestAutoEnrichSpec:
 
 
 class TestThinBriefCoaching:
-    """_maybe_coach_thin_brief returns coaching for very thin briefs."""
+    """_maybe_coach_thin_brief returns structured coaching JSON."""
 
-    def test_thin_brief_returns_coaching(self) -> None:
+    def test_thin_brief_returns_coaching_json(self) -> None:
         import importlib
+        import json
 
         bridge = importlib.import_module("plugins.vizier_tools_bridge")
         result = bridge._maybe_coach_thin_brief("buat poster")
 
         assert result is not None
-        assert "too short" in result
-        assert "Suggested questions" in result
-        assert "1 meaningful word" in result  # "poster" survives stop-word filter
+        parsed = json.loads(result)
+        assert parsed["status"] == "needs_detail"
+        assert len(parsed["questions"]) > 0
 
     def test_adequate_brief_returns_none(self) -> None:
         import importlib
@@ -835,11 +836,15 @@ class TestThinBriefCoaching:
 
         assert result is None
 
-    def test_coaching_includes_meaningful_words(self) -> None:
+    def test_coaching_returns_questions_for_thin_brief(self) -> None:
         import importlib
+        import json
 
         bridge = importlib.import_module("plugins.vizier_tools_bridge")
         result = bridge._maybe_coach_thin_brief("poster for sale")
 
         assert result is not None
-        assert "sale" in result  # only meaningful word
+        parsed = json.loads(result)
+        assert parsed["status"] == "needs_detail"
+        # Should have coaching questions
+        assert len(parsed["questions"]) > 0
