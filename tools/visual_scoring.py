@@ -85,18 +85,43 @@ def nima_score(image_bytes: bytes) -> float:
     return float(mean_score)
 
 
-def nima_prescreen(score: float) -> dict[str, Any]:
+_NIMA_THRESHOLDS_PATH = (
+    Path(__file__).resolve().parent.parent
+    / "config" / "quality_frameworks" / "nima_thresholds.yaml"
+)
+
+
+@functools.lru_cache(maxsize=1)
+def _load_nima_thresholds() -> dict[str, Any]:
+    """Load NIMA aesthetic score thresholds from config.
+
+    Separate from posteriq_quality_dimensions.yaml because NIMA uses
+    a 1-10 scale while posteriq critique uses a 1-5 scale.
+    """
+    return yaml.safe_load(_NIMA_THRESHOLDS_PATH.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
+
+
+def nima_prescreen(
+    score: float,
+    *,
+    config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Classify NIMA score into action categories.
 
     Args:
         score: NIMA mean aesthetic score (1.0-10.0).
+        config: Optional override config dict. If None, loads from YAML.
 
     Returns:
         Dict with action ('regenerate', 'proceed_with_caution', 'pass') and score.
     """
-    if score < 4.0:
+    thresholds = (config or _load_nima_thresholds())["nima"]
+    regenerate_below: float = float(thresholds["regenerate_below"])
+    pass_above: float = float(thresholds["pass_above"])
+
+    if score < regenerate_below:
         action = "regenerate"
-    elif score > 7.0:
+    elif score > pass_above:
         action = "pass"
     else:
         action = "proceed_with_caution"

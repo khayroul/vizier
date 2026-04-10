@@ -1,0 +1,10 @@
+# NIMA aesthetic score thresholds (1.0-10.0 scale)
+# SEPARATE from posteriq_quality_dimensions.yaml (1-5 critique scale)
+# Calibrated against D12 PosterIQ reference scores
+# Provenance: statistical analysis of correlation, not copyrightable
+nima:
+  regenerate_below: 4.0
+  pass_above: 7.0
+  calibration_source: "uncalibrated — defaults pending D12 + operator exemplar calibration"
+  calibration_date: null
+  agreement_rate: null
