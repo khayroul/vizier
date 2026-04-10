@@ -736,42 +736,87 @@ _STOP_WORDS = frozenset({
 
 
 def _maybe_coach_thin_brief(request: str) -> str | None:
-    """Return coaching suggestions for very thin briefs, or None to proceed.
+    """Return structured coaching JSON for incomplete briefs, or None to proceed.
 
-    A brief is "too thin" when it has fewer than 5 meaningful words —
-    not enough for the pipeline to produce quality output. Instead of
-    wasting tokens on a weak production run, we return suggestions so
-    the agent can ask the user for more detail.
+    Uses semantic content gates instead of word count. For very thin briefs
+    (<3 meaningful words), returns static coaching questions. For substantive
+    briefs, calls interpret_brief() to understand intent and checks per-workflow
+    content gates.
 
-    Examples of thin briefs:
-        "buat poster" → 0 meaningful words after stop-word removal
-        "poster for sale" → 1 meaningful word ("sale")
-        "design a Raya poster for my restaurant" → 3 meaningful words
+    Returns:
+        JSON string (CoachingResponse) if coaching needed, None to proceed.
     """
     words = request.lower().split()
     meaningful = [w for w in words if w not in _STOP_WORDS and len(w) > 1]
 
-    if len(meaningful) >= 5:
+    # Detect likely workflow from brief keywords
+    workflow = _detect_workflow_from_brief(request)
+
+    # Very thin briefs (<3 meaningful words): static coaching, no LLM cost
+    if len(meaningful) < 3:
+        from contracts.coaching import CoachingResponse
+        from tools.coaching import build_coaching_questions, detect_language
+
+        language = detect_language(request)
+        # For very thin briefs, we know occasion and key_details are missing
+        missing = ["occasion", "key_details"]
+        if workflow == "document":
+            missing = ["topic", "purpose", "audience"]
+        elif workflow == "brochure":
+            missing = ["product", "audience", "benefits"]
+
+        questions = build_coaching_questions(missing, language)
+        response = CoachingResponse(
+            status="needs_detail",
+            understood={"type": workflow.title()} if workflow else {},
+            questions=questions,
+        )
+        return response.model_dump_json()
+
+    # Substantive briefs (3+ words): use interpret_brief + content gates
+    try:
+        from tools.brief_interpreter import interpret_brief
+
+        intent_result = interpret_brief(request)
+        intent = intent_result.intent
+    except Exception:
+        logger.warning("interpret_brief failed for coaching — falling back to static")
+        # Fallback: check word count only
+        if len(meaningful) >= 5:
+            return None
+        from contracts.coaching import CoachingResponse
+        from tools.coaching import build_coaching_questions, detect_language
+
+        language = detect_language(request)
+        questions = build_coaching_questions(["occasion", "key_details"], language)
+        return CoachingResponse(
+            status="needs_detail",
+            understood={},
+            questions=questions,
+        ).model_dump_json()
+
+    from tools.coaching import check_content_gate
+
+    gate_result = check_content_gate(workflow, intent, request)
+
+    if gate_result.status == "ready":
         return None
 
-    # Build coaching response
-    lines = [
-        "The brief is too short for a quality production run. "
-        "Ask the user for more details before running the pipeline.",
-        "",
-        "Suggested questions to ask:",
-        "1. What is the occasion or purpose? (e.g. Raya sale, product launch, event)",
-        "2. Who is the target audience? (e.g. families, professionals, students)",
-        "3. What key information must appear? (dates, prices, venue, contact)",
-        "4. What mood or style? (festive, professional, playful, premium)",
-        "5. Any specific brand colours, logo, or reference images?",
-        "",
-        f"Current brief has only {len(meaningful)} meaningful word(s): "
-        f"{', '.join(meaningful) if meaningful else '(none)'}",
-        "",
-        "Once you have more detail, call run_pipeline again with the enriched brief.",
-    ]
-    return "\n".join(lines)
+    return gate_result.model_dump_json()
+
+
+def _detect_workflow_from_brief(request: str) -> str:
+    """Detect workflow type from brief keywords.
+
+    Returns a workflow name (poster, document, brochure) or 'poster' as default.
+    """
+    lower = request.lower()
+    if any(kw in lower for kw in ("document", "dokumen", "proposal", "cadangan", "laporan", "report")):
+        return "document"
+    if any(kw in lower for kw in ("brochure", "risalah", "pamphlet", "flyer")):
+        return "brochure"
+    # Default to poster for visual production requests
+    return "poster"
 
 
 def _run_pipeline_handler(args: dict[str, Any], **kwargs: Any) -> str:
