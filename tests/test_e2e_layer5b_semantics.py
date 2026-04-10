@@ -618,6 +618,10 @@ class TestGenericExecutorSemantics:
                 "tools.image.select_image_model",
                 return_value="fal-ai/flux/dev",
             ),
+            patch(
+                "tools.registry._GENERATED_IMAGES_DIR",
+                tmp_path / "gen_images",
+            ),
         ):
             result = _visual_qa({
                 "job_context": {

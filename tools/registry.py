@@ -25,6 +25,7 @@ ToolFn = Any  # Callable[[dict[str, Any]], dict[str, Any]]
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _HTML_TEMPLATES_DIR = _REPO_ROOT / "templates" / "html"
+_GENERATED_IMAGES_DIR = _REPO_ROOT / "data" / "generated_images"
 
 
 def _runtime_controls(context: dict[str, Any]) -> dict[str, Any]:
@@ -317,7 +318,6 @@ def _image_generate(context: dict[str, Any]) -> dict[str, Any]:
     Passes client brand config and design system from routing into brief
     expansion so the generated image reflects client identity.
     """
-    from pathlib import Path
     from uuid import uuid4
 
     from tools.image import (
@@ -417,7 +417,7 @@ def _image_generate(context: dict[str, Any]) -> dict[str, Any]:
 
     # Save to local file — prevents fal.ai CDN URL expiry issues
     # and provides a stable path for downstream stages (vision, delivery).
-    local_dir = Path.home() / "vizier" / "data" / "generated_images"
+    local_dir = _GENERATED_IMAGES_DIR
     local_dir.mkdir(parents=True, exist_ok=True)
     # Detect actual format from magic bytes — fal.ai often returns JPEG
     ext = ".png"
@@ -655,9 +655,7 @@ def _visual_qa(context: dict[str, Any]) -> dict[str, Any]:
             total_cost += 0.025  # approx fal.ai cost
 
             # Save revised image
-            local_dir = (
-                Path.home() / "vizier" / "data" / "generated_images"
-            )
+            local_dir = _GENERATED_IMAGES_DIR
             local_dir.mkdir(parents=True, exist_ok=True)
             ext = ".png"
             if image_bytes[:2] == b"\xff\xd8":
@@ -1378,6 +1376,8 @@ def _deliver(context: dict[str, Any]) -> dict[str, Any]:
     # Route delivery by artifact family.
     # Document-family workflows use Typst-based document delivery.
     # Poster-family workflows use the poster render path below.
+    # NOTE: adding a new deliverable workflow requires a new branch here —
+    # setting deliverable: true in YAML alone will hit the stub below.
     from utils.workflow_registry import is_document_family_workflow
 
     if is_document_family_workflow(effective_workflow):

@@ -61,7 +61,8 @@ workflows:
     description: "Corrections to previous deliverables"
     artifact_family: document
     phase_gate: core
-    deliverable: false  # inherits deliverability from original workflow
+    deliverable: false  # delivery is resolved at runtime from original workflow
+    inherits_delivery: true  # skips delivery gate; _deliver() resolves original workflow
 
   invoice:
     description: "Invoice PDF generation"

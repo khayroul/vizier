@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import struct
 import zlib
-from pathlib import Path, PosixPath
+from pathlib import Path
 from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
@@ -89,10 +89,9 @@ class TestPosterReferenceRuntime:
         reference_path = tmp_path / "reference.png"
         reference_path.write_bytes(_png_bytes())
 
-        home_dir = tmp_path / "home"
-        home_dir.mkdir(parents=True, exist_ok=True)
-        monkeypatch.setattr(Path, "home", classmethod(lambda cls: home_dir))
-        monkeypatch.setattr(PosixPath, "home", classmethod(lambda cls: home_dir))
+        gen_images_dir = tmp_path / "gen_images"
+        gen_images_dir.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr("tools.registry._GENERATED_IMAGES_DIR", gen_images_dir)
 
         mock_expand.return_value = {
             "composition": "Hero product in a premium campaign composition",

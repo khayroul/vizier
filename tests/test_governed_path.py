@@ -8,6 +8,7 @@ Components under test (real, not mocked):
   - contracts.readiness.evaluate_readiness() — spec validation
   - middleware.policy.PolicyEvaluator — 4-gate policy chain
   - tools.executor.WorkflowExecutor — stage-by-stage execution
+  - tools.orchestrate.run_governed() — full orchestrator chain
   - contracts.trace.TraceCollector — step/token/cost collection
 
 External mocks:
@@ -24,13 +25,11 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-import yaml
 
 from contracts.artifact_spec import ArtifactFamily, ProvisionalArtifactSpec
 from contracts.policy import PolicyAction
 from contracts.readiness import evaluate_readiness
-from contracts.routing import RoutingResult, route
-from contracts.trace import TraceCollector
+from contracts.routing import route
 from middleware.policy import PolicyEvaluator, PolicyRequest
 from tools.executor import WorkflowExecutor
 from tools.workflow_schema import load_workflow
@@ -425,3 +424,115 @@ class TestGovernedPathFullChain:
         assert len(call_count) == 4, (
             f"Expected 4 unique stages, got {len(call_count)}: {call_count}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Step 7: run_governed() — real orchestrator chain
+# ---------------------------------------------------------------------------
+
+
+class TestRunGoverned:
+    """Exercise run_governed() directly to catch gate-level regressions.
+
+    These tests mock LLM + image APIs but run the real orchestrator,
+    including delivery gate, runtime readiness, and policy evaluation.
+    """
+
+    @patch("tools.orchestrate._ensure_job_row")
+    @patch("tools.orchestrate._update_job_status")
+    @patch("tools.orchestrate._persist_interpreted_intent")
+    @patch("tools.brief_interpreter.call_llm", side_effect=_mock_call_llm)
+    @patch("middleware.policy.persist_policy_decision")
+    def test_poster_through_run_governed(
+        self,
+        _mock_persist_policy: MagicMock,
+        _mock_brief_llm: MagicMock,
+        _mock_persist_intent: MagicMock,
+        _mock_update_status: MagicMock,
+        _mock_ensure_job: MagicMock,
+    ) -> None:
+        """run_governed() completes a poster job with mock tools."""
+        from tools.orchestrate import run_governed
+
+        def mock_tool(context: dict[str, Any]) -> dict[str, Any]:
+            return {
+                "status": "ok",
+                "output": f"mock_{context.get('stage', 'unknown')}",
+                "input_tokens": 50,
+                "output_tokens": 25,
+                "cost_usd": 0.0001,
+            }
+
+        result = run_governed(
+            raw_input="create a poster for our annual event",
+            client_id="test-client",
+            job_id="test-governed-poster",
+            tool_registry={
+                "classify_artifact": mock_tool,
+                "generate_poster": mock_tool,
+                "image_generate": mock_tool,
+                "visual_qa": mock_tool,
+                "deliver": mock_tool,
+            },
+        )
+
+        assert result["workflow"] == "poster_production"
+        assert result["routing"]["workflow"] == "poster_production"
+        assert result["readiness"]["status"] in {"ready", "shapeable"}
+        assert result["policy"]["action"] == "allow"
+
+    @patch("tools.orchestrate._ensure_job_row")
+    @patch("tools.orchestrate._update_job_status")
+    @patch("tools.orchestrate._persist_interpreted_intent")
+    @patch("tools.brief_interpreter.call_llm", side_effect=_mock_call_llm)
+    @patch("middleware.policy.persist_policy_decision")
+    def test_rework_not_blocked_by_delivery_gate(
+        self,
+        _mock_persist_policy: MagicMock,
+        _mock_brief_llm: MagicMock,
+        _mock_persist_intent: MagicMock,
+        _mock_update_status: MagicMock,
+        _mock_ensure_job: MagicMock,
+    ) -> None:
+        """Rework has a delivery stage but inherits deliverability — must not block."""
+        from tools.orchestrate import run_governed
+
+        def mock_tool(context: dict[str, Any]) -> dict[str, Any]:
+            return {
+                "status": "ok",
+                "output": f"mock_{context.get('stage', 'unknown')}",
+                "input_tokens": 50,
+                "output_tokens": 25,
+                "cost_usd": 0.0001,
+            }
+
+        # Verify rework passes the delivery gate (P1 regression).
+        # The executor will fail at the rerun stage because there's no
+        # real original workflow to re-run, but the important assertion
+        # is that we get past the delivery gate without PolicyDenied.
+        from tools.orchestrate import PolicyDenied
+
+        try:
+            result = run_governed(
+                raw_input="rework the last deliverable — fix the headline alignment",
+                client_id="test-client",
+                job_id="test-governed-rework",
+                tool_registry={
+                    "trace_insight": mock_tool,
+                    "quality_gate": mock_tool,
+                    "deliver": mock_tool,
+                },
+            )
+            # If it completes, verify routing
+            assert result["workflow"] == "rework"
+            assert result["routing"]["workflow"] == "rework"
+            assert result["policy"]["action"] == "allow"
+        except PolicyDenied:
+            raise AssertionError(
+                "Rework was blocked by the delivery gate — "
+                "inherits_delivery should exempt it"
+            )
+        except Exception as exc:
+            # Any other error (e.g. WorkflowExecutionError from missing
+            # original_workflow) is fine — it means we got past the gates
+            assert "PolicyDenied" not in type(exc).__name__

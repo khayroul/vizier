@@ -90,13 +90,27 @@ def get_deliverable_workflows() -> frozenset[str]:
     """Return the set of workflow names marked ``deliverable: true``.
 
     Used by the orchestrator to fail-fast on workflows that lack a
-    fully wired delivery path.  Changing deliverability is a YAML edit
-    in config/workflow_registry.yaml — no Python change required.
+    fully wired delivery path.  Changing deliverability requires BOTH
+    a YAML edit (``deliverable: true``) AND a matching delivery path
+    in ``tools/registry.py`` ``_deliver()``.
     """
     workflows = load_workflow_registry()["workflows"]
     return frozenset(
         name for name, cfg in workflows.items() if cfg.get("deliverable", False)
     )
+
+
+def inherits_delivery(name: str) -> bool:
+    """Return True if *name* inherits delivery from its original workflow.
+
+    Workflows like ``rework`` don't have their own delivery implementation —
+    they re-deliver using the original workflow's delivery path.  The
+    deliverability gate in the orchestrator must skip these and let the
+    executor resolve delivery at runtime.
+    """
+    workflows = load_workflow_registry()["workflows"]
+    cfg = workflows.get(name, {})
+    return bool(cfg.get("inherits_delivery", False))
 
 
 def is_document_family_workflow(name: str) -> bool:

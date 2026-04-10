@@ -192,6 +192,7 @@ class TestReadinessGate:
         spec = ProvisionalArtifactSpec(
             client_id="client-001",
             artifact_family=ArtifactFamily.poster,
+            family_resolved=True,
             language="BM",
             objective="Create a promotional poster",
             format=DeliveryFormat.png,

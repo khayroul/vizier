@@ -69,6 +69,8 @@ def evaluate_readiness(
     missing_nice: list[str] = []
 
     # Critical fields — must be present for production
+    if not spec.family_resolved:
+        missing_critical.append("artifact_family_unresolved")
     if not spec.objective:
         missing_critical.append("objective")
     if not spec.format:
@@ -87,9 +89,9 @@ def evaluate_readiness(
         missing_nice.append("brand_config_id")
 
     # Calculate completeness
-    # objective, format, tone, copy_register,
+    # family_resolved, objective, format, tone, copy_register,
     # dimensions, page_count, brand_config
-    total_fields = 7
+    total_fields = 8
     filled = total_fields - len(missing_critical) - len(missing_nice)
     completeness = filled / total_fields
 

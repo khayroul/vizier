@@ -276,6 +276,7 @@ class TestIterativeRefinement:
         ready_spec = ProvisionalArtifactSpec(
             client_id="dmb",
             artifact_family=ArtifactFamily.poster,
+            family_resolved=True,
             language="bm",
             objective="Poster promosi Raya 2026",
             format=DeliveryFormat.pdf,

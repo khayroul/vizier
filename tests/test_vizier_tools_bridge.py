@@ -363,6 +363,25 @@ def test_session_end_cleans_task_to_session_mapping() -> None:
     assert bridge._ACTIVE_SESSION_ID == ""
 
 
+def test_generate_job_id_returns_valid_uuid() -> None:
+    """Job IDs must be valid UUIDs for Postgres FK compatibility.
+
+    Regression: previous format ``job-{hex8}`` failed ``_is_valid_uuid()``
+    in orchestrate.py, silently skipping all persistence.
+    """
+    import re
+
+    job_id = bridge._generate_job_id()
+    uuid_pattern = re.compile(
+        r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    )
+    assert uuid_pattern.match(job_id), f"Not a valid UUID: {job_id}"
+
+    # Ensure uniqueness across calls
+    other = bridge._generate_job_id()
+    assert job_id != other
+
+
 def test_live_plugin_loader_still_exposes_bridge_helpers() -> None:
     import importlib.util
 

@@ -210,10 +210,11 @@ class TestEvaluateReadiness:
     """evaluate_readiness() classifies specs correctly."""
 
     def test_ready_when_all_critical_present(self) -> None:
-        """Spec with all 7 scored fields → ready."""
+        """Spec with all 8 scored fields → ready."""
         spec = ProvisionalArtifactSpec(
             client_id="test-client",
             artifact_family=ArtifactFamily.poster,
+            family_resolved=True,
             language="en",
             objective="Raya 2025 poster for DMB",
             format=DeliveryFormat.pdf,

@@ -17,7 +17,11 @@ from contracts.routing import RoutingResult, route
 from middleware.policy import PolicyEvaluator, PolicyRequest
 from middleware.runtime_controls import resolve_runtime_controls
 from tools.executor import ToolCallable, WorkflowExecutor
-from utils.workflow_registry import get_deliverable_workflows, get_workflow_family
+from utils.workflow_registry import (
+    get_deliverable_workflows,
+    get_workflow_family,
+    inherits_delivery,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -290,6 +294,7 @@ def run_governed(
     spec = ProvisionalArtifactSpec(
         client_id=client_id,
         artifact_family=family,
+        family_resolved=True,  # family from validated workflow lookup
         language=language,
         raw_brief=raw_input,
     )
@@ -420,12 +425,22 @@ def run_governed(
 
     # Step 5c: Delivery support — fail early for non-deliverable workflows.
     # Reads deliverable: true/false from config/workflow_registry.yaml.
-    # To make a new workflow deliverable, set deliverable: true in the YAML.
+    # NOTE: flipping deliverable to true also requires a matching delivery
+    # path in tools/registry.py _deliver() — YAML alone is not sufficient.
+    # Workflows with inherits_delivery: true (e.g. rework) skip this gate
+    # entirely — the original workflow is resolved at runtime in _deliver().
+    # This means unsupported reworks defer failure to the delivery stage
+    # rather than failing fast here. Acceptable because rework targets
+    # previously-delivered artifacts, so the original lane is deliverable.
     deliverable_workflows = get_deliverable_workflows()
     has_delivery_stage = any(
         stage.role == "delivery" for stage in pack.stages
     )
-    if has_delivery_stage and workflow_name not in deliverable_workflows:
+    if (
+        has_delivery_stage
+        and workflow_name not in deliverable_workflows
+        and not inherits_delivery(workflow_name)
+    ):
         raise PolicyDenied(
             f"Workflow '{workflow_name}' has a delivery stage but delivery "
             f"is not yet implemented for this workflow type. "

@@ -970,11 +970,17 @@ def _sanitize_error_message(error_msg: str) -> str:
 
 
 def _generate_job_id() -> str:
-    """Generate a unique job ID."""
+    """Generate a unique job ID as a full UUID for Postgres FK compatibility.
+
+    Previous format ``job-{hex8}`` failed ``_is_valid_uuid()`` in
+    ``tools/orchestrate.py``, silently skipping job row creation and
+    blocking all downstream persistence (production_trace, interpreted_intent,
+    outcome_memory, feedback, exemplar promotion).
+    """
 
     import uuid
 
-    return f"job-{uuid.uuid4().hex[:8]}"
+    return str(uuid.uuid4())
 
 
 __all__ = [
