@@ -10,7 +10,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from contracts.artifact_spec import ArtifactFamily, ProvisionalArtifactSpec
+from contracts.artifact_spec import ArtifactFamily, DeliveryFormat, ProvisionalArtifactSpec
 from contracts.policy import PolicyAction
 from contracts.readiness import ReadinessResult, evaluate_readiness
 from contracts.routing import RoutingResult, route
@@ -44,6 +44,61 @@ def _detect_brief_language(text: str) -> str:
     words = set(text.lower().split())
     malay_hits = len(words & _MALAY_MARKERS)
     return "ms" if malay_hits >= 2 else "en"
+
+
+_FAMILY_DEFAULT_FORMAT: dict[str, DeliveryFormat] = {
+    "poster": DeliveryFormat.pdf,
+    "document": DeliveryFormat.pdf,
+    "brochure": DeliveryFormat.pdf,
+    "childrens_book": DeliveryFormat.pdf,
+    "ebook": DeliveryFormat.epub,
+    "invoice": DeliveryFormat.pdf,
+    "proposal": DeliveryFormat.pdf,
+    "company_profile": DeliveryFormat.pdf,
+    "serial_fiction": DeliveryFormat.epub,
+    "social_post": DeliveryFormat.png,
+    "content_calendar": DeliveryFormat.pdf,
+}
+
+
+def _auto_enrich_spec(
+    spec: ProvisionalArtifactSpec,
+    interpreted_intent: dict[str, object],
+) -> ProvisionalArtifactSpec:
+    """Fill missing ProvisionalArtifactSpec fields from interpreted intent.
+
+    Returns a NEW spec (immutability pattern) with gaps filled from
+    the LLM-extracted intent. This allows shapeable specs to become
+    ready without requiring user re-prompting.
+
+    Fields enriched:
+        - objective ← raw_brief (the brief IS the objective for simple requests)
+        - format ← family default (poster→pdf, ebook→epub, etc.)
+        - tone ← interpreted intent mood
+        - copy_register ← language-derived default
+    """
+    updates: dict[str, object] = {}
+
+    if not spec.objective and spec.raw_brief:
+        updates["objective"] = spec.raw_brief[:500]
+
+    if not spec.format:
+        updates["format"] = _FAMILY_DEFAULT_FORMAT.get(
+            spec.artifact_family.value, DeliveryFormat.pdf,
+        )
+
+    mood = str(interpreted_intent.get("mood", ""))
+    if not spec.tone and mood:
+        updates["tone"] = mood
+
+    if not spec.copy_register and spec.language:
+        register_map = {"ms": "casual_bm", "en": "casual_en"}
+        updates["copy_register"] = register_map.get(spec.language, "casual_en")
+
+    if not updates:
+        return spec
+
+    return spec.model_copy(update=updates)
 
 
 class ReadinessError(Exception):
@@ -307,12 +362,28 @@ def run_governed(
         )
 
     if readiness.status == "shapeable":
-        logger.warning(
-            "Governed: spec is shapeable (completeness=%.2f). "
-            "Continuing with partial spec. Missing: %s",
+        # Auto-enrich: fill objective/format/tone from brief + intent
+        spec = _auto_enrich_spec(spec, interpreted_intent_data)
+        readiness = evaluate_readiness(spec)
+        logger.info(
+            "Governed: auto-enriched spec (new completeness=%.2f, status=%s)",
             readiness.completeness,
-            readiness.missing_critical,
+            readiness.status,
         )
+
+        if readiness.status == "blocked":
+            raise ReadinessError(
+                f"Spec blocked after auto-enrich: {readiness.reason}. "
+                f"Missing: {readiness.missing_critical}"
+            )
+
+        if readiness.status == "shapeable":
+            logger.warning(
+                "Governed: spec still shapeable after auto-enrich "
+                "(completeness=%.2f). Continuing. Missing: %s",
+                readiness.completeness,
+                readiness.missing_critical,
+            )
 
     # Step 3: Policy evaluation
     evaluator = PolicyEvaluator()

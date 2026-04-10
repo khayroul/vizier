@@ -722,6 +722,58 @@ def _extract_reference_image_url(text: str) -> str | None:
     return urls[0] if urls else None
 
 
+# Stop words excluded from meaningful-word count for thin-brief detection.
+_STOP_WORDS = frozenset({
+    "a", "an", "the", "i", "me", "my", "we", "our", "you", "your",
+    "it", "its", "is", "am", "are", "was", "were", "be", "been",
+    "to", "of", "in", "for", "on", "at", "by", "with", "from",
+    "and", "or", "but", "not", "no", "so", "if", "do", "can",
+    "will", "would", "could", "should", "shall",
+    "saya", "nak", "mahu", "buat", "dan", "ini", "itu", "yang",
+    "untuk", "tolong", "sila", "boleh",
+    "please", "make", "create", "generate", "design", "help",
+})
+
+
+def _maybe_coach_thin_brief(request: str) -> str | None:
+    """Return coaching suggestions for very thin briefs, or None to proceed.
+
+    A brief is "too thin" when it has fewer than 5 meaningful words —
+    not enough for the pipeline to produce quality output. Instead of
+    wasting tokens on a weak production run, we return suggestions so
+    the agent can ask the user for more detail.
+
+    Examples of thin briefs:
+        "buat poster" → 0 meaningful words after stop-word removal
+        "poster for sale" → 1 meaningful word ("sale")
+        "design a Raya poster for my restaurant" → 3 meaningful words
+    """
+    words = request.lower().split()
+    meaningful = [w for w in words if w not in _STOP_WORDS and len(w) > 1]
+
+    if len(meaningful) >= 5:
+        return None
+
+    # Build coaching response
+    lines = [
+        "The brief is too short for a quality production run. "
+        "Ask the user for more details before running the pipeline.",
+        "",
+        "Suggested questions to ask:",
+        "1. What is the occasion or purpose? (e.g. Raya sale, product launch, event)",
+        "2. Who is the target audience? (e.g. families, professionals, students)",
+        "3. What key information must appear? (dates, prices, venue, contact)",
+        "4. What mood or style? (festive, professional, playful, premium)",
+        "5. Any specific brand colours, logo, or reference images?",
+        "",
+        f"Current brief has only {len(meaningful)} meaningful word(s): "
+        f"{', '.join(meaningful) if meaningful else '(none)'}",
+        "",
+        "Once you have more detail, call run_pipeline again with the enriched brief.",
+    ]
+    return "\n".join(lines)
+
+
 def _run_pipeline_handler(args: dict[str, Any], **kwargs: Any) -> str:
     """Handle ``run_pipeline`` tool calls via subprocess isolation."""
 
@@ -733,6 +785,14 @@ def _run_pipeline_handler(args: dict[str, Any], **kwargs: Any) -> str:
     request = args.get("request", "")
     if not request:
         return "Error: 'request' is required. Describe what you want to produce."
+
+    # Prompt coaching: intercept very thin briefs before burning tokens.
+    # Threshold: fewer than 5 meaningful words (excluding stop words) is
+    # too thin to produce quality output. Return coaching suggestions so
+    # the agent can gather more info from the user.
+    coaching = _maybe_coach_thin_brief(request)
+    if coaching:
+        return coaching
 
     client_id = args.get("client_id", "default")
     job_id = args.get("job_id") or _generate_job_id()

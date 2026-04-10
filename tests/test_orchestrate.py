@@ -303,23 +303,28 @@ class TestRunGovernedBlockedReadiness:
 
 
 class TestRunGovernedShapeableContinues:
-    """Test 3: readiness returns shapeable -> execution continues."""
+    """Test 3: readiness returns shapeable -> auto-enrich -> execution continues."""
 
     @patch("tools.orchestrate.WorkflowExecutor")
     @patch("tools.orchestrate.PolicyEvaluator")
     @patch("tools.orchestrate.evaluate_readiness")
     @patch("tools.orchestrate.route")
-    def test_shapeable_continues(
+    def test_shapeable_auto_enriches_then_continues(
         self,
         mock_route: MagicMock,
         mock_readiness: MagicMock,
         mock_policy_cls: MagicMock,
         mock_executor_cls: MagicMock,
     ) -> None:
+        """Auto-enrich fills objective/format from brief, re-evaluates to ready."""
         mock_route.return_value = RoutingResult(workflow="poster_production")
-        mock_readiness.return_value = ReadinessResult(
-            status="shapeable", completeness=0.5, missing_critical=["format"],
-        )
+        # First call: shapeable. Second call (after enrich): ready.
+        mock_readiness.side_effect = [
+            ReadinessResult(
+                status="shapeable", completeness=0.5, missing_critical=["format"],
+            ),
+            ReadinessResult(status="ready", completeness=1.0),
+        ]
         mock_policy_cls.return_value.evaluate.return_value = _allow_decision()
         mock_executor_cls.return_value.run.return_value = {
             "workflow": "poster_production", "stages": [], "trace": {},
@@ -328,6 +333,8 @@ class TestRunGovernedShapeableContinues:
         result = run_governed("poster please", client_id="c1", job_id="j1", tool_registry={"x": _stub_tool})
         mock_executor_cls.return_value.run.assert_called_once()
         assert result["workflow"] == "poster_production"
+        # evaluate_readiness called twice: initial + post-enrich
+        assert mock_readiness.call_count == 2
 
 
 # ---------------------------------------------------------------------------
@@ -385,12 +392,9 @@ class TestRunGovernedPolicyDegrade:
             "workflow": "poster_production", "stages": [], "trace": {},
         }
 
-        result = run_governed("poster", client_id="c1", job_id="j1", tool_registry={"x": _stub_tool})
+        run_governed("poster", client_id="c1", job_id="j1", tool_registry={"x": _stub_tool})
 
         # Verify degraded flag was passed in job_context
-        call_kwargs = mock_executor_cls.return_value.run.call_args
-        job_ctx = call_kwargs.kwargs.get("job_context") or call_kwargs[1].get("job_context") or call_kwargs[0][0] if call_kwargs[0] else {}
-        # The executor.run is called with job_context kwarg
         assert mock_executor_cls.return_value.run.called
 
 
@@ -420,7 +424,7 @@ class TestRunGovernedPolicyEscalate:
             "workflow": "poster_production", "stages": [], "trace": {},
         }
 
-        result = run_governed("poster", client_id="c1", job_id="j1", tool_registry={"x": _stub_tool})
+        run_governed("poster", client_id="c1", job_id="j1", tool_registry={"x": _stub_tool})
         assert mock_executor_cls.return_value.run.called
 
 
@@ -704,3 +708,138 @@ class TestRuntimeReadinessBlocking:
                 job_id="j-block",
                 tool_registry={"x": _stub_tool},
             )
+
+
+# ---------------------------------------------------------------------------
+# Auto-enrich spec from interpreted intent
+# ---------------------------------------------------------------------------
+
+
+class TestAutoEnrichSpec:
+    """_auto_enrich_spec fills gaps in ProvisionalArtifactSpec from intent."""
+
+    def test_fills_objective_from_raw_brief(self) -> None:
+        from contracts.artifact_spec import ArtifactFamily, ProvisionalArtifactSpec
+        from tools.orchestrate import _auto_enrich_spec
+
+        spec = ProvisionalArtifactSpec(
+            client_id="c1",
+            artifact_family=ArtifactFamily.poster,
+            family_resolved=True,
+            language="en",
+            raw_brief="Raya sale poster for our restaurant in KL",
+        )
+        enriched = _auto_enrich_spec(spec, {"mood": "festive"})
+
+        assert enriched.objective == "Raya sale poster for our restaurant in KL"
+        assert enriched.format is not None  # default for poster = pdf
+        assert enriched.tone == "festive"
+        assert enriched.copy_register == "casual_en"
+
+    def test_preserves_existing_fields(self) -> None:
+        from contracts.artifact_spec import ArtifactFamily, DeliveryFormat, ProvisionalArtifactSpec
+        from tools.orchestrate import _auto_enrich_spec
+
+        spec = ProvisionalArtifactSpec(
+            client_id="c1",
+            artifact_family=ArtifactFamily.poster,
+            family_resolved=True,
+            language="ms",
+            raw_brief="poster jualan",
+            objective="Existing objective",
+            format=DeliveryFormat.png,
+            tone="professional",
+        )
+        enriched = _auto_enrich_spec(spec, {"mood": "playful"})
+
+        # Existing values preserved
+        assert enriched.objective == "Existing objective"
+        assert enriched.format == DeliveryFormat.png
+        assert enriched.tone == "professional"
+        # copy_register still filled since it was missing
+        assert enriched.copy_register == "casual_bm"
+
+    def test_returns_same_spec_when_nothing_to_fill(self) -> None:
+        from contracts.artifact_spec import ArtifactFamily, DeliveryFormat, ProvisionalArtifactSpec
+        from tools.orchestrate import _auto_enrich_spec
+
+        spec = ProvisionalArtifactSpec(
+            client_id="c1",
+            artifact_family=ArtifactFamily.poster,
+            family_resolved=True,
+            language="en",
+            raw_brief="test",
+            objective="done",
+            format=DeliveryFormat.pdf,
+            tone="warm",
+            copy_register="formal_en",
+        )
+        enriched = _auto_enrich_spec(spec, {})
+
+        assert enriched is spec  # identity — no copy needed
+
+    def test_ebook_defaults_to_epub(self) -> None:
+        from contracts.artifact_spec import ArtifactFamily, DeliveryFormat, ProvisionalArtifactSpec
+        from tools.orchestrate import _auto_enrich_spec
+
+        spec = ProvisionalArtifactSpec(
+            client_id="c1",
+            artifact_family=ArtifactFamily.ebook,
+            family_resolved=True,
+            language="en",
+            raw_brief="an ebook about cooking",
+        )
+        enriched = _auto_enrich_spec(spec, {})
+
+        assert enriched.format == DeliveryFormat.epub
+
+
+# ---------------------------------------------------------------------------
+# Thin-brief prompt coaching
+# ---------------------------------------------------------------------------
+
+
+class TestThinBriefCoaching:
+    """_maybe_coach_thin_brief returns coaching for very thin briefs."""
+
+    def test_thin_brief_returns_coaching(self) -> None:
+        import importlib
+
+        bridge = importlib.import_module("plugins.vizier_tools_bridge")
+        result = bridge._maybe_coach_thin_brief("buat poster")
+
+        assert result is not None
+        assert "too short" in result
+        assert "Suggested questions" in result
+        assert "1 meaningful word" in result  # "poster" survives stop-word filter
+
+    def test_adequate_brief_returns_none(self) -> None:
+        import importlib
+
+        bridge = importlib.import_module("plugins.vizier_tools_bridge")
+        result = bridge._maybe_coach_thin_brief(
+            "Raya sale poster for Warung Selera restaurant, "
+            "20% off all menu items, festive mood"
+        )
+
+        assert result is None
+
+    def test_medium_brief_returns_none(self) -> None:
+        import importlib
+
+        bridge = importlib.import_module("plugins.vizier_tools_bridge")
+        # 5+ meaningful words after stop-word removal
+        result = bridge._maybe_coach_thin_brief(
+            "poster Raya sale restaurant KL festive"
+        )
+
+        assert result is None
+
+    def test_coaching_includes_meaningful_words(self) -> None:
+        import importlib
+
+        bridge = importlib.import_module("plugins.vizier_tools_bridge")
+        result = bridge._maybe_coach_thin_brief("poster for sale")
+
+        assert result is not None
+        assert "sale" in result  # only meaningful word
