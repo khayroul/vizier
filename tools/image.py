@@ -26,11 +26,11 @@ logger = logging.getLogger(__name__)
 
 _IMAGE_MODELS: dict[str, str] = {
     "bm_text": "fal-ai/nano-banana-pro",       # BM text rendering
-    "photorealistic": "fal-ai/flux-pro",         # photorealistic product
-    "draft": "fal-ai/nano-banana",               # free draft preview
+    "photorealistic": "fal-ai/flux-pro",         # universal default + photorealistic
+    "draft": "fal-ai/nano-banana",               # explicit draft preview only
     "character_iterative": "fal-ai/flux-pro/kontext",  # character consistency
     "reference_adapt": "fal-ai/flux-pro/kontext",  # poster/image-to-image adaptation
-    "generic": "fal-ai/flux/dev",                # default fallback
+    "generic": "fal-ai/flux/dev",                # legacy; only reached via explicit draft
 }
 
 
@@ -66,7 +66,9 @@ def select_image_model(
         return _IMAGE_MODELS["bm_text"]
     if artifact_family == "childrens_book":
         return _IMAGE_MODELS["character_iterative"]
-    return _IMAGE_MODELS["generic"]
+    # flux-pro is cheap enough to use as the universal default.
+    # flux/dev is only used via explicit draft mode above.
+    return _IMAGE_MODELS["photorealistic"]
 
 
 def select_image_dimensions(

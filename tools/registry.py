@@ -394,11 +394,22 @@ def _image_generate(context: dict[str, Any]) -> dict[str, Any]:
         "no watermarks. Pure visual imagery only."
     )
 
+    # Anti-drift #49: text is NEVER baked into poster images — it's overlaid
+    # by Typst.  So has_text must be False for poster workflows, regardless of
+    # whether poster_copy exists.  Previous code passed has_text=True when
+    # poster_copy was non-empty, which routed Malay posters into the weaker
+    # nano-banana-pro (bm_text) lane instead of flux-pro.
+    artifact_family = str(job_ctx.get("artifact_family", "poster"))
+    image_has_text = False
+    if artifact_family not in {"poster", "brochure"}:
+        image_has_text = bool(
+            str(payload.get("poster_copy") or payload.get("text_content") or "").strip()
+        )
     model = select_image_model(
         language=str(job_ctx.get("language", "en")),
-        has_text=bool(str(payload.get("poster_copy") or payload.get("text_content") or "").strip()),
+        has_text=image_has_text,
         style=str(brand_config.get("image_mode") or "poster"),
-        artifact_family=str(job_ctx.get("artifact_family", "poster")),
+        artifact_family=artifact_family,
         image_mode=str(brand_config.get("image_mode") or ""),
         reference_image_url=reference_image_url,
     )
@@ -616,15 +627,21 @@ def _visual_qa(context: dict[str, Any]) -> dict[str, Any]:
                 if isinstance(previous_output, dict)
                 else None
             )
+            # Same has_text fix as first-pass: poster/brochure images
+            # never contain text (anti-drift #49), so don't route to bm_text.
+            revision_family = qa_kwargs["artifact_family"]
+            revision_has_text = False
+            if revision_family not in {"poster", "brochure"}:
+                revision_has_text = bool(qa_kwargs["copy_text"].strip())
             model = select_image_model(
                 language=str(job_ctx.get("language", "en")),
-                has_text=bool(qa_kwargs["copy_text"].strip()),
+                has_text=revision_has_text,
                 style=str(
                     (job_ctx.get("brand_config") or {}).get(
                         "image_mode", "poster"
                     )
                 ),
-                artifact_family=qa_kwargs["artifact_family"],
+                artifact_family=revision_family,
                 image_mode=str(
                     (job_ctx.get("brand_config") or {}).get(
                         "image_mode", ""

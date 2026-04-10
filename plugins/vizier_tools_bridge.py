@@ -224,6 +224,15 @@ _RUN_PIPELINE_SCHEMA = {
                 "borrow or adapt."
             ),
         },
+        "quality": {
+            "type": "string",
+            "description": (
+                "Quality tier: 'standard' (default) or 'high' (stricter QA, "
+                "more retries, higher threshold). Use 'high' for important "
+                "client-facing work."
+            ),
+            "enum": ["standard", "high"],
+        },
     },
     "required": [],
 }
@@ -435,6 +444,7 @@ def _preview(text: str, *, limit: int = 160) -> str:
 def _build_guidance(platform: str, *, has_reference: bool) -> str:
     parts = [
         "For governed artifact requests, prefer the `run_pipeline` tool instead of handling production manually.",
+        'For important or client-facing work, pass `quality="high"` to get stricter QA and more revision attempts.',
     ]
     if has_reference:
         parts.append(
@@ -734,6 +744,7 @@ def _run_pipeline_handler(args: dict[str, Any], **kwargs: Any) -> str:
         request
     )
     reference_notes = args.get("reference_notes")
+    quality_tier = args.get("quality", "").strip().lower()
 
     # Thread Hermes session_id into governed execution (hardening 1.6).
     # Read from args where _pre_tool_call injected it (concurrency-safe).
@@ -762,6 +773,13 @@ def _run_pipeline_handler(args: dict[str, Any], **kwargs: Any) -> str:
         run_kwargs["reference_image_url"] = reference_image_url
     if reference_notes:
         run_kwargs["reference_notes"] = reference_notes
+
+    # Quality tier → quality_posture + budget_profile.
+    # "high" maps to the strictest available lane: QA threshold 3.5,
+    # 2 tripwire retries, deep search, higher token budgets.
+    if quality_tier == "high":
+        run_kwargs["quality_posture"] = "production"
+        run_kwargs["budget_profile"] = "critical"
 
     # Thread media manifest into governed execution (hardening 1.8).
     # Look up by exact session_id only — no recency fallback.

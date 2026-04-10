@@ -410,8 +410,8 @@ class TestVisualPipelineComponents:
         assert "nano-banana" in select_image_model(style="draft")
         # Children's book → kontext
         assert "kontext" in select_image_model(artifact_family="childrens_book")
-        # Default → flux/dev
-        assert "flux/dev" in select_image_model()
+        # Default → flux-pro (universal default; flux/dev only for draft)
+        assert "flux-pro" in select_image_model()
 
 
 class TestFeedbackCreation:

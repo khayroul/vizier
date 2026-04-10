@@ -67,11 +67,12 @@ class TestImageModelRouting:
         result = select_image_model(language="en", has_text=False, style="draft")
         assert result == "fal-ai/nano-banana"
 
-    def test_generic_routes_to_flux_2_dev(self) -> None:
+    def test_default_routes_to_flux_pro(self) -> None:
+        """flux-pro is the universal default; flux/dev only for explicit draft."""
         from tools.image import select_image_model
 
         result = select_image_model(language="en", has_text=False, style="poster")
-        assert result == "fal-ai/flux/dev"
+        assert result == "fal-ai/flux-pro"
 
     def test_childrens_book_routes_to_kontext(self) -> None:
         from tools.image import select_image_model
