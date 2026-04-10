@@ -343,6 +343,34 @@ def run_governed(
     }
     if interpreted_intent_data:
         job_context["interpreted_intent"] = interpreted_intent_data
+        # If routing didn't select a design system (no client_id), use
+        # inferred industry from brief interpretation to find one.
+        if not routing_result.design_system:
+            inferred_industry = str(interpreted_intent_data.get("industry", ""))
+            if inferred_industry:
+                try:
+                    from contracts.routing import select_design_systems
+
+                    # Build a synthetic client config from inferred fields
+                    inferred_mood = str(interpreted_intent_data.get("mood", ""))
+                    top_systems = select_design_systems(
+                        client_id=None,
+                        artifact_family=family.value,
+                        override_industry=[inferred_industry],
+                        override_mood=[inferred_mood] if inferred_mood else None,
+                    )
+                    if top_systems:
+                        job_context["design_system"] = top_systems[0]
+                        logger.info(
+                            "Inferred design system from industry '%s': %s",
+                            inferred_industry,
+                            top_systems[0].get("name", "?") if isinstance(top_systems[0], dict) else top_systems[0],
+                        )
+                except Exception:
+                    logger.debug(
+                        "Design system inference from industry failed",
+                        exc_info=True,
+                    )
     if hermes_session_id:
         job_context["hermes_session_id"] = hermes_session_id
     if platform:

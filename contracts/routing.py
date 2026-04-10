@@ -484,10 +484,12 @@ def _apply_answers(
 
 
 def select_design_systems(
-    client_id: str,
+    client_id: str | None,
     artifact_family: str | None = None,
     top_k: int = 3,
     family_resolved: bool = True,
+    override_industry: list[str] | None = None,
+    override_mood: list[str] | None = None,
 ) -> list[str]:
     """Score all design systems and return top-k by relevance.
 
@@ -501,19 +503,28 @@ def select_design_systems(
     to prevent wrong-family density from distorting selection on
     unclassified specs.
 
+    ``override_industry`` / ``override_mood`` allow the orchestrator to
+    pass inferred attributes from brief interpretation when no client
+    config exists.  This lets clientless requests still get meaningful
+    design system selection instead of falling back to random scoring.
+
     Returns list of design system names (e.g. ["petronas", "batik_air", "grab"]).
     """
-    client_config = _load_client_config(client_id)
+    client_config = _load_client_config(client_id) if client_id else {}
     systems = _load_design_systems().get("systems", {})
 
-    # Client attributes
+    # Client attributes — prefer explicit client config, fall back to overrides
     client_industry = set(client_config.get("defaults", {}).get("industry", []))
+    if not client_industry and override_industry:
+        client_industry = set(override_industry)
     default_mood = client_config.get("defaults", {}).get(
         "brand_mood", ["warm", "professional"],
     )
     client_mood = set(
         client_config.get("brand_mood", default_mood)
     )
+    if override_mood:
+        client_mood = client_mood | set(override_mood)
     client_colour = client_config.get("defaults", {}).get("colour_temperature", "warm")
 
     # Artifact density — use "moderate" default when family is unresolved

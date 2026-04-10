@@ -30,6 +30,11 @@ Output ONLY a JSON object with these exact keys:
 - cta_style: "high" | "medium" | "low" | "none"
 - cultural_context: string (e.g. "islamic_festive", "chinese_new_year", \
 "malaysian_corporate", "")
+- industry: string — infer the business niche from context clues \
+(e.g. "food", "fashion", "education", "tech", "automotive", "retail", \
+"healthcare", "real_estate", "beauty", "finance", "event_management", \
+"community", "government", "religion", ""). Use best judgement from \
+keywords, occasion, and audience. Empty string if truly unclear.
 - must_include: list of strings the output MUST contain (dates, venues, prices, \
 specific info from the brief)
 - must_avoid: list of strings the output MUST NOT contain

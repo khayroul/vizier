@@ -28,6 +28,22 @@ _HTML_TEMPLATES_DIR = _REPO_ROOT / "templates" / "html"
 _GENERATED_IMAGES_DIR = _REPO_ROOT / "data" / "generated_images"
 
 
+# fal.ai per-image pricing by model (USD).
+# Source: fal.ai/pricing as of 2026-04.
+_FAL_IMAGE_PRICING: dict[str, float] = {
+    "fal-ai/flux-pro": 0.05,
+    "fal-ai/flux-pro/kontext": 0.05,
+    "fal-ai/flux/dev": 0.025,
+    "fal-ai/nano-banana-pro": 0.01,
+    "fal-ai/nano-banana": 0.0,  # free tier
+}
+
+
+def _fal_image_cost(model: str) -> float:
+    """Return per-image cost for a fal.ai model."""
+    return _FAL_IMAGE_PRICING.get(model, 0.025)
+
+
 def _runtime_controls(context: dict[str, Any]) -> dict[str, Any]:
     """Return shared runtime controls from job_context."""
     job_ctx = context.get("job_context", {})
@@ -450,7 +466,7 @@ def _image_generate(context: dict[str, Any]) -> dict[str, Any]:
         "reference_image_url": reference_image_url,
         "reference_visual_dna": reference_visual_dna,
         "expanded_brief": expanded,
-        "cost_usd": 0.025,  # fal.ai flux/dev approximate cost
+        "cost_usd": _fal_image_cost(model),
     }
 
 
@@ -669,7 +685,7 @@ def _visual_qa(context: dict[str, Any]) -> dict[str, Any]:
                 height=first_pass_height,
                 image_url=ref_url,
             )
-            total_cost += 0.025  # approx fal.ai cost
+            total_cost += _fal_image_cost(model)
 
             # Save revised image
             local_dir = _GENERATED_IMAGES_DIR

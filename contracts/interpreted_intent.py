@@ -19,6 +19,7 @@ class InterpretedIntent(BaseModel):
     text_density: str = "moderate"  # minimal | moderate | dense
     cta_style: str = "medium"  # high | medium | low | none
     cultural_context: str = ""
+    industry: str = ""  # inferred niche: food, fashion, education, tech, etc.
     must_include: list[str] = Field(default_factory=list)
     must_avoid: list[str] = Field(default_factory=list)
 
@@ -39,6 +40,8 @@ class InterpretedIntent(BaseModel):
             parts.append(f"CTA prominence: {self.cta_style}")
         if self.cultural_context:
             parts.append(f"Cultural context: {self.cultural_context}")
+        if self.industry:
+            parts.append(f"Industry/niche: {self.industry}")
         if self.must_include:
             parts.append(f"Must include: {', '.join(self.must_include)}")
         if self.must_avoid:
