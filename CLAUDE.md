@@ -252,6 +252,11 @@ These are extracted from the 57 anti-drift rules. Violating any of these is a bu
 - ❌ Do NOT modify ArtifactSpec during rework — rework corrects execution, not spec (§9.1)
 - ❌ Do NOT skip the creative workshop for publishing projects (#45)
 
+**Datasets & Calibration:**
+- ❌ Do NOT reference a dataset in architecture without assigning a transformation owner AND a verification test (#58). Every dataset needs: (1) session that acquires, (2) session that transforms into committed artifact, (3) test proving artifact is consumed at runtime. See `docs/decisions/dataset_transformation_gap.md`.
+- ❌ Do NOT hardcode numeric thresholds (quality scores, token limits, similarity cutoffs) without either reading from config OR documenting a calibration source (#59). Config-driven thresholds must have a calibration plan specifying which data validates the value.
+- ❌ Do NOT write session exit criteria that only test the session's own code in isolation (#60). Every session must include at least one cross-session integration test (e.g., "scorer reads thresholds from S5-produced config", "template selector returns D4-derived template for industry query").
+
 **Architecture:**
 - ❌ Do NOT add infrastructure without a promotion trigger documented in §28 (#8)
 - ❌ Do NOT let Hermes-native types leak into domain contracts (#6)
