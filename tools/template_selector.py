@@ -65,9 +65,9 @@ def select_template(
     if not catalog:
         return TemplateMatch(template_name="poster_default", score=0.0)
 
-    # If intent is essentially empty (no occasion, no mood, no audience),
+    # If intent is essentially empty (no occasion, no mood, no audience, no industry),
     # prefer poster_default — scoring on density/cta defaults alone is noise.
-    has_signal = bool(intent.occasion or intent.mood or intent.audience)
+    has_signal = bool(intent.occasion or intent.mood or intent.audience or intent.industry)
     if not has_signal and not active_slots:
         return TemplateMatch(template_name="poster_default", score=0.0)
 
@@ -102,6 +102,15 @@ def select_template(
         template_cta = meta.get("cta_prominence", "medium")
         if intent.cta_style == template_cta:
             score += 1.0
+
+        # Industry ↔ industry_fit (2.5 points for match)
+        industry_fit = set(meta.get("industry_fit", []))
+        if intent.industry and industry_fit:
+            if intent.industry in industry_fit:
+                score += 2.5
+                reasons.append(f"industry '{intent.industry}' matches industry_fit")
+            elif "general" in industry_fit:
+                score += 0.5  # Generic template, minor bonus
 
         # Slot compatibility
         supported = set(meta.get("supported_slots", []))
