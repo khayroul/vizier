@@ -265,6 +265,42 @@ def llm_route(raw_input: str, client_id: str | None = None) -> RoutingResult:
 # 3. Iterative Refinement (~100 lines)
 # ---------------------------------------------------------------------------
 
+_COACHING_PATTERNS_PATH = (
+    Path(__file__).resolve().parent.parent / "config" / "coaching_patterns.yaml"
+)
+
+
+@lru_cache(maxsize=1)
+def _load_coaching_patterns() -> dict[str, Any]:
+    """Load industry-specific coaching question patterns from config."""
+    if _COACHING_PATTERNS_PATH.exists():
+        return yaml.safe_load(_COACHING_PATTERNS_PATH.read_text(encoding="utf-8")) or {}
+    return {}
+
+
+def _get_industry_coaching_context(industry: str) -> str:
+    """Get industry-specific question examples for the refinement prompt."""
+    patterns = _load_coaching_patterns()
+    industries = patterns.get("industries", {})
+    industry_data = industries.get(industry, industries.get("general", {}))
+
+    if not industry_data:
+        return ""
+
+    questions = industry_data.get("key_questions", [])
+    signals = industry_data.get("quality_signals", [])
+
+    lines: list[str] = []
+    if questions:
+        lines.append(f"\nFor {industry} briefs, these questions typically resolve vagueness:")
+        for question in questions:
+            lines.append(f"  - {question}")
+    if signals:
+        lines.append(f"Quality signals for {industry}: {', '.join(signals)}")
+
+    return "\n".join(lines)
+
+
 _REFINEMENT_SYSTEM = """\
 You are Vizier's refinement assistant. \
 The user's request is vague and needs clarification.
@@ -276,6 +312,8 @@ Current spec state:
 
 Client context:
 {client_context}
+
+{industry_context}
 
 Respond with ONLY a JSON object:
 {{
@@ -367,11 +405,16 @@ def refine_request(
     spec_state = spec.model_dump_json(indent=2)
     client_ctx = json.dumps(client_config.get("defaults", {}), indent=2)
 
+    # Load industry-specific coaching context from D8-derived patterns
+    industry_hint = getattr(spec, "industry", "") or ""
+    industry_context = _get_industry_coaching_context(industry_hint) if industry_hint else ""
+
     response = call_llm(
         stable_prefix=[
             {"role": "system", "content": _REFINEMENT_SYSTEM.format(
                 spec_state=spec_state,
                 client_context=client_ctx,
+                industry_context=industry_context,
             )}
         ],
         variable_suffix=[{"role": "user", "content": f"Original request: {raw_input}"}],

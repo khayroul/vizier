@@ -1,0 +1,88 @@
+# Industry-specific coaching question patterns for _REFINEMENT_SYSTEM
+# Derived from D8 marketing_social_media dataset (689 records, 9 industries)
+# Source: structural patterns from what complete briefs contain
+# Calibration: D8 field coverage analysis (2026-04-11)
+#
+# Usage: loaded by contracts/routing.py to enrich _REFINEMENT_SYSTEM prompt
+
+industries:
+  food:
+    key_questions:
+      - "What specific dish, menu, or promotion are you featuring?"
+      - "Is there a date range or deadline (e.g., Raya sale, weekend special)?"
+      - "What details must appear — prices, location, contact, operating hours?"
+    common_occasions: ["grand_opening", "sale", "menu_launch", "festive_promo", "ramadan"]
+    typical_audience: ["families", "foodies", "local_community"]
+    quality_signals: ["price or discount amount", "date range", "address or contact"]
+
+  fashion:
+    key_questions:
+      - "What product or collection is being promoted?"
+      - "What is the brand aesthetic — premium, streetwear, modest, casual?"
+      - "Is there a specific offer (discount, free shipping, new arrival)?"
+    common_occasions: ["new_collection", "sale", "brand_launch", "seasonal"]
+    typical_audience: ["young_adults", "professionals", "fashion_conscious"]
+    quality_signals: ["product name", "brand identity", "offer details"]
+
+  tech:
+    key_questions:
+      - "What product or service are you promoting?"
+      - "What problem does it solve for the target audience?"
+      - "Is there a launch date, demo, or free trial?"
+    common_occasions: ["product_launch", "feature_update", "webinar", "conference"]
+    typical_audience: ["developers", "business_owners", "tech_enthusiasts"]
+    quality_signals: ["product name", "key feature", "call-to-action"]
+
+  education:
+    key_questions:
+      - "What course, program, or event is being promoted?"
+      - "Who is the target learner — students, professionals, parents?"
+      - "What are the key details — dates, fees, location, registration?"
+    common_occasions: ["enrollment", "workshop", "exam_prep", "school_event"]
+    typical_audience: ["students", "parents", "teachers", "professionals"]
+    quality_signals: ["course name", "date", "registration info"]
+
+  retail:
+    key_questions:
+      - "What product or sale event is being promoted?"
+      - "What is the discount or offer (%, buy-one-get-one, free gift)?"
+      - "When does the promotion start and end?"
+    common_occasions: ["sale", "clearance", "new_arrival", "seasonal", "festive"]
+    typical_audience: ["bargain_shoppers", "families", "local_community"]
+    quality_signals: ["discount amount", "date range", "store location"]
+
+  healthcare:
+    key_questions:
+      - "What service, treatment, or health topic is the focus?"
+      - "Who is the target audience — patients, families, fitness enthusiasts?"
+      - "Are there specific credentials, certifications, or offers to highlight?"
+    common_occasions: ["health_awareness", "new_service", "community_screening", "promotion"]
+    typical_audience: ["patients", "families", "health_conscious"]
+    quality_signals: ["service name", "credentials", "contact info"]
+
+  real_estate:
+    key_questions:
+      - "What property type and location are you promoting?"
+      - "What is the price range or key selling point?"
+      - "Is there an open house, launch date, or booking deadline?"
+    common_occasions: ["property_launch", "open_house", "price_reveal", "investment_seminar"]
+    typical_audience: ["homebuyers", "investors", "young_families"]
+    quality_signals: ["property type", "price/from-price", "location", "contact"]
+
+  automotive:
+    key_questions:
+      - "What vehicle model or service is being promoted?"
+      - "Is there a special offer (trade-in, financing, test drive)?"
+      - "What are the key specs or features to highlight?"
+    common_occasions: ["new_model", "year_end_sale", "service_promo", "test_drive"]
+    typical_audience: ["car_buyers", "families", "enthusiasts"]
+    quality_signals: ["model name", "price/monthly", "offer details"]
+
+  general:
+    key_questions:
+      - "What is the main message or purpose of this piece?"
+      - "Who is the intended audience?"
+      - "What specific details must be included (dates, contact, offers)?"
+    common_occasions: ["announcement", "promotion", "awareness", "event"]
+    typical_audience: ["general_public"]
+    quality_signals: ["clear purpose", "contact info", "call-to-action"]

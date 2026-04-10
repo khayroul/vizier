@@ -300,3 +300,45 @@ class TestBridgeCoaching:
         assert result is not None
         parsed = json.loads(result)
         assert "industry" in parsed["understood"]
+
+
+# ---------------------------------------------------------------------------
+# Industry coaching patterns (Task 14)
+# ---------------------------------------------------------------------------
+
+class TestIndustryCoachingPatterns:
+    """Industry-specific coaching patterns from D8 analysis."""
+
+    def test_coaching_patterns_config_loads(self) -> None:
+        """coaching_patterns.yaml loads and has industry entries."""
+        from contracts.routing import _load_coaching_patterns
+
+        _load_coaching_patterns.cache_clear()
+        patterns = _load_coaching_patterns()
+        assert "industries" in patterns
+        assert len(patterns["industries"]) >= 9
+
+    def test_food_industry_has_questions(self) -> None:
+        """Food industry has key_questions and quality_signals."""
+        from contracts.routing import _load_coaching_patterns
+
+        _load_coaching_patterns.cache_clear()
+        patterns = _load_coaching_patterns()
+        food = patterns["industries"]["food"]
+        assert len(food["key_questions"]) >= 3
+        assert "quality_signals" in food
+
+    def test_get_industry_coaching_context_returns_text(self) -> None:
+        """_get_industry_coaching_context returns non-empty string for known industries."""
+        from contracts.routing import _get_industry_coaching_context
+
+        context = _get_industry_coaching_context("food")
+        assert "food" in context.lower()
+        assert "question" in context.lower() or "signal" in context.lower()
+
+    def test_unknown_industry_falls_back_to_general(self) -> None:
+        """Unknown industry gets general patterns."""
+        from contracts.routing import _get_industry_coaching_context
+
+        context = _get_industry_coaching_context("underwater_basket_weaving")
+        assert "general" in context.lower() or len(context) > 0
