@@ -3,7 +3,7 @@
 **Generated:** 2026-04-11  
 **Handover number:** 018  
 **Reason:** Analysis session after the post-S21 hardening/debugging rounds. Captures what those sessions were about, which outcomes are genuinely good, what remains open, and what the successor should do next.  
-**Reviewed HEAD:** `5343b41`  
+**Reviewed HEAD:** `e00a546`  
 **Branch:** `main`
 
 ---
@@ -30,11 +30,21 @@ In short:
 
 ## What This Session Produced
 
-Three new analysis documents were written:
+This session produced and preserved multiple analysis artifacts:
 
 - `docs/QUALITY_GAP_ANALYSIS_S21.md`
 - `docs/VIZIER_BUILD_quality_first_v1.md`
-- `docs/decisions/lessons_learned_build_plan_v1.md`
+- `docs/decisions/lessons_learned_build_plan_v1.md`  (Claude version)
+- `docs/decisions/lessons_learned_build_plan_v1_claude.md`  (Claude backup copy)
+- `docs/decisions/lessons_learned_build_plan_v1_codex.md`  (Codex regenerated version)
+- `docs/handover/HANDOVER_018_SUCCESSOR_POST_S21_GAP_AND_RECOVERY.md`
+
+Important context:
+
+- the original Codex lessons-learned draft was accidentally overwritten by Claude while still untracked
+- Git could not restore that original untracked file
+- the Codex analysis was then regenerated into a separate `_codex.md` file so both lines of thinking are now preserved
+- the next session should treat the Claude and Codex versions as complementary inputs, not pick one blindly
 
 These documents answer:
 
@@ -85,31 +95,16 @@ This matters because it changes the older narrative:
 
 ## Working Tree State
 
-Current untracked files in the workspace:
+Current workspace state at handover close:
 
-```text
-?? .analysis/
-?? .graphify_ast.json
-?? .graphify_cached.json
-?? .graphify_chunks.json
-?? .graphify_detect.json
-?? .graphify_uncached.txt
-?? docs/HANDOVER_SPRINT_GPT.md
-?? docs/QUALITY_GAP_ANALYSIS_S21.md
-?? docs/VIZIER_BUILD_quality_first_v1.md
-?? docs/decisions/lessons_learned_build_plan_v1.md
-?? docs/decisions/promote_sysstate_test_2026-04-10.md
-?? docs/decisions/promote_test_template_2026-04-10.md
-?? docs/handover/HANDOVER_014_TRACK1_TRACK2_STOP_POINT.md
-?? docs/handover/HANDOVER_015_SUCCESSOR_REVIEW_FINDINGS.md
-?? docs/handover/HANDOVER_016_SUCCESSOR_QUALITY_FLOOR.md
-```
+- analysis and handover docs were committed in `e00a546`
+- graphify scratch files were removed
+- working tree was clean at close
 
 Notes:
 
-- no tracked code files were modified in this session
-- `.analysis/` and `.graphify_*` came from the graphify-assisted analysis workflow
-- the three new analysis docs listed above are also still untracked
+- no production code files were modified in this session
+- this was a documentation / analysis / handover session only
 
 ---
 
@@ -171,6 +166,20 @@ The repo has improved, but several important gaps remain:
 - operator exemplar manifests are not yet in the runtime exemplar retrieval path
 - books / ebooks still lag the workflow-registry truth
 - governed poster acceptance proof is still not clean
+
+### 4. There are now two lessons-learned analyses that should be reconciled
+
+Current state:
+
+- Claude's version lives at `docs/decisions/lessons_learned_build_plan_v1.md`
+- Codex's regenerated version lives at `docs/decisions/lessons_learned_build_plan_v1_codex.md`
+
+Why this matters:
+
+- the two versions emphasize different failure modes
+- Claude's version is sharper on session-cost accounting, audit fatigue, and structural anti-pattern inventory
+- the Codex version is stronger on critical-path sequencing, current-repo reconciliation, and what the post-S21 recovery tranche proves
+- the next session should compare them deliberately to surface blind spots and produce one merged, stronger canonical analysis
 
 ---
 
@@ -401,41 +410,56 @@ Read these first:
 1. `docs/QUALITY_GAP_ANALYSIS_S21.md`
 2. `docs/VIZIER_BUILD_quality_first_v1.md`
 3. `docs/decisions/lessons_learned_build_plan_v1.md`
+4. `docs/decisions/lessons_learned_build_plan_v1_codex.md`
 
 Then re-read the most relevant prior handovers:
 
-4. `docs/handover/HANDOVER_016_SUCCESSOR_QUALITY_FLOOR.md`
-5. `docs/handover/HANDOVER_017_QUALITY_INTELLIGENCE_DESIGN.md`
-6. `docs/handover/HANDOVER_012_HARDENING_REVIEW_AND_ROOT_CAUSE.md`
-7. `docs/handover/HANDOVER_013_CODEX_ROUND3_COMPLETE.md`
-8. `docs/handover/HANDOVER_014_TRACK1_TRACK2_STOP_POINT.md`
+5. `docs/handover/HANDOVER_016_SUCCESSOR_QUALITY_FLOOR.md`
+6. `docs/handover/HANDOVER_017_QUALITY_INTELLIGENCE_DESIGN.md`
+7. `docs/handover/HANDOVER_012_HARDENING_REVIEW_AND_ROOT_CAUSE.md`
+8. `docs/handover/HANDOVER_013_CODEX_ROUND3_COMPLETE.md`
+9. `docs/handover/HANDOVER_014_TRACK1_TRACK2_STOP_POINT.md`
 
 Then inspect runtime truth in code:
 
-9. `plugins/vizier_tools_bridge.py`
-10. `middleware/quality_posture.py`
-11. `contracts/routing.py`
-12. `tools/visual_scoring.py`
-13. `tools/template_selector.py`
-14. `utils/retrieval.py`
-15. `config/workflow_registry.yaml`
+10. `plugins/vizier_tools_bridge.py`
+11. `middleware/quality_posture.py`
+12. `contracts/routing.py`
+13. `tools/visual_scoring.py`
+14. `tools/template_selector.py`
+15. `utils/retrieval.py`
+16. `config/workflow_registry.yaml`
 
 ---
 
 ## Safest Next-Session Sequence
 
-1. Fix or normalize the `quality="high"` -> `quality_posture="production"` alias mismatch.
-2. Repair the governed poster acceptance harness until `tests/test_user_pov_poster_acceptance.py` is trustworthy again.
-3. Decide whether `refine_request()` should be wired into bridge coaching now, or whether the product promise should be narrowed temporarily.
-4. Move operator exemplar manifests into the real exemplar / benchmark path used at runtime.
-5. Run actual NIMA calibration and update `nima_thresholds.yaml` with verified values and provenance.
-6. Reconcile publishing truth in `config/workflow_registry.yaml` with the current book / ebook runtime reality.
+1. Compare `docs/decisions/lessons_learned_build_plan_v1.md` and `docs/decisions/lessons_learned_build_plan_v1_codex.md` line-by-line and extract:
+   - overlaps
+   - contradictions
+   - unique blind spots
+   - stronger formulations from each
+2. Merge the Claude and Codex analyses into one stronger canonical artifact:
+   - either replace `docs/decisions/lessons_learned_build_plan_v1.md` after preserving both originals
+   - or create a new canonical merged file and leave both source versions intact
+3. From that merged analysis, produce one consolidated gap-closing plan that reconciles:
+   - analysis findings
+   - revised build sequencing
+   - immediate code/runtime closures
+4. Fix or normalize the `quality="high"` -> `quality_posture="production"` alias mismatch.
+5. Repair the governed poster acceptance harness until `tests/test_user_pov_poster_acceptance.py` is trustworthy again.
+6. Decide whether `refine_request()` should be wired into bridge coaching now, or whether the product promise should be narrowed temporarily.
+7. Move operator exemplar manifests into the real exemplar / benchmark path used at runtime.
+8. Run actual NIMA calibration and update `nima_thresholds.yaml` with verified values and provenance.
+9. Reconcile publishing truth in `config/workflow_registry.yaml` with the current book / ebook runtime reality.
 
 This order is safest because:
 
-- it restores truth and proof first
-- then finishes the taste layer
-- then promotes publishing lanes from "promising" to "truthfully launchable"
+- it starts by reconciling analysis before adding more drift
+- it turns two competing/partial post-mortems into one stronger canonical diagnosis
+- then it restores truth and proof
+- then it finishes the taste layer
+- then it promotes publishing lanes from "promising" to "truthfully launchable"
 
 ---
 
@@ -450,6 +474,7 @@ The post-S21 sessions did produce good outcomes, but in sequence:
 
 The remaining work is no longer a vague "improve quality" problem. It is a short, concrete closure list:
 
+- merge Claude + Codex analyses into one stronger canonical diagnosis and plan
 - one bridge alias bug
 - one stale governed acceptance harness
 - one unwired adaptive clarification path
