@@ -1,0 +1,21 @@
+density: moderate
+tone_fit:
+- professional
+- versatile
+- balanced
+occasion_fit:
+- announcement
+- event
+cta_prominence: medium
+hero_style: split
+supported_slots:
+- hero_image
+- headline
+- subheadline
+- body_text
+- logo
+- cta
+industry_fit:
+- fashion
+- general
+cluster_size: 1732

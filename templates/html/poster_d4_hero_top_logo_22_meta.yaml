@@ -1,0 +1,20 @@
+density: moderate
+tone_fit:
+- professional
+- versatile
+- structured
+occasion_fit:
+- awareness
+- corporate
+cta_prominence: low
+hero_style: contained
+supported_slots:
+- hero_image
+- headline
+- subheadline
+- logo
+- cta
+industry_fit:
+- education
+- general
+cluster_size: 1785

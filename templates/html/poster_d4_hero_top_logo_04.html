@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=794, initial-scale=1.0">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 794px;
+      height: 1123px;
+      overflow: hidden;
+      position: relative;
+      font-family: var(--font-body, 'Inter', 'Helvetica Neue', Arial, sans-serif);
+      background: #0a0a12;
+    }
+
+    :root {
+      --primary: {{ primary | default('#1a1a2e') }};
+      --accent: {{ accent | default('#e94560') }};
+      --font-headline: {{ font_headline | default('Plus Jakarta Sans') }};
+      --font-body: {{ font_body | default('Inter') }};
+    }
+
+    .bg-image {
+      position: absolute;
+      inset: 0;
+      background-image: url('{{ background_image }}');
+      background-size: cover;
+      background-position: center;
+      z-index: 0;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.6) 100%);
+      z-index: 1;
+    }
+
+    .grid-container {
+      position: absolute;
+      inset: 24px;
+      display: grid;
+      grid-template-rows: repeat(8, 1fr);
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+      z-index: 2;
+    }
+
+    .zone-text { padding: 12px; color: #fff; }
+    .zone-headline { font-family: var(--font-headline); font-size: 48px; font-weight: 800; line-height: 1.05; }
+    .zone-subheadline { font-family: var(--font-headline); font-size: 20px; font-weight: 500; line-height: 1.4; opacity: 0.85; }
+    .zone-body { font-size: 15px; line-height: 1.55; opacity: 0.9; }
+    .zone-cta { font-family: var(--font-headline); font-size: 17px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; display: flex; align-items: center; }
+    .zone-tagline { font-size: 14px; font-style: italic; opacity: 0.75; }
+    .zone-price { font-family: var(--font-headline); font-size: 36px; font-weight: 800; color: var(--accent); }
+    .zone-logo { padding: 8px; display: flex; align-items: center; justify-content: center; }
+    .zone-badge { padding: 8px; display: flex; align-items: center; justify-content: center; }
+    .zone-embellishment { padding: 4px; }
+    .zone-underlay { background: rgba(255,255,255,0.05); border-radius: 8px; }
+
+    .zone-logo-0 {
+      grid-row: 1 / 2;
+      grid-column: 2 / 6;
+    }
+    .zone-text-1 {
+      grid-row: 2 / 3;
+      grid-column: 1 / 7;
+    }
+    .zone-underlay-2 {
+      grid-row: 3 / 4;
+      grid-column: 1 / 2;
+    }
+    .zone-text-3 {
+      grid-row: 3 / 4;
+      grid-column: 2 / 6;
+    }
+    .zone-underlay-4 {
+      grid-row: 3 / 4;
+      grid-column: 6 / 7;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-image"></div>
+  <div class="overlay"></div>
+
+  <div class="grid-container">
+    {% if logo_url %}
+    <div class="zone-logo-0 zone-logo">
+      <img src="{{ logo_url }}" alt="logo" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+    </div>
+    {% endif %}
+    {% if headline %}
+    <div class="zone-text-1 zone-text zone-headline">
+      {{ headline }}
+    </div>
+    {% endif %}
+    <div class="zone-underlay-2 zone-underlay"></div>
+    {% if subheadline %}
+    <div class="zone-text-3 zone-text zone-subheadline">
+      {{ subheadline }}
+    </div>
+    {% endif %}
+    <div class="zone-underlay-4 zone-underlay"></div>
+  </div>
+</body>
+</html>

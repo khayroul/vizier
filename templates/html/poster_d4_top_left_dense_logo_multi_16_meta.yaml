@@ -1,0 +1,24 @@
+density: dense
+tone_fit:
+- bold
+- urgent
+- balanced
+occasion_fit:
+- announcement
+- event
+- promo
+cta_prominence: medium
+hero_style: split
+supported_slots:
+- hero_image
+- headline
+- subheadline
+- body_text
+- tagline
+- logo
+- cta
+- price
+industry_fit:
+- education
+- general
+cluster_size: 2407

@@ -1,0 +1,20 @@
+density: minimal
+tone_fit:
+- premium
+- elegant
+- balanced
+occasion_fit:
+- awareness
+- corporate
+- announcement
+cta_prominence: low
+hero_style: split
+supported_slots:
+- hero_image
+- headline
+- subheadline
+- cta
+industry_fit:
+- education
+- general
+cluster_size: 973

@@ -1,0 +1,19 @@
+density: minimal
+tone_fit:
+- premium
+- elegant
+- structured
+occasion_fit:
+- sale
+- product_launch
+- announcement
+cta_prominence: high
+hero_style: contained
+supported_slots:
+- hero_image
+- headline
+- logo
+industry_fit:
+- education
+- general
+cluster_size: 2990
