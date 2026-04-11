@@ -1,6 +1,21 @@
 density: moderate
-tone_fit: [bold, energetic, playful]
-occasion_fit: [event, community_event, product_launch]
+tone_fit:
+- bold
+- energetic
+- playful
+occasion_fit:
+- event
+- community_event
+- product_launch
 cta_prominence: high
 hero_style: split
-supported_slots: [headline, subheadline, cta, body_text, kicker]
+supported_slots:
+- headline
+- subheadline
+- cta
+- body_text
+- kicker
+industry_fit:
+- retail
+- fashion
+- general

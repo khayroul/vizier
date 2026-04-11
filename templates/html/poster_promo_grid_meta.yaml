@@ -4,3 +4,4 @@ occasion_fit: [sale, promo]
 cta_prominence: high
 hero_style: contained
 supported_slots: [headline, subheadline, cta, body_text, offer_block, badge, price, footer]
+industry_fit: [food, retail, general]

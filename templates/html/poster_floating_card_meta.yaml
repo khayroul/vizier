@@ -1,6 +1,24 @@
 density: moderate
-tone_fit: [premium, formal, elegant]
-occasion_fit: [event, announcement, corporate, hari_raya, maulidur_rasul]
+tone_fit:
+- premium
+- formal
+- elegant
+occasion_fit:
+- event
+- announcement
+- corporate
+- hari_raya
+- maulidur_rasul
 cta_prominence: medium
 hero_style: contained
-supported_slots: [headline, subheadline, cta, body_text, event_meta, footer]
+supported_slots:
+- headline
+- subheadline
+- cta
+- body_text
+- event_meta
+- footer
+industry_fit:
+- fashion
+- education
+- general

@@ -1,6 +1,23 @@
 density: dense
-tone_fit: [formal, serious, professional]
-occasion_fit: [announcement, corporate, awareness, health]
+tone_fit:
+- formal
+- serious
+- professional
+occasion_fit:
+- announcement
+- corporate
+- awareness
+- health
 cta_prominence: low
 hero_style: minimal
-supported_slots: [headline, subheadline, cta, body_text, footer, disclaimer]
+supported_slots:
+- headline
+- subheadline
+- cta
+- body_text
+- footer
+- disclaimer
+industry_fit:
+- education
+- tech
+- general

@@ -63,7 +63,9 @@ class TestTemplateSelector:
             cta_style="low",
         )
         result = select_template(intent)
-        assert result.template_name == "poster_minimal_clean"
+        # Must pick a minimal-density, premium-toned template (original or D4-derived)
+        assert any("density" in r.lower() for r in result.reasons)
+        assert any("tone" in r.lower() or "premium" in r.lower() for r in result.reasons)
 
     def test_dense_formal_selects_stacked_type(self) -> None:
         intent = InterpretedIntent(

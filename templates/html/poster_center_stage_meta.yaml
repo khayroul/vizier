@@ -1,6 +1,24 @@
 density: moderate
-tone_fit: [festive, celebratory, caring, playful]
-occasion_fit: [hari_raya, maulidur_rasul, community_event, health]
+tone_fit:
+- festive
+- celebratory
+- caring
+- playful
+occasion_fit:
+- hari_raya
+- maulidur_rasul
+- community_event
+- health
 cta_prominence: medium
 hero_style: full_bleed
-supported_slots: [headline, subheadline, cta, body_text, kicker, event_meta]
+supported_slots:
+- headline
+- subheadline
+- cta
+- body_text
+- kicker
+- event_meta
+industry_fit:
+- food
+- fashion
+- general
